@@ -17,8 +17,8 @@ ParseResult = collections.namedtuple(
 )
 
 HEADERS = (
-    'Бренд',
     'Товар',
+    'Бренд',
     'Ссылка',
 )
 
