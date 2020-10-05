@@ -4,14 +4,14 @@ import requests
 import collections
 import csv
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('wb')
 
 ParseResult = collections.namedtuple(
     'ParseResult',
     (
-        'brand_name',
         'goods_name',
+        'brand_name',
         'url',
     ),
 )
@@ -21,6 +21,7 @@ HEADERS = (
     'Товар',
     'Ссылка',
 )
+
 
 class Client:
 
@@ -46,9 +47,6 @@ class Client:
             self.parse_block(block=block)
 
     def parse_block(self, block):
-        #logger.info(block)
-        #logger.info('=' * 100)
-
         url_block = block.select_one('a.ref_goods_n_p')
         if not url_block:
             logger.error('no url_block')
@@ -89,11 +87,12 @@ class Client:
 
     def save_result(self):
         path = '/Users/Никита/Desktop/goods.csv'
-        with open(path, 'w') as f:
+        with open(path, 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(HEADERS)
             for item in self.result:
                 writer.writerow(item)
+                logger.debug(f'{item}')
 
     def run(self):
         text = self.load_page()
@@ -102,6 +101,7 @@ class Client:
 
         self.save_result()
 
+
 if __name__ == '__main__':
-    parser = Client()
-    parser.run()
+    parser_obj = Client()
+    parser_obj.run()
