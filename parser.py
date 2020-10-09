@@ -13,7 +13,7 @@ from selenium.webdriver.common.keys import Keys
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('parser')
 
-ParseResult = collections.namedtuple(
+PARSE_RESULT = collections.namedtuple(
     'ParseResult',
     (
         'category',
@@ -27,7 +27,6 @@ ParseResult = collections.namedtuple(
         'shop',
     ),
 )
-
 HEADERS = (
     'Категория',
     'Бренд',
@@ -39,7 +38,6 @@ HEADERS = (
     'Ссылка',
     'Магазин',
 )
-
 CURRENT_CITY = 'Новосибирск'
 WEBDRIVER_PATH = "venv/WebDriverManager/chromedriver.exe"
 
@@ -65,10 +63,10 @@ class Parser:
 
         # Выбор города
         try:
-            elem = self.driver.find_element_by_xpath("//div[@class='dropdown-city']")
+            modal_city = self.driver.find_element_by_xpath("//div[@class='dropdown-city']")
             # Если нашел всплывающее окно с подтверждением города
 
-            if elem.text.find(CURRENT_CITY) != -1:
+            if modal_city.text.find(CURRENT_CITY) != -1:
                 # Если сайт предлагает нужный город
                 self.driver.find_element_by_xpath("//div[@class='dropdown-city']/a[text()='Да']").click()
             else:
@@ -82,9 +80,10 @@ class Parser:
 
         except SE.NoSuchElementException:
             # Если не нашел всплывающего окна с подтверждением города
-            print("НЕ НАЙДЕНО, ЁБАНА")
+            print("Не найдено модального окна с выбором города, проверяю текущий")
+            # TODO: Реализовать проверку текущего города в шапке и сделать его смену при необходимости
 
-        logger.info("Цены загружены успешно, передача html")
+        logger.info("Цены загружены успешно, передача html кода")
         content = self.driver.page_source
         # self.driver.close()
         return content
