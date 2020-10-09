@@ -1,107 +1,111 @@
 import logging
-import bs4
-import requests
 import collections
-import csv
+
+import selenium.common.exceptions as SE
+from selenium.webdriver import Chrome
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.expected_conditions import presence_of_element_located
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
+
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('wb')
+logger = logging.getLogger('parser')
 
 ParseResult = collections.namedtuple(
     'ParseResult',
     (
-        'goods_name',
+        'category',
         'brand_name',
+        'model',
+        'specifications',
+        'price',
+        'old_price',
+        'url_img',
         'url',
+        'shop',
     ),
 )
 
 HEADERS = (
-    'Товар',
+    'Категория',
     'Бренд',
+    'Модель',
+    'Характеристики',
+    'Текущая цена',
+    'Старая цена',
+    'Ссылка на изображение',
     'Ссылка',
+    'Магазин',
 )
 
+CURRENT_CITY = 'Новосибирск'
+WEBDRIVER_PATH = "venv/WebDriverManager/chromedriver.exe"
 
-class Client:
+
+class Parser:
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                          'Chrome/85.0.4183.83 YaBrowser/20.9.0.933 Yowser/2.5 Safari/537.36',
-            'Accept-Language': 'ru',
-        }
-        self.result = []
+        options = Options()
+        # options.add_argument("window-size=1,1")
+        self.driver = Chrome(executable_path=WEBDRIVER_PATH, options=options)
+        self.wait = WebDriverWait(self.driver, 10)
 
-    def load_page(self):
-        url = 'https://www.wildberries.ru/catalog/elektronika/smart-chasy'
-        res = self.session.get(url=url)
-        res.raise_for_status()
-        return res.text
+    def load_one_page(self, url):
+        self.driver.get(url)
 
-    def parse_page(self, text: str):
-        soup = bs4.BeautifulSoup(text, 'lxml')
-        container = soup.select('div.dtList.i-dtList.j-card-item')
-        for block in container:
-            self.parse_block(block=block)
+        # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
+        try:
+            self.wait.until(presence_of_element_located((By.CLASS_NAME,
+                                                         "product-min-price__current")))
+        except SE.TimeoutException:
+            self.driver.quit()
+            return None
 
-    def parse_block(self, block):
-        url_block = block.select_one('a.ref_goods_n_p')
-        if not url_block:
-            logger.error('no url_block')
-            return
+        # Выбор города
+        try:
+            elem = self.driver.find_element_by_xpath("//div[@class='dropdown-city']")
+            # Если нашел всплывающее окно с подтверждением города
 
-        url = url_block.get('href')
-        if not url:
-            logger.error('no href')
-            return
+            if elem.text.find(CURRENT_CITY) != -1:
+                # Если сайт предлагает нужный город
+                self.driver.find_element_by_xpath("//div[@class='dropdown-city']/a[text()='Да']").click()
+            else:
+                # Иначе выбор другого
+                self.driver.find_element_by_xpath("//div[@class='dropdown-city']/a[text()='Выбрать другой']").click()
+                # Ждем загрузки формы с выбором города и получаем input для ввода города
+                input_city = self.wait.until(presence_of_element_located((By.XPATH, "//div[@class='search-field']/"
+                                                                                    "input[@data-role='search-city']")))
+                # Отправка нужного города
+                input_city.send_keys(CURRENT_CITY, Keys.ENTER)
 
-        name_block = block.select_one('div.dtlist-inner-brand-name')
-        if not name_block:
-            logger.error(f'no name_block on {url}')
-            return
+        except SE.NoSuchElementException:
+            # Если не нашел всплывающего окна с подтверждением города
+            print("НЕ НАЙДЕНО, ЁБАНА")
 
-        brand_name = name_block.select_one('strong.brand-name')
-        if not brand_name:
-            logger.error(f'no brand_name on {url}')
-            return
+        logger.info("Цены загружены успешно, передача html")
+        content = self.driver.page_source
+        # self.driver.close()
+        return content
 
-        brand_name = brand_name.text
-        brand_name = brand_name.replace('/', '').strip()
+    def load_page(self, url):
+        self.driver.get(url)
 
-        goods_name = name_block.select_one('span.goods-name')
-        if not goods_name:
-            logger.error(f'no goods_name on {url}')
-            return
+        # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
+        try:
+            self.wait.until(presence_of_element_located((By.CLASS_NAME,
+                                                         "product-min-price__current")))
+        except SE.TimeoutException:
+            self.driver.quit()
+            return None
 
-        goods_name = goods_name.text.strip()
-
-        self.result.append(ParseResult(
-            url=url,
-            brand_name=brand_name,
-            goods_name=goods_name,
-        ))
-
-        logger.debug('%s, | %s | %s', url, brand_name, goods_name)
-
-    def save_result(self):
-        path = '/Users/Никита/Desktop/goods.csv'
-        with open(path, 'w', newline='') as f:
-            writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-            writer.writerow(HEADERS)
-            for item in self.result:
-                writer.writerow(item)
-                logger.debug(f'{item}')
-
-    def run(self):
-        text = self.load_page()
-        self.parse_page(text)
-        logger.info(f'Получили {len(self.result)} элементов')
-
-        self.save_result()
+        num_page = 4
+        # Переход на заданную страницу num_page через клик (для имитации пользователя)
+        self.driver.find_element_by_xpath(f"//li[@class='pagination-widget__page ']/a[text()='{num_page}']").click()
 
 
 if __name__ == '__main__':
-    parser_obj = Client()
-    parser_obj.run()
+    parser = Parser()
+    parser.load_one_page("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+
