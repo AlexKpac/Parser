@@ -40,14 +40,9 @@ HEADERS = (
     'Ссылка',
     'Магазин',
 )
-CURRENT_CITY = 'Новосибирск'
 WD_PATH = "venv/WebDriverManager/chromedriver.exe"
+CURRENT_CITY = 'Новосибирск'
 WAIT_BETWEEN_PAGES_SEC = 3
-
-
-class ParseWhat(Enum):
-    PRODUCT_PAGE = 1
-    CATALOG_PAGE = 2
 
 
 class Parser:
@@ -98,7 +93,6 @@ class Parser:
 
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html):
-        print(html)
         return
 
     # Метод для парсинга html страницы каталога
