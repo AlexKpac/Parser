@@ -51,6 +51,15 @@ class Parser:
         self.driver = Chrome(executable_path=WEBDRIVER_PATH, options=options)
         self.wait = WebDriverWait(self.driver, 10)
 
+    # Поиск элемента с таймаутом
+    def __find_elem_with_timeout(self, by, elem):
+        try:
+            result = self.wait.until(presence_of_element_located((by, elem)))
+            return result
+        except SE.TimeoutException:
+            return False
+
+    # Алгоритм выбора города для всех возможных ситуаций
     def __city_selection(self):
         try:
             modal_city = self.driver.find_element_by_xpath("//div[@class='dropdown-city']")
@@ -83,9 +92,7 @@ class Parser:
         self.driver.get(url)
 
         # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
-        try:
-            self.wait.until(presence_of_element_located((By.CLASS_NAME, "product-min-price__current")))
-        except SE.TimeoutException:
+        if not self.__find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
             self.driver.quit()
             return None
 
@@ -101,10 +108,7 @@ class Parser:
         self.driver.get(url)
 
         # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
-        try:
-            self.wait.until(presence_of_element_located((By.CLASS_NAME,
-                                                         "product-min-price__current")))
-        except SE.TimeoutException:
+        if not self.__find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
             self.driver.quit()
             return None
 
