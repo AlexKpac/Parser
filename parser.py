@@ -1,5 +1,6 @@
 import logging
 import collections
+import time
 
 import selenium.common.exceptions as SE
 from selenium.webdriver import Chrome
@@ -80,8 +81,14 @@ class Parser:
 
         except SE.NoSuchElementException:
             # Если не нашел всплывающего окна с подтверждением города
-            print("Не найдено модального окна с выбором города, проверяю текущий")
-            # TODO: Реализовать проверку текущего города в шапке и сделать его смену при необходимости
+            city_head = self.driver.find_element_by_xpath("//div[@class='w-choose-city-widget-label']")
+            # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
+            if city_head.text.find(CURRENT_CITY) == -1:
+                city_head.click()
+                input_city = self.wait.until(presence_of_element_located((By.XPATH, "//div[@class='search-field']/"
+                                                                                    "input[@data-role='search-city']")))
+                # Отправка нужного города
+                input_city.send_keys(CURRENT_CITY, Keys.ENTER)
 
         logger.info("Цены загружены успешно, передача html кода")
         content = self.driver.page_source
