@@ -1,8 +1,9 @@
 import logging
 import collections
 import time
+import requests
 
-from enum import Enum
+import bs4
 import selenium.common.exceptions as se
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -15,17 +16,20 @@ from selenium.webdriver.common.keys import Keys
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('parser')
 
-PARSE_RESULT = collections.namedtuple(
+ParseResult = collections.namedtuple(
     'ParseResult',
     (
         'category',
         'brand_name',
-        'model',
+        'model_name',
         'specifications',
         'price',
         'old_price',
+        'discount',
         'url_img',
         'url',
+        'rating',
+        'num_rating',
         'shop',
     ),
 )
@@ -36,8 +40,11 @@ HEADERS = (
     'Характеристики',
     'Текущая цена',
     'Старая цена',
+    'Скидка',
     'Ссылка на изображение',
     'Ссылка',
+    'Рейтинг',
+    'Кол-во отзывов',
     'Магазин',
 )
 WD_PATH = "venv/WebDriverManager/chromedriver.exe"
@@ -53,6 +60,7 @@ class Parser:
         self.driver = webdriver.Chrome(executable_path=WD_PATH, options=options)
         self.wait = WebDriverWait(self.driver, 10)
         self.cur_page = 1
+        self.result = []
 
     # Поиск элемента с таймаутом
     def __find_elem_with_timeout(self, by, elem):
@@ -97,7 +105,86 @@ class Parser:
 
     # Метод для парсинга html страницы каталога
     def __parse_catalog_page(self, html):
-        return
+        soup = bs4.BeautifulSoup(html, 'lxml')
+        container = soup.select('div.catalog-item')
+
+        for block in container:
+            self.__parse_catalog_block(block)
+            return
+
+    def __parse_catalog_block(self, block):
+
+        # НАЗВАНИЕ ТОВАРА, ХАРАКТЕРИСТИКИ, ФОТО, URL
+        product_info_block = block.select_one('div.n-catalog-product__info')
+
+        # Название модели и URL
+        model_name_url_block = product_info_block.select_one('div.product-info__title-link > a.ui-link')
+        if not model_name_url_block:
+            logger.error("No model name and URL")
+
+        url = model_name_url_block.get('href')
+        model_name = model_name_url_block.text
+
+        # Название бренда
+        brand_name = product_info_block.select_one('div.product-info__title > i.hidden').get('data-value')
+        if not brand_name:
+            logger.error("No brand name")
+
+        # Ссылка на изображение товара
+        img_url = product_info_block.select_one('img.loaded').get('data-src')
+        if not img_url:
+            logger.error("No img url")
+
+        # Характеристики товара
+        specifications = product_info_block.select_one('span.product-info__title-description').text
+        if not specifications:
+            logger.error("No specifications")
+
+        # Рейтинг товара
+        rating = product_info_block.select_one('div.product-info__rating').get('data-rating')
+        if not rating:
+            logger.error("No rating")
+
+        # На основании скольки отзывов построен рейтинг
+        num_rating = product_info_block.select_one('div.product-info__stat > a.product-info__opinions-count').text
+        if not num_rating:
+            logger.error("No num rating")
+
+        # ЦЕНА, СКИДКА, ВЫГОДА
+        product_price_block = block.select_one('div.n-catalog-product__price')
+
+        # Текущая цена
+        cur_price = product_price_block.select_one('div.product-min-price__current').text
+        cur_price = cur_price.replace('₽', '').replace(' ', '')
+        if not cur_price:
+            logger.error("No current price")
+
+        # Предыдущая цена (без скидки) - если есть акция
+        prev_price = product_price_block.select_one('div.product-min-price__previous > mark.product-min-price__previous-price')
+        if not prev_price:
+            prev_price = cur_price
+
+        # Выгода
+        discount = product_price_block.select_one('div.product-min-price__previous > mark.product-min-price__previous-benefit')
+        if not discount:
+            discount = 0
+
+        self.result.append(ParseResult(
+            category="smartphone",
+            brand_name=brand_name,
+            model_name=model_name,
+            specifications=specifications,
+            price=cur_price,
+            old_price=prev_price,
+            discount=discount,
+            url_img=img_url,
+            url=url,
+            rating=rating,
+            num_rating=num_rating,
+            shop="ДНС"
+        ))
+
+        print(self.result)
 
     # Запуск браузера, загрузка начальной страницы парсинга, выбор города
     def wd_open_browser(self, url):
@@ -149,6 +236,8 @@ class Parser:
             html = self.wd_get_cur_page()
             self.__parse_catalog_page(html)
 
+            break
+
             if not self.wd_next_page():
                 break
 
@@ -164,4 +253,4 @@ class Parser:
 
 if __name__ == '__main__':
     parser = Parser()
-    parser.run_product("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
