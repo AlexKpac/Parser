@@ -2,8 +2,8 @@ import logging
 import collections
 import time
 
-import selenium.common.exceptions as SE
-from selenium.webdriver import Chrome
+import selenium.common.exceptions as se
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.expected_conditions import presence_of_element_located
@@ -40,7 +40,7 @@ HEADERS = (
     'Магазин',
 )
 CURRENT_CITY = 'Новосибирск'
-WEBDRIVER_PATH = "venv/WebDriverManager/chromedriver.exe"
+WD_PATH = "venv/WebDriverManager/chromedriver.exe"
 
 
 class Parser:
@@ -48,7 +48,7 @@ class Parser:
     def __init__(self):
         options = Options()
         # options.add_argument("window-size=1,1")
-        self.driver = Chrome(executable_path=WEBDRIVER_PATH, options=options)
+        self.driver = webdriver.Chrome(executable_path=WD_PATH, options=options)
         self.wait = WebDriverWait(self.driver, 10)
 
     # Поиск элемента с таймаутом
@@ -56,7 +56,7 @@ class Parser:
         try:
             result = self.wait.until(presence_of_element_located((by, elem)))
             return result
-        except SE.TimeoutException:
+        except se.TimeoutException:
             return False
 
     # Алгоритм выбора города для всех возможных ситуаций
@@ -77,7 +77,7 @@ class Parser:
                 # Отправка нужного города
                 input_city.send_keys(CURRENT_CITY, Keys.ENTER)
 
-        except SE.NoSuchElementException:
+        except se.NoSuchElementException:
             # Если не нашел всплывающего окна с подтверждением города
             city_head = self.driver.find_element_by_xpath("//div[@class='w-choose-city-widget-label']")
             # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
@@ -120,4 +120,3 @@ class Parser:
 if __name__ == '__main__':
     parser = Parser()
     parser.load_one_page("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
-
