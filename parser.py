@@ -51,18 +51,7 @@ class Parser:
         self.driver = Chrome(executable_path=WEBDRIVER_PATH, options=options)
         self.wait = WebDriverWait(self.driver, 10)
 
-    def load_one_page(self, url):
-        self.driver.get(url)
-
-        # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
-        try:
-            self.wait.until(presence_of_element_located((By.CLASS_NAME,
-                                                         "product-min-price__current")))
-        except SE.TimeoutException:
-            self.driver.quit()
-            return None
-
-        # Выбор города
+    def __city_selection(self):
         try:
             modal_city = self.driver.find_element_by_xpath("//div[@class='dropdown-city']")
             # Если нашел всплывающее окно с подтверждением города
@@ -89,6 +78,19 @@ class Parser:
                                                                                     "input[@data-role='search-city']")))
                 # Отправка нужного города
                 input_city.send_keys(CURRENT_CITY, Keys.ENTER)
+
+    def load_one_page(self, url):
+        self.driver.get(url)
+
+        # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
+        try:
+            self.wait.until(presence_of_element_located((By.CLASS_NAME, "product-min-price__current")))
+        except SE.TimeoutException:
+            self.driver.quit()
+            return None
+
+        # Выбор города
+        self.__city_selection()
 
         logger.info("Цены загружены успешно, передача html кода")
         content = self.driver.page_source
