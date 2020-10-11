@@ -447,5 +447,5 @@ if __name__ == '__main__':
     time_start = time.time()
     parser = Parser()
     # parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&action=rassrockailivygoda0000-tovarysoskidkoj0000&brand=apple-oppo-samsung-xiaomi&f%5B9a9%5D=32tl&f%5B9a8%5D=8f9i-cnhx-i2ft-mhrw1&stock=2")
-    parser.run_product("https://www.dns-shop.ru/product/f88fcbadfd3a1b80/64-smartfon-oppo-a91-128-gb-krasnyj/")
+    parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")
