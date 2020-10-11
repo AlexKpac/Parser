@@ -52,7 +52,7 @@ HEADERS = (
 )
 WD_PATH = "venv/WebDriverManager/chromedriver.exe"
 CURRENT_CITY = 'Новосибирск'
-WAIT_BETWEEN_PAGES_SEC = 3
+WAIT_BETWEEN_PAGES_SEC = 4
 
 
 class Parser:
@@ -119,7 +119,7 @@ class Parser:
             logger.error("No category")
             self.category = "error"
         else:
-            self.category = self.category.text.split()
+            self.category = self.category.text.replace('\n', '')
 
         # Контейнер с элементами
         container = soup.select('div.catalog-item')
@@ -317,5 +317,7 @@ class Parser:
 
 
 if __name__ == '__main__':
+    time_start = time.time()
     parser = Parser()
-    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&action=rassrockailivygoda0000-tovarysoskidkoj0000&brand=oppo-samsung&f%5B9a9%5D=32tl&f%5B9a8%5D=8f9i-cnhx-i2ft-mhrw1&stock=2")
+    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&action=rassrockailivygoda0000-tovarysoskidkoj0000&brand=apple-oppo-samsung-xiaomi&f%5B9a9%5D=32tl&f%5B9a8%5D=8f9i-cnhx-i2ft-mhrw1&stock=2")
+    print(f"Время выполнения: {time.time() - time_start} сек")
