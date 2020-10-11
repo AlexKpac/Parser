@@ -75,6 +75,7 @@ class Parser:
         except se.TimeoutException:
             return ""
 
+    # Обертка поиска элемента для обработки исключений
     def __find_elem_by_xpath(self, xpath):
         try:
             result = self.driver.find_element_by_xpath(xpath)
