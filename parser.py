@@ -227,8 +227,6 @@ class Parser:
             shop=self.shop
         ))
 
-        print(self.result)
-
     # Метод для парсинга html страницы каталога
     def __parse_catalog_page(self, html):
         soup = bs4.BeautifulSoup(html, 'lxml')
@@ -441,6 +439,8 @@ class Parser:
         html = self.__wd_get_cur_page()
         self.__parse_product_page(html, url)
         self.__wd_close_browser()
+        self.__save_result()
+        print(self.result)
 
 
 if __name__ == '__main__':
