@@ -59,7 +59,7 @@ class Parser:
 
     def __init__(self):
         options = Options()
-        # options.add_argument("window-size=1,1")
+        # options.add_argument("window-size=100,100")
         self.driver = webdriver.Chrome(executable_path=WD_PATH, options=options)
         self.wait = WebDriverWait(self.driver, 10)
         self.cur_page = 1
@@ -73,7 +73,14 @@ class Parser:
             result = self.wait.until(presence_of_element_located((by, elem)))
             return result
         except se.TimeoutException:
-            return False
+            return ""
+
+    def __find_elem_by_xpath(self, xpath):
+        try:
+            result = self.driver.find_element_by_xpath(xpath)
+            return result
+        except se.NoSuchElementException:
+            return None
 
     # Алгоритм выбора города для всех возможных ситуаций
     def __city_selection(self):
@@ -95,7 +102,11 @@ class Parser:
 
         except se.NoSuchElementException:
             # Если не нашел всплывающего окна с подтверждением города
-            city_head = self.driver.find_element_by_xpath("//div[@class='w-choose-city-widget-label']")
+            city_head = self.__find_elem_by_xpath("//div[@class='w-choose-city-widget-label']")
+            if not city_head:
+                logger.error("I can't choose a city!")
+                return False
+
             # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
             if city_head.text.find(CURRENT_CITY) == -1:
                 city_head.click()
@@ -104,10 +115,118 @@ class Parser:
                 # Отправка нужного города
                 input_city.send_keys(CURRENT_CITY, Keys.ENTER)
 
+        return True
+        # TODO: в мобильной версии не работает (другие классы у div)
+
     # Метод для парсинга html страницы продукта
-    def __parse_product_page(self, html):
-        # TODO: Реализовать парсинг страницы товара
-        return
+    def __parse_product_page(self, html, url):
+        soup = bs4.BeautifulSoup(html, 'lxml')
+
+        product_block = soup.select_one("div#product-page")
+        if not product_block:
+            logger.error("NO PRODUCT BLOCK")
+            return
+
+        # Категория товара
+        category = product_block.select_one("div.item-header > i[data-product-param=category]")
+        if not category:
+            logger.error("No category")
+            category = "error"
+        else:
+            category = category.get('data-value')
+
+        # Название модели
+        model_name = product_block.select_one("h1.page-title.price-item-title")
+        if not model_name:
+            logger.error("No model name")
+            model_name = "error"
+        else:
+            model_name = model_name.text
+
+        # Название бренда
+        brand_name = product_block.select_one("div.item-header > i[data-product-param=brand]")
+        if not brand_name:
+            logger.error("No brand name")
+            brand_name = "error"
+        else:
+            brand_name = brand_name.get('data-value')
+
+        # Ссылка на изображение товара
+        img_url = product_block.select_one("div.img > a.lightbox-img")
+        if not img_url:
+            logger.error("No img url")
+            img_url = "error"
+        else:
+            img_url = img_url.get('href')
+
+        # Характеристики товара
+        specifications = product_block.select_one("div.hidden.price-item-description")
+        if not specifications:
+            logger.error("No specifications")
+            specifications = "error"
+        else:
+            specifications = specifications.text.replace(' ', '').replace('\t', '').replace('\n', '')
+
+        # Рейтинг товара
+        rating = product_block.select_one("div.product-item-rating.rating")
+        if not rating:
+            logger.error("No rating")
+            rating = "error"
+        else:
+            rating = float(rating.get('data-rating'))
+
+        # На основании скольки отзывов построен рейтинг
+        num_rating = product_block.select_one("span[itemprop=ratingCount]")
+        if not num_rating:
+            logger.error("No num rating")
+            num_rating = "error"
+        else:
+            num_rating = int(re.findall(r'\d+', num_rating.text)[0])
+
+        # Код продукта
+        product_code = product_block.select_one("div.price-item-code > span")
+        if not product_code:
+            logger.error("No product code")
+            product_code = "error"
+        else:
+            product_code = product_code.text
+
+        # Текущая цена
+        cur_price = product_block.select_one("span.product-card-price__current")
+        if not cur_price:
+            logger.error("No cur price")
+            cur_price = "error"
+        else:
+            cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
+
+        # Предыдущая цена (без скидки) - если есть акция
+        prev_price = product_block.select_one("span.product-card-price__previous")
+        if not prev_price or not prev_price.text:
+            prev_price = cur_price
+        else:
+            prev_price = int(re.findall(r'\d+', prev_price.text.replace(' ', ''))[0])
+
+        # Разница цен
+        discount = prev_price - cur_price
+
+        # Добавление полученных результатов в коллекцию
+        self.result.append(ParseResult(
+            category=category,
+            brand_name=brand_name,
+            model_name=model_name,
+            specifications=specifications,
+            price=cur_price,
+            old_price=prev_price,
+            discount=discount,
+            url_img=img_url,
+            url=url,
+            rating=rating,
+            num_rating=num_rating,
+            product_code=product_code,
+            shop=self.shop
+        ))
+
+        print(self.result)
 
     # Метод для парсинга html страницы каталога
     def __parse_catalog_page(self, html):
@@ -171,7 +290,7 @@ class Parser:
             logger.error("No rating")
             rating = "error"
         else:
-            rating = rating.get('data-rating')
+            rating = float(rating.get('data-rating'))
 
         # На основании скольки отзывов построен рейтинг
         num_rating = product_info_block.select_one('div.product-info__stat > a.product-info__opinions-count')
@@ -179,7 +298,7 @@ class Parser:
             logger.error("No num rating")
             num_rating = 0
         else:
-            num_rating = re.findall(r'\d+', num_rating.text)[0]
+            num_rating = int(re.findall(r'\d+', num_rating.text)[0])
 
         # Код продукта
         product_code = product_info_block.select_one('div.product-info__code > span')
@@ -197,14 +316,14 @@ class Parser:
 
         # Если есть "акция"
         if cur_price:
-            cur_price = re.findall(r'\d+', cur_price.text.replace(' ', ''))[0]
+            cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
             # Предыдущая цена (без скидки) - если есть акция
             prev_price = product_price_block.select_one('div.product-min-price__current')
             if not prev_price:
                 prev_price = cur_price
             else:
-                prev_price = prev_price.text.replace('₽', '').replace(' ', '')
+                prev_price = int(prev_price.text.replace('₽', '').replace(' ', ''))
 
         # Если есть "выгода"
         else:
@@ -214,17 +333,17 @@ class Parser:
                 logger.error("No current price")
                 cur_price = "error"
             else:
-                cur_price = cur_price.text.replace('₽', '').replace(' ', '')
+                cur_price = int(cur_price.text.replace('₽', '').replace(' ', ''))
 
             # Предыдущая цена (без скидки) - если есть акция
             prev_price = product_price_block.select_one('mark.product-min-price__previous-price')
             if not prev_price:
                 prev_price = cur_price
             else:
-                prev_price = prev_price.text.replace('₽', '').replace(' ', '')
+                prev_price = int(prev_price.text.replace('₽', '').replace(' ', ''))
 
         # Разница цен
-        discount = int(prev_price) - int(cur_price)
+        discount = prev_price - cur_price
 
         # Добавление полученных результатов в коллекцию
         self.result.append(ParseResult(
@@ -244,16 +363,16 @@ class Parser:
         ))
 
     # Запуск браузера, загрузка начальной страницы парсинга, выбор города
-    def __wd_open_browser(self, url):
+    def __wd_open_browser(self, url, data_find):
         self.driver.get(url)
 
         # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
-        if not self.__find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
+        if not self.__find_elem_with_timeout(By.CLASS_NAME, data_find):
             self.driver.quit()
-            return None
+            return False
 
         # Выбор города
-        self.__city_selection()
+        return self.__city_selection()
 
     # Получить текущий код страницы
     def __wd_get_cur_page(self):
@@ -296,7 +415,10 @@ class Parser:
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url):
-        self.__wd_open_browser(url)
+        if not self.__wd_open_browser(url, "product-min-price__current"):
+            logger.error("Open browser fail")
+            self.__wd_close_browser()
+            return
 
         while True:
             html = self.__wd_get_cur_page()
@@ -310,14 +432,19 @@ class Parser:
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
-        self.__wd_open_browser(url)
+        if not self.__wd_open_browser(url, "product-card-price__current"):
+            logger.error("Open browser fail")
+            self.__wd_close_browser()
+            return
+
         html = self.__wd_get_cur_page()
-        self.__parse_product_page(html)
+        self.__parse_product_page(html, url)
         self.__wd_close_browser()
 
 
 if __name__ == '__main__':
     time_start = time.time()
     parser = Parser()
-    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&action=rassrockailivygoda0000-tovarysoskidkoj0000&brand=apple-oppo-samsung-xiaomi&f%5B9a9%5D=32tl&f%5B9a8%5D=8f9i-cnhx-i2ft-mhrw1&stock=2")
+    # parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&action=rassrockailivygoda0000-tovarysoskidkoj0000&brand=apple-oppo-samsung-xiaomi&f%5B9a9%5D=32tl&f%5B9a8%5D=8f9i-cnhx-i2ft-mhrw1&stock=2")
+    parser.run_product("https://www.dns-shop.ru/product/f88fcbadfd3a1b80/64-smartfon-oppo-a91-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")
