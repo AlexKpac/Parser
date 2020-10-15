@@ -4,6 +4,7 @@ import time
 import re
 import csv
 
+import bd
 import bs4
 import selenium.common.exceptions as se
 from selenium import webdriver
@@ -66,6 +67,7 @@ class Parser:
         self.result = []
         self.domain = "https://www.dns-shop.ru/"
         self.shop = "ДНС"
+        # self.bd = bd.BD()
 
     # Поиск элемента с таймаутом
     def __find_elem_with_timeout(self, by, elem):
