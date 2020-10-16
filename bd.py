@@ -1,72 +1,30 @@
 import psycopg2
 from psycopg2 import OperationalError
+from psycopg2 import extras
+import sql_req as sr
 
-# Таблица Категории - categories_name_table
-create_categories_name_table_query = """
-CREATE TABLE IF NOT EXISTS categories_name_table (
-  "ID_Category"        SERIAL PRIMARY KEY,
-  "Category_Name"      VARCHAR(50) NOT NULL
-);
-"""
-
-# Таблица: Магазины - shops_name_table
-create_shops_name_table_query = """
-CREATE TABLE IF NOT EXISTS shops_name_table (
-  "ID_Shop_Name"     SERIAL PRIMARY KEY,
-  "Shop_Name"        VARCHAR(20) NOT NULL
-);
-"""
-
-# Таблица: Продукты - products_table
-create_products_table_query = """
-CREATE TABLE IF NOT EXISTS products_table (
-  "ID_Product"       SERIAL PRIMARY KEY,
-  "ID_Category"      INTEGER REFERENCES categories_name_table("ID_Category"),
-  "Brand_Name"       VARCHAR(20) NOT NULL,
-  "Model_Name"       VARCHAR(100) NOT NULL,
-  "Total_Rating"     REAL
-);
-"""
-
-# Таблица: В каком магазине купить продукт - shop_buy_table
-create_shop_buy_table_query = """
-CREATE TABLE IF NOT EXISTS shop_buy_table (
-  "ID_Shop_Buy"      SERIAL PRIMARY KEY,
-  "ID_Shop_Name"     INTEGER REFERENCES shops_name_table("ID_Shop_Name"),
-  "ID_Category"      INTEGER REFERENCES categories_name_table("ID_Category"),
-  "ID_Product"       INTEGER REFERENCES products_table("ID_Product"),
-  "URL_Product"      VARCHAR(100) NOT NULL,
-  "Product_Code"     VARCHAR(20) NOT NULL,
-  "Local_Rating"     REAL,
-  "Num_Local_Rating" INTEGER
-);
-"""
-
-# Таблица: Комплектации телефонов - version_phones_table
-create_version_phones_table_query = """
-CREATE TABLE IF NOT EXISTS version_phones_table (
-  "ID"               SERIAL PRIMARY KEY,
-  "ID_Product"       INTEGER REFERENCES products_table("ID_Product"),
-  "ID_Shop_Buy"      INTEGER REFERENCES shop_buy_table("ID_Shop_Buy"),
-  "Color"            VARCHAR(50) NOT NULL,
-  "RAM"              INTEGER NOT NULL,
-  "ROM"              INTEGER NOT NULL,
-  "Img_URL"          VARCHAR(100) NOT NULL
-);
-"""
-
-# Таблица: Цены всех товаров - prices_table
-create_prices_table_query = """
-CREATE TABLE IF NOT EXISTS prices_table (
-  "ID"               SERIAL PRIMARY KEY,
-  "ID_Shop_Buy"      INTEGER REFERENCES shop_buy_table("ID_Shop_Buy"),
-  "ID_Shop_Name"     INTEGER REFERENCES shops_name_table("ID_Shop_Name"),
-  "ID_Product"       INTEGER REFERENCES products_table("ID_Product"),
-  "ID_Category"      INTEGER REFERENCES categories_name_table("ID_Category"),
-  "Price"            INTEGER NOT NULL,
-  "Datetime"         TIMESTAMP NOT NULL
-);
-"""
+# Список названий магазинов
+SHOPS_NAME_LIST = [
+    ('мвидео',),
+    ('эльдорадо',),
+    ('dns',),
+    ('технопоинт',),
+    ('мтс',),
+    ('ситилинк',),
+    ('rbt',),
+    ('онлайнтрейд',),
+    ('связной',),
+    ('техносити',),
+    ('билайн',),
+    ('мегафон',),
+    ('e2e4',),
+    ('ноу-хау',),
+]
+# Список категорий
+CATEGORIES_NAME_LIST = [
+    ('смартфоны',),
+    ('ноутбуки',),
+]
 
 
 class DataBase:
@@ -75,6 +33,43 @@ class DataBase:
         self.cursor = None
         self.db_name_basic = "postgres"
 
+    # Создание таблиц, если они отсутствуют и заполнение вспомогательных данными
+    def __create_table(self):
+        self.execute_query(sr.create_categories_name_table_query)
+        self.execute_query(sr.create_shops_name_table_query)
+        self.execute_query(sr.create_products_table_query)
+        self.execute_query(sr.create_shop_buy_table_query)
+        self.execute_query(sr.create_version_phones_table_query)
+        self.execute_query(sr.create_prices_table_query)
+
+        self.__insert_shops_name_table()
+        self.__insert_category_name()
+
+    # Заполнить таблицу shops_name_table данными
+    def __insert_shops_name_table(self):
+        if not self.connection:
+            print("Can't execute read query - no connection")
+            return
+
+        try:
+            extras.execute_values(self.cursor, "INSERT INTO shops_name_table (Shop_Name) VALUES %s",
+                                  SHOPS_NAME_LIST)
+        except OperationalError as e:
+            print(f"The error '{e}' occurred")
+
+    # Заполнить таблицу categories_name_table данными
+    def __insert_category_name(self):
+        if not self.connection:
+            print("Can't execute read query - no connection")
+            return
+
+        try:
+            extras.execute_values(self.cursor, "INSERT INTO categories_name_table (Category_Name) VALUES %s",
+                                  CATEGORIES_NAME_LIST)
+        except OperationalError as e:
+            print(f"The error '{e}' occurred")
+
+    # Соединение с базой данных
     def connect(self, db_name, db_user, db_password, db_host, db_port):
         if not self.connection:
             self.disconnect()
@@ -88,6 +83,7 @@ class DataBase:
                 host=db_host,
                 port=db_port,
             )
+
             print(f"Connection to PostgreSQL DB '{db_name}' successful")
             self.connection.autocommit = True
             self.cursor = self.connection.cursor()
@@ -97,12 +93,13 @@ class DataBase:
 
         return True
 
+    # Создание базы данных
     def create_database(self, db_name):
         if not self.connection:
             print("Can't create database - no connection")
             return False
 
-        create_database_query = "CREATE DATABASE " + str.lower(db_name)
+        create_database_query = "CREATE DATABASE " + db_name
         try:
             self.cursor.execute(create_database_query)
         except OperationalError as e:
@@ -127,17 +124,10 @@ class DataBase:
                     print(f"Data base '{db_name}' created")
                     if not self.connect(db_name, db_user, db_password, db_host, db_port):
                         return False
-                    self.create_table()
+                    self.__create_table()
         return True
 
-    def create_table(self):
-        self.execute_query(create_categories_name_table_query)
-        self.execute_query(create_shops_name_table_query)
-        self.execute_query(create_products_table_query)
-        self.execute_query(create_shop_buy_table_query)
-        self.execute_query(create_version_phones_table_query)
-        self.execute_query(create_prices_table_query)
-
+    # Отправка sql запроса в БД
     def execute_query(self, query, variables=None):
         if not self.connection:
             print("Can't execute query - no connection")
@@ -172,12 +162,13 @@ class DataBase:
             print(f"The error '{e}' occurred")
             return None
 
+    # Отсоединение от БД
     def disconnect(self):
         if self.cursor:
-            self.cursor.close()
+            del self.cursor
 
         if self.connection:
-            self.connection.close()
+            del self.connection
 
 
 db = DataBase()
