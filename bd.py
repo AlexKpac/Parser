@@ -20,6 +20,7 @@ SHOPS_NAME_LIST = [
     ('e2e4',),
     ('ноу-хау',),
 ]
+
 # Список категорий
 CATEGORIES_NAME_LIST = [
     ('смартфоны',),
@@ -38,9 +39,9 @@ class DataBase:
         self.execute_query(sr.create_categories_name_table_query)
         self.execute_query(sr.create_shops_name_table_query)
         self.execute_query(sr.create_products_table_query)
-        self.execute_query(sr.create_shop_buy_table_query)
-        self.execute_query(sr.create_version_phones_table_query)
-        self.execute_query(sr.create_prices_table_query)
+        self.execute_query(sr.create_versions_phones_table_query)
+        self.execute_query(sr.create_shops_phones_table_query)
+        self.execute_query(sr.create_prices_phone_table_query)
 
         self.__insert_shops_name_table()
         self.__insert_category_name()
@@ -68,6 +69,34 @@ class DataBase:
                                   CATEGORIES_NAME_LIST)
         except OperationalError as e:
             print(f"The error '{e}' occurred")
+
+    # Добавление продукта в таблицу products_table
+    def __insert_product_in_products_table(self, id_category_name, brand_name, model_name, total_rating):
+        id_product = self.execute_read_query(sr.insert_into_products_table_query,
+                                             [(id_category_name, brand_name, model_name, total_rating), ])
+
+        return id_product[0][0] if id_product else None
+
+    # Добавление комплектации в таблицу versions_phones_table
+    def __insert_version_in_versions_phones_table(self, id_product, color, ram, rom, img_url):
+        id_ver_phone = self.execute_read_query(sr.insert_into_versions_phones_table_query,
+                                               [(id_product, color, ram, rom, img_url), ])
+
+        return id_ver_phone[0][0] if id_ver_phone else None
+
+    # Добавление магазина для покупки комплектации в shops_phones_table
+    def __insert_shop_in_shops_phones_table(self, id_shop_name, id_product, id_ver_phone, url, product_code,
+                                            local_rating, num_local_rating):
+        id_shop_phone = self.execute_read_query(sr.insert_into_shops_phones_table_query,
+                                                [(id_shop_name, id_product, id_ver_phone, url, product_code,
+                                                  local_rating, num_local_rating), ])
+
+        return id_shop_phone[0][0] if id_shop_phone else None
+
+    # Добавление цены определенного магазина определенной комплектации в prices_phones_table
+    def __insert_price_in_prices_phones_table(self, id_shop_name, id_product, id_shop_phone, price, datetime='now()'):
+        self.execute_query(sr.insert_into_prices_phones_table_query,
+                           [(id_shop_name, id_product, id_shop_phone, price, datetime), ])
 
     # Соединение с базой данных
     def connect(self, db_name, db_user, db_password, db_host, db_port):
@@ -109,7 +138,7 @@ class DataBase:
         return True
 
     # Попытка подключиться к запрашиваемой БД, если не получилось - создание этой БД
-    def connect_else_create(self, db_name, db_user, db_password, db_host, db_port):
+    def connect_or_create(self, db_name, db_user, db_password, db_host, db_port):
         # Попытка подключится к запрашиваемой базе данных
         if not self.connect(db_name, db_user, db_password, db_host, db_port):
 
@@ -134,12 +163,12 @@ class DataBase:
             return False
 
         try:
-            if variables:
-                self.cursor.execute(query, variables)
-            else:
-                self.cursor.execute(query)
+            self.cursor.execute(query, variables)
+            # if variables:
+            #     self.cursor.execute(query, variables)
+            # else:
+            #     self.cursor.execute(query)
 
-            print("Query executed successfully")
         except OperationalError as e:
             print(f"The error '{e}' occurred")
             return False
@@ -147,14 +176,18 @@ class DataBase:
         return True
 
     # Чтение данных с таблицы
-    def execute_read_query(self, query):
+    def execute_read_query(self, query, variables=None):
         if not self.connection:
             print("Can't execute read query - no connection")
             return None
 
         result = None
         try:
-            self.cursor.execute(query)
+            if variables:
+                self.cursor.execute(query, variables)
+            else:
+                self.cursor.execute(query)
+
             result = self.cursor.fetchall()
             return result
 
@@ -170,40 +203,83 @@ class DataBase:
         if self.connection:
             del self.connection
 
+    def add_product_to_bd(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color, img_url,
+                          url, product_code, local_rating, num_rating, price):
+
+        if not self.connection:
+            print("Can't execute query - no connection")
+            return
+
+        try:
+            id_category_name = CATEGORIES_NAME_LIST.index((category_name,)) + 1
+            id_shop_name = SHOPS_NAME_LIST.index((shop_name,)) + 1
+        except ValueError as e:
+            print("ERROR get category_name or shop_name = {}".format(e))
+            return
+
+        id_product = self.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
+        # + Продукт присутствует в #products_table
+        if id_product:
+            id_product = id_product[0][0]; print("id_product = {}".format(id_product))
+            id_ver_phone = self.execute_read_query(sr.select_id_ver_phone_query,
+                                                   (id_product, var_color, var_ram, var_rom))
+            # ++ Комплектация присутствует в #version_phones_table
+            if id_ver_phone:
+                id_ver_phone = id_ver_phone[0][0]; print("id_ver_phone = {}".format(id_ver_phone))
+                id_shop_phone = self.execute_read_query(sr.select_id_shop_phone_query,
+                                                        (id_ver_phone, id_shop_name))
+
+                # +++ Данную комплектацию можно купить в #shop_phones_table
+                if id_shop_phone:
+                    id_shop_phone = id_shop_phone[0][0]; print("id_shop_phone = {}".format(id_shop_phone))
+                    price_phone = self.execute_read_query(sr.select_price_in_price_phone_query, (id_shop_phone,))
+
+                    # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
+                    if price_phone[-1][0] == price:
+                        print("add_product_to_bd: NO CHANGE, IGNORE")
+
+                    # ---- Цена данной комплектации в данном магазине изменилась - добавляем в список цен
+                    else:
+                        print("Новая цена на эту комплектацию в этом магазине, добавляю цену")
+                        self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+
+                # --- Данную комплектацию нельзя купить, отсутствует в #shop_phones_table
+                else:
+                    print("Такой комплектации нет в данном магазине, добавляю магазин и цену")
+                    id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
+                    self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+
+            # -- Комплектация отсутствует в #version_phones_table
+            else:
+                print("Данная комплектация отсутствует в списке комплектаций, добавляю комплектацию, магазин, цену")
+                id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom, img_url)
+                id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
+                self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+
+        # - Продукт отсутствует в #products_table
+        else:
+            print("Данный продукт отсутствует в products_table, добавляю продукт, комплектацию, магазин, цену")
+            id_product = self.__insert_product_in_products_table(id_category_name, brand_name, model_name, 0)
+            id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom, img_url)
+            id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
+            self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+
 
 db = DataBase()
-db.connect_else_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-# # Заполнение данными
-# users = [
-#     ("James", 25, "male", "USA"),
-#     ("Leila", 32, "female", "France"),
-#     ("Brigitte", 35, "female", "England"),
-#     ("Mike", 40, "male", "Denmark"),
-#     ("Elizabeth", 21, "female", "Canada"),
-# ]
-# posts = [
-#     ("Happy", "I am feeling very happy today", 1),
-#     ("Hot Weather", "The weather is very hot today", 2),
-#     ("Help", "I need some help with my work", 2),
-#     ("Great News", "I am getting married", 1),
-#     ("Interesting Game", "It was a fantastic game of tennis", 5),
-#     ("Party", "Anyone up for a late-night party today?", 3),
-# ]
-#
-# user_records = ", ".join(["%s"] * len(users))
-# post_records = ", ".join(["%s"] * len(posts))
-#
-# insert_query = f"INSERT INTO users (name, age, gender, nationality) VALUES {user_records}"
-# db.execute_query(insert_query, users)
-#
-# insert_query = f"INSERT INTO posts (title, description, user_id) VALUES {post_records}"
-# db.execute_query(insert_query, posts)
-
-# Чтение данных
-# users = db.execute_read_query(select_users)
-
-# for user in users:
-#     print(user)
+db.add_product_to_bd(category_name="смартфоны",
+                     shop_name="dns",
+                     brand_name="Samsung",
+                     model_name="S10",
+                     var_color="белый",
+                     var_ram=6,
+                     var_rom=128,
+                     price=48990,
+                     img_url="http://url_img",
+                     url="http://url_shop",
+                     product_code="1212",
+                     local_rating=4.5,
+                     num_rating=130)
 
 db.disconnect()
