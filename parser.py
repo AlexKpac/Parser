@@ -208,8 +208,6 @@ class Parser:
 
         ram = self.parse_specifications(specifications) if specifications != "error" else 0
 
-        cur_price += 1000
-
         # Добавление полученных результатов в коллекцию
         self.result.append(ParseResult(
             shop=self.shop,
@@ -351,9 +349,9 @@ class Parser:
 
     # Парсинг названия модели (получить название модели, цвет и ROM)
     def parse_model_name(self, brand, name):
-        print(name)
         # Понижение регистра
         name = str.lower(name)
+        brand = str.lower(brand)
         # Убрать диагональ вначале строки
         name = name.partition(' ')[2]
         # Получить последнее слово - цвет
@@ -375,7 +373,6 @@ class Parser:
 
     # Парсинг характеристик (получить RAM)
     def parse_specifications(self, specifications):
-        print(specifications)
         # Понижение регистра
         specifications = str.lower(specifications)
         # Получение значения ram из строки характеристик
@@ -438,22 +435,25 @@ class Parser:
 
     def __save_result_in_db(self):
 
-        self.db.add_product_to_bd(category_name="смартфоны",
-                                  shop_name=self.result[0].shop,
-                                  brand_name=self.result[0].brand_name,
-                                  model_name=self.result[0].model_name,
-                                  var_color=self.result[0].color,
-                                  var_ram=self.result[0].ram,
-                                  var_rom=self.result[0].rom,
-                                  price=self.result[0].price,
-                                  img_url=self.result[0].img_url,
-                                  url=self.result[0].url,
-                                  product_code=self.result[0].product_code,
-                                  local_rating=self.result[0].rating,
-                                  num_rating=self.result[0].num_rating)
+        for item in self.result:
+            self.db.add_product_to_bd(category_name=item.category,
+                                      shop_name=item.shop,
+                                      brand_name=item.brand_name,
+                                      model_name=item.model_name,
+                                      var_color=item.color,
+                                      var_ram=item.ram,
+                                      var_rom=item.rom,
+                                      price=item.price,
+                                      img_url=item.img_url,
+                                      url=item.url,
+                                      product_code=item.product_code,
+                                      local_rating=item.rating,
+                                      num_rating=item.num_rating)
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url):
+        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+
         if not self.__wd_open_browser(url, "product-min-price__current"):
             logger.error("Open browser fail")
             self.__wd_close_browser()
@@ -466,8 +466,10 @@ class Parser:
                 break
 
         self.__wd_close_browser()
+        self.__save_result_in_db()
         self.__save_result()
         print(self.result)
+        self.db.disconnect()
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
@@ -491,6 +493,6 @@ class Parser:
 if __name__ == '__main__':
     time_start = time.time()
     parser = Parser()
-    # parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&action=rassrockailivygoda0000-tovarysoskidkoj0000&brand=apple-oppo-samsung-xiaomi&f%5B9a9%5D=32tl&f%5B9a8%5D=8f9i-cnhx-i2ft-mhrw1&stock=2")
-    parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
+    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&brand=realme-samsung&f%5B9a9%5D=32tl&stock=2")
+    # parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")
