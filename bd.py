@@ -164,11 +164,6 @@ class DataBase:
 
         try:
             self.cursor.execute(query, variables)
-            # if variables:
-            #     self.cursor.execute(query, variables)
-            # else:
-            #     self.cursor.execute(query)
-
         except OperationalError as e:
             print(f"The error '{e}' occurred")
             return False
@@ -198,11 +193,12 @@ class DataBase:
     # Отсоединение от БД
     def disconnect(self):
         if self.cursor:
-            del self.cursor
+            self.cursor.close()
 
         if self.connection:
-            del self.connection
+            self.connection.close()
 
+    # Добавление спарсенного товара в БД
     def add_product_to_bd(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color, img_url,
                           url, product_code, local_rating, num_rating, price):
 
@@ -265,21 +261,21 @@ class DataBase:
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
 
 
-db = DataBase()
-db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
-
-db.add_product_to_bd(category_name="смартфоны",
-                     shop_name="dns",
-                     brand_name="Samsung",
-                     model_name="S10",
-                     var_color="белый",
-                     var_ram=6,
-                     var_rom=128,
-                     price=48990,
-                     img_url="http://url_img",
-                     url="http://url_shop",
-                     product_code="1212",
-                     local_rating=4.5,
-                     num_rating=130)
-
-db.disconnect()
+# db = DataBase()
+# db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+#
+# db.add_product_to_bd(category_name="смартфоны",
+#                      shop_name="dns",
+#                      brand_name="Samsung",
+#                      model_name="S10",
+#                      var_color="белый",
+#                      var_ram=6,
+#                      var_rom=128,
+#                      price=48990,
+#                      img_url="http://url_img",
+#                      url="http://url_shop",
+#                      product_code="1212",
+#                      local_rating=4.5,
+#                      num_rating=130)
+#
+# db.disconnect()

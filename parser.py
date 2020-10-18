@@ -14,26 +14,25 @@ from selenium.webdriver.support.expected_conditions import presence_of_element_l
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('parser')
 
 ParseResult = collections.namedtuple(
     'ParseResult',
     (
+        'shop',
         'category',
         'brand_name',
         'model_name',
-        'specifications',
+        'color',
+        'ram',
+        'rom',
         'price',
-        'old_price',
-        'discount',
-        'url_img',
+        'img_url',
         'url',
         'rating',
         'num_rating',
         'product_code',
-        'shop',
     ),
 )
 HEADERS = (
@@ -66,8 +65,8 @@ class Parser:
         self.cur_page = 1
         self.result = []
         self.domain = "https://www.dns-shop.ru/"
-        self.shop = "ДНС"
-        # self.bd = bd.BD()
+        self.shop = "dns"
+        self.db = bd.DataBase()
 
     # Поиск элемента с таймаутом
     def __find_elem_with_timeout(self, by, elem):
@@ -168,7 +167,7 @@ class Parser:
             logger.error("No specifications")
             specifications = "error"
         else:
-            specifications = specifications.text.replace(' ', '').replace('\t', '').replace('\n', '')
+            specifications = specifications.text[specifications.text.find("[")+1:specifications.text.find("]")]
 
         # Рейтинг товара
         rating = product_block.select_one("div.product-item-rating.rating")
@@ -202,31 +201,30 @@ class Parser:
         else:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
-        # Предыдущая цена (без скидки) - если есть акция
-        prev_price = product_block.select_one("span.product-card-price__previous")
-        if not prev_price or not prev_price.text:
-            prev_price = cur_price
-        else:
-            prev_price = int(re.findall(r'\d+', prev_price.text.replace(' ', ''))[0])
+        # Парсинг полученных данных
+        model_name, color, rom = self.parse_model_name(brand_name, model_name) \
+            if brand_name != "error" and model_name != "error" \
+            else ("error", "error", 0)
 
-        # Разница цен
-        discount = prev_price - cur_price
+        ram = self.parse_specifications(specifications) if specifications != "error" else 0
+
+        cur_price += 1000
 
         # Добавление полученных результатов в коллекцию
         self.result.append(ParseResult(
-            category=category,
-            brand_name=brand_name,
-            model_name=model_name,
-            specifications=specifications,
+            shop=self.shop,
+            category=str.lower(category),
+            brand_name=str.lower(brand_name),
+            model_name=str.lower(model_name),
+            color=str.lower(color),
             price=cur_price,
-            old_price=prev_price,
-            discount=discount,
-            url_img=img_url,
-            url=url,
+            ram=ram,
+            rom=rom,
+            img_url=str.lower(img_url),
+            url=str.lower(url),
             rating=rating,
             num_rating=num_rating,
-            product_code=product_code,
-            shop=self.shop
+            product_code=str.lower(product_code),
         ))
 
     # Метод для парсинга html страницы каталога
@@ -309,7 +307,7 @@ class Parser:
         else:
             product_code = product_code.text
 
-        # ЦЕНА, СКИДКА, ВЫГОДА
+        # Цена
         product_price_block = block.select_one('div.n-catalog-product__price')
 
         # Ветвление: 2 вида акций, поиск по тегам
@@ -318,17 +316,8 @@ class Parser:
         # Если есть "акция"
         if cur_price:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
-
-            # Предыдущая цена (без скидки) - если есть акция
-            prev_price = product_price_block.select_one('div.product-min-price__current')
-            if not prev_price:
-                prev_price = cur_price
-            else:
-                prev_price = int(prev_price.text.replace('₽', '').replace(' ', ''))
-
         # Если есть "выгода"
         else:
-            # Текущая цена
             cur_price = product_price_block.select_one('div.product-min-price__current')
             if not cur_price:
                 logger.error("No current price")
@@ -336,32 +325,65 @@ class Parser:
             else:
                 cur_price = int(cur_price.text.replace('₽', '').replace(' ', ''))
 
-            # Предыдущая цена (без скидки) - если есть акция
-            prev_price = product_price_block.select_one('mark.product-min-price__previous-price')
-            if not prev_price:
-                prev_price = cur_price
-            else:
-                prev_price = int(prev_price.text.replace('₽', '').replace(' ', ''))
+        # Парсинг полученных данных
+        model_name, color, rom = self.parse_model_name(brand_name, model_name) \
+            if brand_name != "error" and model_name != "error" \
+            else ("error", "error", 0)
 
-        # Разница цен
-        discount = prev_price - cur_price
+        ram = self.parse_specifications(specifications) if specifications != "error" else 0
 
         # Добавление полученных результатов в коллекцию
         self.result.append(ParseResult(
-            category=self.category,
-            brand_name=brand_name,
-            model_name=model_name,
-            specifications=specifications,
+            shop=self.shop,
+            category=str.lower(self.category),
+            brand_name=str.lower(brand_name),
+            model_name=str.lower(model_name),
+            color=str.lower(color),
             price=cur_price,
-            old_price=prev_price,
-            discount=discount,
-            url_img=img_url,
-            url=url,
+            ram=ram,
+            rom=rom,
+            img_url=str.lower(img_url),
+            url=str.lower(url),
             rating=rating,
             num_rating=num_rating,
-            product_code=product_code,
-            shop=self.shop
+            product_code=str.lower(product_code),
         ))
+
+    # Парсинг названия модели (получить название модели, цвет и ROM)
+    def parse_model_name(self, brand, name):
+        print(name)
+        # Понижение регистра
+        name = str.lower(name)
+        # Убрать диагональ вначале строки
+        name = name.partition(' ')[2]
+        # Получить последнее слово - цвет
+        color = name.split()[-1]
+        # Получить ROM
+        rom = re.findall(r'\d+\sгб', name)[0]
+        # Если в названии указан еще и RAM через /
+        ram_rom = re.findall(r'\d+[/]\d+\sгб', name)
+        # Удалить из названия модели RAM/ROM или только ROM
+        name = name.replace(ram_rom[0] if ram_rom else rom, '')
+        # Удалить из строки ROM всё, кроме цифр
+        rom = re.findall(r'\d+', rom)[0]
+        # Удалить из строки модели цвет, название бренда и слово "смартфон"
+        name = name.replace(color, '').replace(brand, '').replace('смартфон', '')
+        # Удалить лишние пробелы
+        name = ' '.join(name.split())
+
+        return name, color, int(rom)
+
+    # Парсинг характеристик (получить RAM)
+    def parse_specifications(self, specifications):
+        print(specifications)
+        # Понижение регистра
+        specifications = str.lower(specifications)
+        # Получение значения ram из строки характеристик
+        ram = re.findall(r'\d+\sгб', specifications)[0]
+        # Удалить из строки ROM всё, кроме цифр
+        ram = re.findall(r'\d+', ram)[0]
+
+        return int(ram)
 
     # Запуск браузера, загрузка начальной страницы парсинга, выбор города
     def __wd_open_browser(self, url, data_find):
@@ -414,6 +436,22 @@ class Parser:
             for item in self.result:
                 writer.writerow(item)
 
+    def __save_result_in_db(self):
+
+        self.db.add_product_to_bd(category_name="смартфоны",
+                                  shop_name=self.result[0].shop,
+                                  brand_name=self.result[0].brand_name,
+                                  model_name=self.result[0].model_name,
+                                  var_color=self.result[0].color,
+                                  var_ram=self.result[0].ram,
+                                  var_rom=self.result[0].rom,
+                                  price=self.result[0].price,
+                                  img_url=self.result[0].img_url,
+                                  url=self.result[0].url,
+                                  product_code=self.result[0].product_code,
+                                  local_rating=self.result[0].rating,
+                                  num_rating=self.result[0].num_rating)
+
     # Запуск работы парсера для каталога
     def run_catalog(self, url):
         if not self.__wd_open_browser(url, "product-min-price__current"):
@@ -433,6 +471,8 @@ class Parser:
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
+        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+
         if not self.__wd_open_browser(url, "product-card-price__current"):
             logger.error("Open browser fail")
             self.__wd_close_browser()
@@ -442,7 +482,10 @@ class Parser:
         self.__parse_product_page(html, url)
         self.__wd_close_browser()
         self.__save_result()
+        self.__save_result_in_db()
         print(self.result)
+
+        self.db.disconnect()
 
 
 if __name__ == '__main__':

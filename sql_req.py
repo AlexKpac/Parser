@@ -35,7 +35,7 @@ create_versions_phones_table_query = """
         Color            VARCHAR(50) NOT NULL,
         RAM              INTEGER NOT NULL,
         ROM              INTEGER NOT NULL,
-        Img_URL          VARCHAR(100) NOT NULL
+        Img_URL          VARCHAR(200) NOT NULL
     );
 """
 
@@ -46,7 +46,7 @@ create_shops_phones_table_query = """
         ID_Shop_Name     INTEGER REFERENCES shops_name_table(ID_Shop_Name),
         ID_Product       INTEGER REFERENCES products_table(ID_Product),
         ID_Ver_Phone     INTEGER REFERENCES versions_phones_table(ID_Ver_Phone),
-        URL_Product      VARCHAR(100) NOT NULL,
+        URL_Product      VARCHAR(200) NOT NULL,
         Product_Code     VARCHAR(20) NOT NULL,
         Local_Rating     REAL,
         Num_Local_Rating INTEGER
