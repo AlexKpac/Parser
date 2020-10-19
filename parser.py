@@ -173,7 +173,7 @@ class Parser:
         rating = product_block.select_one("div.product-item-rating.rating")
         if not rating:
             logger.error("No rating")
-            rating = "error"
+            rating = 0
         else:
             rating = float(rating.get('data-rating'))
 
@@ -181,7 +181,7 @@ class Parser:
         num_rating = product_block.select_one("span[itemprop=ratingCount]")
         if not num_rating:
             logger.error("No num rating")
-            num_rating = "error"
+            num_rating = 0
         else:
             num_rating = int(re.findall(r'\d+', num_rating.text)[0])
 
@@ -376,9 +376,9 @@ class Parser:
         # Понижение регистра
         specifications = str.lower(specifications)
         # Получение значения ram из строки характеристик
-        ram = re.findall(r'\d+\sгб', specifications)[0]
-        # Удалить из строки ROM всё, кроме цифр
-        ram = re.findall(r'\d+', ram)[0]
+        ram = re.findall(r'\d+\sгб', specifications)
+        # Удалить из строки ROM всё, кроме цифр, если эта строка не пустая, иначе 0
+        ram = re.findall(r'\d+', ram[0])[0] if ram else 0
 
         return int(ram)
 
@@ -493,6 +493,7 @@ class Parser:
 if __name__ == '__main__':
     time_start = time.time()
     parser = Parser()
-    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&brand=realme-samsung&f%5B9a9%5D=32tl&stock=2")
+    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    # https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&brand=realme-samsung&f%5B9a9%5D=32tl&stock=2")
     # parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")
