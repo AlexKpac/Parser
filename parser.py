@@ -36,21 +36,22 @@ ParseResult = collections.namedtuple(
     ),
 )
 HEADERS = (
+    'Магазин'
     'Категория',
     'Бренд',
     'Модель',
-    'Характеристики',
-    'Текущая цена',
-    'Старая цена',
-    'Скидка',
+    'Цвет',
+    'RAM',
+    'ROM',
+    'Цена',
     'Ссылка на изображение',
     'Ссылка',
     'Рейтинг',
     'Кол-во отзывов',
-    'Код продукта',
-    'Магазин',
+    'Код продукта'
 )
 WD_PATH = "venv/WebDriverManager/chromedriver.exe"
+CSV_PATH = "/Users/Никита/Desktop/goods.csv"
 CURRENT_CITY = 'Новосибирск'
 WAIT_BETWEEN_PAGES_SEC = 4
 
@@ -172,7 +173,6 @@ class Parser:
         # Рейтинг товара
         rating = product_block.select_one("div.product-item-rating.rating")
         if not rating:
-            logger.error("No rating")
             rating = 0
         else:
             rating = float(rating.get('data-rating'))
@@ -180,7 +180,6 @@ class Parser:
         # На основании скольки отзывов построен рейтинг
         num_rating = product_block.select_one("span[itemprop=ratingCount]")
         if not num_rating:
-            logger.error("No num rating")
             num_rating = 0
         else:
             num_rating = int(re.findall(r'\d+', num_rating.text)[0])
@@ -284,15 +283,13 @@ class Parser:
         # Рейтинг товара
         rating = product_info_block.select_one('div.product-info__rating')
         if not rating:
-            logger.error("No rating")
-            rating = "error"
+            rating = 0
         else:
             rating = float(rating.get('data-rating'))
 
         # На основании скольки отзывов построен рейтинг
         num_rating = product_info_block.select_one('div.product-info__stat > a.product-info__opinions-count')
         if not num_rating:
-            logger.error("No num rating")
             num_rating = 0
         else:
             num_rating = int(re.findall(r'\d+', num_rating.text)[0])
@@ -426,8 +423,7 @@ class Parser:
 
     # Сохранение всего результата в csv файл
     def __save_result(self):
-        path = '/Users/Никита/Desktop/goods.csv'
-        with open(path, 'w', newline='') as f:
+        with open(CSV_PATH, 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(HEADERS)
             for item in self.result:
@@ -494,6 +490,5 @@ if __name__ == '__main__':
     time_start = time.time()
     parser = Parser()
     parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
-    # https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&brand=realme-samsung&f%5B9a9%5D=32tl&stock=2")
     # parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")
