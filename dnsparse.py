@@ -1,67 +1,25 @@
-import logging
-import collections
 import time
 import re
 import csv
 
-import bd
 import bs4
 import selenium.common.exceptions as se
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.expected_conditions import presence_of_element_located
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('parser')
+import bd
+import header as h
 
-ParseResult = collections.namedtuple(
-    'ParseResult',
-    (
-        'shop',
-        'category',
-        'brand_name',
-        'model_name',
-        'color',
-        'ram',
-        'rom',
-        'price',
-        'img_url',
-        'url',
-        'rating',
-        'num_rating',
-        'product_code',
-    ),
-)
-HEADERS = (
-    'Магазин'
-    'Категория',
-    'Бренд',
-    'Модель',
-    'Цвет',
-    'RAM',
-    'ROM',
-    'Цена',
-    'Ссылка на изображение',
-    'Ссылка',
-    'Рейтинг',
-    'Кол-во отзывов',
-    'Код продукта'
-)
-WD_PATH = "venv/WebDriverManager/chromedriver.exe"
-CSV_PATH = "/Users/Никита/Desktop/goods.csv"
-CURRENT_CITY = 'Новосибирск'
-WAIT_BETWEEN_PAGES_SEC = 4
+logger = h.logging.getLogger('dnsparse')
 
 
-class Parser:
+class DNSParse:
 
     def __init__(self):
-        options = Options()
-        # options.add_argument("window-size=100,100")
-        self.driver = webdriver.Chrome(executable_path=WD_PATH, options=options)
+        self.driver = webdriver.Chrome(executable_path=h.WD_PATH)
         self.wait = WebDriverWait(self.driver, 10)
         self.cur_page = 1
         self.result = []
@@ -91,7 +49,7 @@ class Parser:
             modal_city = self.driver.find_element_by_xpath("//div[@class='dropdown-city']")
             # Если нашел всплывающее окно с подтверждением города
 
-            if modal_city.text.find(CURRENT_CITY) != -1:
+            if modal_city.text.find(h.CURRENT_CITY) != -1:
                 # Если сайт предлагает нужный город
                 self.driver.find_element_by_xpath("//div[@class='dropdown-city']/a[text()='Да']").click()
             else:
@@ -101,7 +59,7 @@ class Parser:
                 input_city = self.wait.until(presence_of_element_located((By.XPATH, "//div[@class='search-field']/"
                                                                                     "input[@data-role='search-city']")))
                 # Отправка нужного города
-                input_city.send_keys(CURRENT_CITY, Keys.ENTER)
+                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
 
         except se.NoSuchElementException:
             # Если не нашел всплывающего окна с подтверждением города
@@ -111,12 +69,12 @@ class Parser:
                 return False
 
             # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
-            if city_head.text.find(CURRENT_CITY) == -1:
+            if city_head.text.find(h.CURRENT_CITY) == -1:
                 city_head.click()
                 input_city = self.wait.until(presence_of_element_located((By.XPATH, "//div[@class='search-field']/"
                                                                                     "input[@data-role='search-city']")))
                 # Отправка нужного города
-                input_city.send_keys(CURRENT_CITY, Keys.ENTER)
+                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
 
         return True
         # TODO: в мобильной версии не работает (другие классы у div)
@@ -208,7 +166,7 @@ class Parser:
         ram = self.parse_specifications(specifications) if specifications != "error" else 0
 
         # Добавление полученных результатов в коллекцию
-        self.result.append(ParseResult(
+        self.result.append(h.ParseResult(
             shop=self.shop,
             category=str.lower(category),
             brand_name=str.lower(brand_name),
@@ -245,19 +203,18 @@ class Parser:
     # Метод для парсинга html страницы товара
     def __parse_catalog_block(self, block):
 
-        # НАЗВАНИЕ ТОВАРА, ХАРАКТЕРИСТИКИ, ФОТО, URL
-        product_info_block = block.select_one('div.n-catalog-product__info')
-
         # Название модели и URL
-        model_name_url_block = product_info_block.select_one('div.product-info__title-link > a.ui-link')
+        model_name_url_block = block.select_one('div.product-info__title-link > a.ui-link')
         if not model_name_url_block:
             logger.error("No model name and URL")
-
-        url = self.domain + model_name_url_block.get('href')
-        model_name = model_name_url_block.text
+            model_name = "error"
+            url = "error"
+        else:
+            url = self.domain + model_name_url_block.get('href')
+            model_name = model_name_url_block.text
 
         # Название бренда
-        brand_name = product_info_block.select_one('div.product-info__title > i.hidden')
+        brand_name = block.select_one('div.product-info__title > i.hidden')
         if not brand_name:
             logger.error("No brand name")
             brand_name = "error"
@@ -265,7 +222,7 @@ class Parser:
             brand_name = brand_name.get('data-value')
 
         # Ссылка на изображение товара
-        img_url = product_info_block.select_one('img')
+        img_url = block.select_one('img')
         if not img_url:
             logger.error("No img url")
             img_url = "error"
@@ -273,7 +230,7 @@ class Parser:
             img_url = img_url.get('data-src')
 
         # Характеристики товара
-        specifications = product_info_block.select_one('span.product-info__title-description')
+        specifications = block.select_one('span.product-info__title-description')
         if not specifications:
             logger.error("No specifications")
             specifications = "error"
@@ -281,39 +238,36 @@ class Parser:
             specifications = specifications.text
 
         # Рейтинг товара
-        rating = product_info_block.select_one('div.product-info__rating')
+        rating = block.select_one('div.product-info__rating')
         if not rating:
             rating = 0
         else:
             rating = float(rating.get('data-rating'))
 
         # На основании скольки отзывов построен рейтинг
-        num_rating = product_info_block.select_one('div.product-info__stat > a.product-info__opinions-count')
+        num_rating = block.select_one('div.product-info__stat > a.product-info__opinions-count')
         if not num_rating:
             num_rating = 0
         else:
             num_rating = int(re.findall(r'\d+', num_rating.text)[0])
 
         # Код продукта
-        product_code = product_info_block.select_one('div.product-info__code > span')
+        product_code = block.select_one('div.product-info__code > span')
         if not product_code:
             logger.error("No product code")
             product_code = "error"
         else:
             product_code = product_code.text
 
-        # Цена
-        product_price_block = block.select_one('div.n-catalog-product__price')
-
-        # Ветвление: 2 вида акций, поиск по тегам
-        cur_price = product_price_block.select_one('mark.product-min-price__min-price')
+        # Цена, ветвление: 2 вида акций, поиск по тегам
+        cur_price = block.select_one('mark.product-min-price__min-price')
 
         # Если есть "акция"
         if cur_price:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
         # Если есть "выгода"
         else:
-            cur_price = product_price_block.select_one('div.product-min-price__current')
+            cur_price = block.select_one('div.product-min-price__current')
             if not cur_price:
                 logger.error("No current price")
                 cur_price = "error"
@@ -328,7 +282,7 @@ class Parser:
         ram = self.parse_specifications(specifications) if specifications != "error" else 0
 
         # Добавление полученных результатов в коллекцию
-        self.result.append(ParseResult(
+        self.result.append(h.ParseResult(
             shop=self.shop,
             category=str.lower(self.category),
             brand_name=str.lower(brand_name),
@@ -408,7 +362,7 @@ class Parser:
                 logger.info(f"Не удалось подгрузить цены на '{self.cur_page}' странице")
                 return False
 
-            time.sleep(WAIT_BETWEEN_PAGES_SEC)
+            time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
             return True
 
         # Если страница не найдена - достигнут конец каталога
@@ -423,9 +377,9 @@ class Parser:
 
     # Сохранение всего результата в csv файл
     def __save_result(self):
-        with open(CSV_PATH, 'w', newline='') as f:
+        with open(h.CSV_PATH, 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-            writer.writerow(HEADERS)
+            writer.writerow(h.HEADERS)
             for item in self.result:
                 writer.writerow(item)
 
@@ -488,7 +442,7 @@ class Parser:
 
 if __name__ == '__main__':
     time_start = time.time()
-    parser = Parser()
-    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    parser = DNSParse()
+    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&brand=nokia-realme&stock=2")
     # parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")

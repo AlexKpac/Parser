@@ -2,30 +2,7 @@ import psycopg2
 from psycopg2 import OperationalError
 from psycopg2 import extras
 import sql_req as sr
-
-# Список названий магазинов
-SHOPS_NAME_LIST = [
-    ('мвидео',),
-    ('эльдорадо',),
-    ('dns',),
-    ('технопоинт',),
-    ('мтс',),
-    ('ситилинк',),
-    ('rbt',),
-    ('онлайнтрейд',),
-    ('связной',),
-    ('техносити',),
-    ('билайн',),
-    ('мегафон',),
-    ('e2e4',),
-    ('ноу-хау',),
-]
-
-# Список категорий
-CATEGORIES_NAME_LIST = [
-    ('смартфоны',),
-    ('ноутбуки',),
-]
+import header as h
 
 
 class DataBase:
@@ -54,7 +31,7 @@ class DataBase:
 
         try:
             extras.execute_values(self.cursor, "INSERT INTO shops_name_table (Shop_Name) VALUES %s",
-                                  SHOPS_NAME_LIST)
+                                  h.SHOPS_NAME_LIST)
         except OperationalError as e:
             print(f"The error '{e}' occurred")
 
@@ -66,7 +43,7 @@ class DataBase:
 
         try:
             extras.execute_values(self.cursor, "INSERT INTO categories_name_table (Category_Name) VALUES %s",
-                                  CATEGORIES_NAME_LIST)
+                                  h.CATEGORIES_NAME_LIST)
         except OperationalError as e:
             print(f"The error '{e}' occurred")
 
@@ -207,8 +184,8 @@ class DataBase:
             return
 
         try:
-            id_category_name = CATEGORIES_NAME_LIST.index((category_name,)) + 1
-            id_shop_name = SHOPS_NAME_LIST.index((shop_name,)) + 1
+            id_category_name = h.CATEGORIES_NAME_LIST.index((category_name,)) + 1
+            id_shop_name = h.SHOPS_NAME_LIST.index((shop_name,)) + 1
         except ValueError as e:
             print("ERROR get category_name or shop_name = {}".format(e))
             return
@@ -259,23 +236,3 @@ class DataBase:
             id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom, img_url)
             id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
-
-
-# db = DataBase()
-# db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
-#
-# db.add_product_to_bd(category_name="смартфоны",
-#                      shop_name="dns",
-#                      brand_name="Samsung",
-#                      model_name="S10",
-#                      var_color="белый",
-#                      var_ram=6,
-#                      var_rom=128,
-#                      price=48990,
-#                      img_url="http://url_img",
-#                      url="http://url_shop",
-#                      product_code="1212",
-#                      local_rating=4.5,
-#                      num_rating=130)
-#
-# db.disconnect()
