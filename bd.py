@@ -175,20 +175,37 @@ class DataBase:
         if self.connection:
             self.connection.close()
 
+    def __check_price(self, prev_price, cur_price):
+        if not prev_price or not cur_price:
+            return False
+
+        # Если цена подешевела
+        if prev_price > cur_price:
+            diff_per = 100 - (cur_price / prev_price * 100)
+            if diff_per >= h.DIF_PRICE_DOWN_PERCENT:
+                return True
+        # Если цена подорожала
+        else:
+            diff_per = 100 - (prev_price / cur_price * 100)
+            if diff_per >= h.DIF_PRICE_UP_PERCENT:
+                return True
+
+        return False
+
     # Добавление спарсенного товара в БД
     def add_product_to_bd(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color, img_url,
                           url, product_code, local_rating, num_rating, price):
 
         if not self.connection:
             print("Can't execute query - no connection")
-            return
+            return False
 
         try:
             id_category_name = h.CATEGORIES_NAME_LIST.index((category_name,)) + 1
             id_shop_name = h.SHOPS_NAME_LIST.index((shop_name,)) + 1
         except ValueError as e:
             print("ERROR get category_name or shop_name = {}".format(e))
-            return
+            return False
 
         id_product = self.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
         # + Продукт присутствует в #products_table
@@ -216,6 +233,9 @@ class DataBase:
                         print("Новая цена на эту комплектацию в этом магазине, добавляю цену")
                         self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
 
+                        # Проверка изменения цены - если изменилась на нужный процент - вернет предыдущую, иначе 0
+                        return price_phone[-1][0] if self.__check_price(price_phone[-1][0], price) else 0
+
                 # --- Данную комплектацию нельзя купить, отсутствует в #shop_phones_table
                 else:
                     print("Такой комплектации нет в данном магазине, добавляю магазин и цену")
@@ -236,3 +256,5 @@ class DataBase:
             id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom, img_url)
             id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+
+        return False

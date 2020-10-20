@@ -1,6 +1,7 @@
 import time
 import re
 import csv
+import datetime
 
 import bs4
 import selenium.common.exceptions as se
@@ -20,9 +21,10 @@ class DNSParse:
 
     def __init__(self):
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH)
-        self.wait = WebDriverWait(self.driver, 10)
+        self.wait = WebDriverWait(self.driver, 20)
         self.cur_page = 1
         self.result = []
+        self.price_changes = []
         self.domain = "https://www.dns-shop.ru/"
         self.shop = "dns"
         self.db = bd.DataBase()
@@ -105,7 +107,7 @@ class DNSParse:
             model_name = model_name.text
 
         # Название бренда
-        brand_name = product_block.select_one("div.item-header > i[data-product-param=brand]")
+        brand_name = product_block.select_one("i[data-product-param=brand]")
         if not brand_name:
             logger.error("No brand name")
             brand_name = "error"
@@ -126,7 +128,7 @@ class DNSParse:
             logger.error("No specifications")
             specifications = "error"
         else:
-            specifications = specifications.text[specifications.text.find("[")+1:specifications.text.find("]")]
+            specifications = specifications.text[specifications.text.find("[") + 1:specifications.text.find("]")]
 
         # Рейтинг товара
         rating = product_block.select_one("div.product-item-rating.rating")
@@ -214,7 +216,7 @@ class DNSParse:
             model_name = model_name_url_block.text
 
         # Название бренда
-        brand_name = block.select_one('div.product-info__title > i.hidden')
+        brand_name = block.select_one('i[data-product-param=brand]')
         if not brand_name:
             logger.error("No brand name")
             brand_name = "error"
@@ -383,22 +385,77 @@ class DNSParse:
             for item in self.result:
                 writer.writerow(item)
 
-    def __save_result_in_db(self):
+    def __save_price_changes(self):
+        if not self.price_changes:
+            return
 
+        with open(h.PRICE_CHANGES_PATH, 'w', newline='') as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(h.HEADERS_PRICE_CHANGES)
+            for item in self.price_changes:
+                writer.writerow(item)
+
+    def __check_item_on_errors(self, item):
+        e = "error"
+        if item.category == e or \
+                item.shop == e or \
+                item.brand_name == e or \
+                item.model_name == e or \
+                item.color == e or \
+                item.img_url == e or \
+                item.product_code == e or \
+                item.ram == 0 or \
+                item.rom == 0 or \
+                item.price == 0 or \
+                item.rating == 0 or \
+                item.num_rating == 0:
+            return False
+        else:
+            return True
+
+    def __save_result_in_db(self):
         for item in self.result:
-            self.db.add_product_to_bd(category_name=item.category,
-                                      shop_name=item.shop,
-                                      brand_name=item.brand_name,
-                                      model_name=item.model_name,
-                                      var_color=item.color,
-                                      var_ram=item.ram,
-                                      var_rom=item.rom,
-                                      price=item.price,
-                                      img_url=item.img_url,
-                                      url=item.url,
-                                      product_code=item.product_code,
-                                      local_rating=item.rating,
-                                      num_rating=item.num_rating)
+            if not self.__check_item_on_errors(item):
+                logger.error("Продукт {} {} с артиклом {} в магазине {} содержит 'error', SKIP".format(
+                    item.brand_name, item.model_name, item.product_code, item.shop))
+                continue
+
+            # Сохранение данных в базу. Если цена изменилась - вернет предыдущую
+            prev_price = self.db.add_product_to_bd(
+                category_name=item.category,
+                shop_name=item.shop,
+                brand_name=item.brand_name,
+                model_name=item.model_name,
+                var_color=item.color,
+                var_ram=item.ram,
+                var_rom=item.rom,
+                price=item.price,
+                img_url=item.img_url,
+                url=item.url,
+                product_code=item.product_code,
+                local_rating=item.rating,
+                num_rating=item.num_rating)
+
+            # Если выявлено изменение цены - записать в список
+            if prev_price:
+                self.price_changes.append(h.PriceChanges(
+                    shop=item.shop,
+                    category=item.category,
+                    brand_name=item.brand_name,
+                    model_name=item.model_name,
+                    color=item.color,
+                    ram=item.ram,
+                    rom=item.rom,
+                    img_url=item.img_url,
+                    url=item.url,
+                    rating=item.rating,
+                    num_rating=item.num_rating,
+                    product_code=item.product_code,
+                    date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                    cur_price=item.price,
+                    prev_price=prev_price,
+                    diff=item.price - prev_price,
+                ))
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url):
@@ -418,6 +475,7 @@ class DNSParse:
         self.__wd_close_browser()
         self.__save_result_in_db()
         self.__save_result()
+        self.__save_price_changes()
         print(self.result)
         self.db.disconnect()
 
@@ -443,6 +501,6 @@ class DNSParse:
 if __name__ == '__main__':
     time_start = time.time()
     parser = DNSParse()
-    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&brand=nokia-realme&stock=2")
+    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?p=8&order=1&groupBy=none&brand=apple-nokia&stock=2")
     # parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")
