@@ -387,6 +387,7 @@ class DNSParse:
 
     def __save_price_changes(self):
         if not self.price_changes:
+            logger.error("НЕТ ЗАПИСЕЙ С ИЗМЕНЕНИЕМ ЦЕН")
             return
 
         with open(h.PRICE_CHANGES_PATH, 'w', newline='') as f:
@@ -501,6 +502,6 @@ class DNSParse:
 if __name__ == '__main__':
     time_start = time.time()
     parser = DNSParse()
-    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?p=8&order=1&groupBy=none&brand=apple-nokia&stock=2")
+    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
     # parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
     print(f"Время выполнения: {time.time() - time_start} сек")

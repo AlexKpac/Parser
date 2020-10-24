@@ -207,6 +207,22 @@ class DataBase:
             print("ERROR get category_name or shop_name = {}".format(e))
             return False
 
+        e = "error"
+        if category_name == e or \
+                shop_name == e or \
+                brand_name == e or \
+                model_name == e or \
+                var_color == e or \
+                img_url == e or \
+                product_code == e or \
+                var_ram == 0 or \
+                var_rom == 0 or \
+                price == 0 or \
+                local_rating == 0 or \
+                num_rating == 0:
+            print("КАКОГО ХУЯ ЭТА ЗАПИСЬ ЗДЕСЬ ДЕЛАЕТ {} {} {} {}".format(brand_name, model_name, url, price))
+            return
+
         id_product = self.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
         # + Продукт присутствует в #products_table
         if id_product:
