@@ -42,8 +42,8 @@ def parse_model_name(name):
     # Получить 2 слова цвета
     color1, color2 = name.split()[-2:] if name.split()[-1] != rom \
         else name.split()[-3:-1]
-    # Если первое слово цвета состоит только из букв - добавить к итоговому цвету
-    color = color1 + " " + color2 if color1.isalpha() else color2
+    # Если первое слово цвета состоит только из букв и длиннее 2 символов - добавить к итоговому цвету
+    color = color1 + " " + color2 if (color1.isalpha() and len(color1) > 2) else color2
     # Удалить первую часть часть
     name = name.replace('смартфон', '').replace(rom, '').replace('  ', ' ')
     # Получить название бренда
@@ -65,9 +65,7 @@ def check_item_on_errors(item):
             item.img_url == e or \
             item.product_code == e or \
             item.rom == 0 or \
-            item.price == 0 or \
-            item.rating == 0 or \
-            item.num_rating == 0:
+            item.price == 0:
         return False
     else:
         return True
@@ -486,7 +484,7 @@ class MVideoParse:
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
-        # self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
         if not self.__wd_open_browser(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
@@ -502,7 +500,7 @@ class MVideoParse:
                 break
 
         self.__wd_close_browser()
-        # self.__save_result_in_db()
+        self.__save_result_in_db()
         self.__save_result()
         # self.__save_price_changes()
         self.db.disconnect()
@@ -546,5 +544,5 @@ models = ('Смартфон Samsung Galaxy S10 Оникс',
 if __name__ == '__main__':
     time_start = time.time()
     parser = MVideoParse()
-    parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205/f/collection_top=premium")
+    parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205/f/brand=apple,samsung/pickup=da")
     print(f"Время выполнения: {time.time() - time_start} сек")
