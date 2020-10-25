@@ -65,6 +65,7 @@ class MVideoParse:
         # options.add_experimental_option('prefs', {'geolocation': True})
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
         self.wait = WebDriverWait(self.driver, 15)
+        self.driver.implicitly_wait(1.5)
         self.cur_page = 1
         self.result = []
         self.price_changes = []
