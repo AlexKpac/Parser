@@ -8,8 +8,10 @@ import selenium.common.exceptions as se
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.expected_conditions import presence_of_element_located
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 
 import bd
 import header as h
@@ -17,69 +19,216 @@ import header as h
 logger = h.logging.getLogger('dnsparse')
 
 
+# Парсинг названия модели (получить название модели, цвет и ROM)
+def dns_parse_model_name(brand, name):
+    # Понижение регистра
+    name = str.lower(name)
+    brand = str.lower(brand)
+    # Убрать диагональ вначале строки
+    name = name.partition(' ')[2]
+    # Получить цвет
+    color = name[name.find('гб ') + len('гб '):]
+    # Получить ROM
+    rom = re.findall(r'\d+\sгб', name)[0]
+    # Если в названии указан еще и RAM через /
+    ram_rom = re.findall(r'\d+[/]\d+\sгб', name)
+    # Удалить из названия модели RAM/ROM или только ROM
+    name = name.replace(ram_rom[0] if ram_rom else rom, '')
+    # Удалить из строки ROM всё, кроме цифр
+    rom = re.findall(r'\d+', rom)[0]
+    # Удалить из строки модели цвет, название бренда и слово "смартфон"
+    name = name.replace(color, '').replace(brand, '').replace('смартфон', '')
+    # Удалить лишние пробелы
+    name = ' '.join(name.split())
+
+    return name, color, int(rom)
+
+
+# Парсинг характеристик (получить RAM)
+def dns_parse_specifications(specifications):
+    # Понижение регистра
+    specifications = str.lower(specifications)
+    # Получение значения ram из строки характеристик
+    ram = re.findall(r'\d+\sгб', specifications)
+    # Удалить из строки ROM всё, кроме цифр, если эта строка не пустая, иначе 0
+    ram = re.findall(r'\d+', ram[0])[0] if ram else 0
+
+    return int(ram)
+
+
 class DNSParse:
 
     def __init__(self):
-        self.driver = webdriver.Chrome(executable_path=h.WD_PATH)
+        options = Options()
+        options.add_argument("window-size=1920,1080")
+        self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
         self.wait = WebDriverWait(self.driver, 20)
         self.cur_page = 1
+        self.driver.implicitly_wait(1.5)
         self.result = []
         self.price_changes = []
         self.domain = "https://www.dns-shop.ru/"
         self.shop = "dns"
         self.db = bd.DataBase()
 
-    # Поиск элемента с таймаутом
-    def __find_elem_with_timeout(self, by, elem):
-        try:
-            result = self.wait.until(presence_of_element_located((by, elem)))
-            return result
-        except se.TimeoutException:
-            return ""
-
     # Обертка поиска элемента для обработки исключений
-    def __find_elem_by_xpath(self, xpath):
+    def __wd_find_elem(self, by, xpath):
         try:
-            result = self.driver.find_element_by_xpath(xpath)
+            result = self.driver.find_element(by, xpath)
             return result
         except se.NoSuchElementException:
             return None
 
-    # Алгоритм выбора города для всех возможных ситуаций
-    def __city_selection(self):
+    # Поиск элемента с таймаутом
+    def __wd_find_elem_with_timeout(self, by, elem):
         try:
-            modal_city = self.driver.find_element_by_xpath("//div[@class='dropdown-city']")
-            # Если нашел всплывающее окно с подтверждением города
+            result = self.wait.until(presence_of_element_located((by, elem)))
+            return result
+        except se.TimeoutException:
+            return None
 
-            if modal_city.text.find(h.CURRENT_CITY) != -1:
-                # Если сайт предлагает нужный город
-                self.driver.find_element_by_xpath("//div[@class='dropdown-city']/a[text()='Да']").click()
+    # Поиск всех элементов с таймаутом
+    def __wd_find_all_elems_with_timeout(self, by, elem):
+        pass
+
+    # Отправка клавиши в элемент через ActionChains
+    def __wd_send_keys(self, elem, keys):
+        if not elem:
+            return False
+
+        # TODO: доделать обертку try-except
+        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        return True
+
+    # Обертка для клика по элементу через ActionChains
+    def __wd_click_elem(self, elem):
+        if not elem:
+            return False
+
+        # TODO: доделать обертку try-except
+        ActionChains(self.driver).move_to_element(elem).click().perform()
+        return True
+
+    # Алгоритм выбора города для всех возможных ситуаций
+    def __wd_city_selection(self):
+        modal_confirm_city = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']")
+
+        # Если нашел всплывающее окно с подтверждением города
+        if modal_confirm_city:
+            # Если сайт предлагает нужный город
+            # if modal_confirm_city.text.find(h.CURRENT_CITY) != -1:
+            if str.lower(h.CURRENT_CITY) in str.lower(modal_confirm_city.text):
+                yes_button = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']/a[text()='Да']")
+                if not self.__wd_click_elem(yes_button):
+                    logger.error("Не смог нажать на кнопку ДА")
+                    return False
+            # Иначе выбор другого
             else:
-                # Иначе выбор другого
-                self.driver.find_element_by_xpath("//div[@class='dropdown-city']/a[text()='Выбрать другой']").click()
-                # Ждем загрузки формы с выбором города и получаем input для ввода города
-                input_city = self.wait.until(presence_of_element_located((By.XPATH, "//div[@class='search-field']/"
-                                                                                    "input[@data-role='search-city']")))
-                # Отправка нужного города
-                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
+                other_button = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']/a[text()='Выбрать другой']")
+                if not self.__wd_click_elem(other_button):
+                    logger.error("Не могу нажать на кнопку ДРУГОЙ")
+                    return False
 
-        except se.NoSuchElementException:
-            # Если не нашел всплывающего окна с подтверждением города
-            city_head = self.__find_elem_by_xpath("//div[@class='w-choose-city-widget-label']")
+                # Ждем загрузки формы с выбором города и получаем input для ввода города
+                input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
+                                                                        "input[@data-role='search-city']")
+                if not input_city:
+                    logger.error("Не могу найти поле для ввода города (1)")
+                    return False
+
+                # Отправка нужного города
+                ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
+                    send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
+
+        # Если не нашел всплывающего окна с подтверждением города
+        else:
+            city_head = self.__wd_find_elem(By.XPATH, "//div[@class='w-choose-city-widget-label']")
             if not city_head:
-                logger.error("I can't choose a city!")
+                logger.error("Не могу найти элемент с текущим городом на странице")
                 return False
 
             # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
-            if city_head.text.find(h.CURRENT_CITY) == -1:
-                city_head.click()
-                input_city = self.wait.until(presence_of_element_located((By.XPATH, "//div[@class='search-field']/"
-                                                                                    "input[@data-role='search-city']")))
+            # if city_head.text.find(h.CURRENT_CITY) == -1:
+            if not (str.lower(h.CURRENT_CITY) in str.lower(city_head.text)):
+                if not self.__wd_click_elem(city_head):
+                    logger.error("Не могу кликнуть по названию города для его смены")
+                    return False
+
+                input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
+                                                                        "input[@data-role='search-city']")
+                if not input_city:
+                    logger.error("Не могу найти поле для ввода города (2)")
+                    return False
+
                 # Отправка нужного города
-                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
+                ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
+                    send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
 
         return True
-        # TODO: в мобильной версии не работает (другие классы у div)
+
+    # Проверка по ключевым div-ам что страница прогружена полностью
+    def __wd_check_load_page(self):
+        # Ожидание прогрузки цен
+        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
+            return False
+
+        print("PAGE LOAD")
+        return True
+
+    # Запуск браузера, загрузка начальной страницы парсинга, выбор города
+    def __wd_open_browser(self, url):
+        self.driver.get(url)
+
+        # Ждем, пока не прогрузится страница
+        if not self.__wd_check_load_page():
+            logger.error("Не удалось прогрузить страницу в __wd_open_browser (1)")
+            return False
+
+        # Выбор города
+        if not self.__wd_city_selection():
+            logger.error("Не могу выбрать город")
+            return False
+
+        # Ждем, пока не прогрузится страница
+        if not self.__wd_check_load_page():
+            logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
+            return False
+
+        return True
+
+    # Получить текущий код страницы
+    def __wd_get_cur_page(self):
+        return self.driver.page_source
+
+    # Переход на заданную страницу num_page через клик (для имитации пользователя)
+    def __wd_next_page(self):
+        self.cur_page += 1
+
+        # Поиск следующей кнопки страницы
+        num_page_elem = self.__wd_find_elem(By.XPATH,
+                                            f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
+        if not num_page_elem:
+            logger.info("Достигнут конец каталога")
+            return False
+
+        # Клик - переход на следующую страницу
+        if not self.__wd_click_elem(num_page_elem):
+            logger.error("Не могу кликнуть на страницу в __wd_next_page")
+            return False
+
+        # Ждем, пока не прогрузится страница
+        if not self.__wd_check_load_page():
+            logger.error("Не удалось прогрузить страницу в __wd_next_page")
+            return False
+
+        # Специальная задержка между переключениями страниц для имитации юзера
+        time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
+        return True
+
+    # Завершение работы браузера
+    def __wd_close_browser(self):
+        logger.info("Завершение работы")
+        self.driver.quit()
 
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html, url):
@@ -161,11 +310,11 @@ class DNSParse:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
         # Парсинг полученных данных
-        model_name, color, rom = self.parse_model_name(brand_name, model_name) \
+        model_name, color, rom = dns_parse_model_name(brand_name, model_name) \
             if brand_name != "error" and model_name != "error" \
             else ("error", "error", 0)
 
-        ram = self.parse_specifications(specifications) if specifications != "error" else 0
+        ram = dns_parse_specifications(specifications) if specifications != "error" else 0
 
         # Добавление полученных результатов в коллекцию
         self.result.append(h.ParseResult(
@@ -277,11 +426,11 @@ class DNSParse:
                 cur_price = int(cur_price.text.replace('₽', '').replace(' ', ''))
 
         # Парсинг полученных данных
-        model_name, color, rom = self.parse_model_name(brand_name, model_name) \
+        model_name, color, rom = dns_parse_model_name(brand_name, model_name) \
             if brand_name != "error" and model_name != "error" \
             else ("error", "error", 0)
 
-        ram = self.parse_specifications(specifications) if specifications != "error" else 0
+        ram = dns_parse_specifications(specifications) if specifications != "error" else 0
 
         # Добавление полученных результатов в коллекцию
         self.result.append(h.ParseResult(
@@ -300,83 +449,6 @@ class DNSParse:
             product_code=str.lower(product_code),
         ))
 
-    # Парсинг названия модели (получить название модели, цвет и ROM)
-    def parse_model_name(self, brand, name):
-        # Понижение регистра
-        name = str.lower(name)
-        brand = str.lower(brand)
-        # Убрать диагональ вначале строки
-        name = name.partition(' ')[2]
-        # Получить последнее слово - цвет
-        color = name.split()[-1]
-        # Получить ROM
-        rom = re.findall(r'\d+\sгб', name)[0]
-        # Если в названии указан еще и RAM через /
-        ram_rom = re.findall(r'\d+[/]\d+\sгб', name)
-        # Удалить из названия модели RAM/ROM или только ROM
-        name = name.replace(ram_rom[0] if ram_rom else rom, '')
-        # Удалить из строки ROM всё, кроме цифр
-        rom = re.findall(r'\d+', rom)[0]
-        # Удалить из строки модели цвет, название бренда и слово "смартфон"
-        name = name.replace(color, '').replace(brand, '').replace('смартфон', '')
-        # Удалить лишние пробелы
-        name = ' '.join(name.split())
-
-        return name, color, int(rom)
-
-    # Парсинг характеристик (получить RAM)
-    def parse_specifications(self, specifications):
-        # Понижение регистра
-        specifications = str.lower(specifications)
-        # Получение значения ram из строки характеристик
-        ram = re.findall(r'\d+\sгб', specifications)
-        # Удалить из строки ROM всё, кроме цифр, если эта строка не пустая, иначе 0
-        ram = re.findall(r'\d+', ram[0])[0] if ram else 0
-
-        return int(ram)
-
-    # Запуск браузера, загрузка начальной страницы парсинга, выбор города
-    def __wd_open_browser(self, url, data_find):
-        self.driver.get(url)
-
-        # Ожидание загрузки цен, таймаут = 10, в случае исключения - выход
-        if not self.__find_elem_with_timeout(By.CLASS_NAME, data_find):
-            self.driver.quit()
-            return False
-
-        # Выбор города
-        return self.__city_selection()
-
-    # Получить текущий код страницы
-    def __wd_get_cur_page(self):
-        return self.driver.page_source
-
-    # Переход на заданную страницу num_page через клик (для имитации пользователя)
-    def __wd_next_page(self):
-        self.cur_page += 1
-        try:
-            num_page_elem = self.driver.find_element_by_xpath(
-                f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
-            num_page_elem.click()
-
-            # Ждем, пока на новой странице не подгрузятся цены, только потом передаем управление
-            if not self.__find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
-                logger.info(f"Не удалось подгрузить цены на '{self.cur_page}' странице")
-                return False
-
-            time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
-            return True
-
-        # Если страница не найдена - достигнут конец каталога
-        except se.NoSuchElementException:
-            logger.info("Достигнут конец каталога")
-            return False
-
-    # Завершение работы браузера
-    def __wd_close_browser(self):
-        logger.info("Завершение работы")
-        self.driver.quit()
-
     # Сохранение всего результата в csv файл
     def __save_result(self):
         with open(h.CSV_PATH, 'w', newline='') as f:
@@ -385,6 +457,7 @@ class DNSParse:
             for item in self.result:
                 writer.writerow(item)
 
+    # Сохранение списка товаров, у которых изменились цены в csv
     def __save_price_changes(self):
         if not self.price_changes:
             logger.error("НЕТ ЗАПИСЕЙ С ИЗМЕНЕНИЕМ ЦЕН")
@@ -396,27 +469,10 @@ class DNSParse:
             for item in self.price_changes:
                 writer.writerow(item)
 
-    def __check_item_on_errors(self, item):
-        e = "error"
-        if item.category == e or \
-                item.shop == e or \
-                item.brand_name == e or \
-                item.model_name == e or \
-                item.color == e or \
-                item.img_url == e or \
-                item.product_code == e or \
-                item.ram == 0 or \
-                item.rom == 0 or \
-                item.price == 0 or \
-                item.rating == 0 or \
-                item.num_rating == 0:
-            return False
-        else:
-            return True
-
+    # Сохранение всех запарсенных данных в SQL
     def __save_result_in_db(self):
         for item in self.result:
-            if not self.__check_item_on_errors(item):
+            if not bd.check_item_on_errors(item):
                 logger.error("Продукт {} {} с артиклом {} в магазине {} содержит 'error', SKIP".format(
                     item.brand_name, item.model_name, item.product_code, item.shop))
                 continue
@@ -459,13 +515,16 @@ class DNSParse:
                 ))
 
     # Запуск работы парсера для каталога
-    def run_catalog(self, url):
+    def run_catalog(self, url, cur_page=None):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-        if not self.__wd_open_browser(url, "product-min-price__current"):
+        if not self.__wd_open_browser(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return
+
+        if cur_page:
+            self.cur_page = cur_page
 
         while True:
             html = self.__wd_get_cur_page()
@@ -474,9 +533,9 @@ class DNSParse:
                 break
 
         self.__wd_close_browser()
-        self.__save_result_in_db()
+        # self.__save_result_in_db()
         self.__save_result()
-        self.__save_price_changes()
+        # self.__save_price_changes()
         print(self.result)
         self.db.disconnect()
 
@@ -499,9 +558,18 @@ class DNSParse:
         self.db.disconnect()
 
 
+models = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
+          '6.95" Смартфон Tecno Spark 5 Air 32 ГБ зеленый',
+          '6.53" Смартфон Xiaomi Redmi 9C NFC 64 ГБ оранжевый',
+          '6.5" Смартфон Samsung Galaxy A21s 32 ГБ красный',
+          '7.6" Смартфон Samsung Galaxy Z Fold2 256 ГБ коричневый',
+          '6.5" Смартфон realme 6 4/128 ГБ синий',
+          '4.7" Смартфон Apple iPhone 7 32 Гб черный матовый')
+
+
 if __name__ == '__main__':
     time_start = time.time()
     parser = DNSParse()
-    parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
-    # parser.run_product("https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/")
+    parser.run_catalog(
+        "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&price=18001-27000&stock=1")
     print(f"Время выполнения: {time.time() - time_start} сек")

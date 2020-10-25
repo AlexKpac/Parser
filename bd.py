@@ -5,6 +5,23 @@ import sql_req as sr
 import header as h
 
 
+# Функция, которая вернет true, если хоть у одного поля поврежденные данные
+def check_item_on_errors(item):
+    e = "error"
+    if item.category == e or \
+            item.shop == e or \
+            item.brand_name == e or \
+            item.model_name == e or \
+            item.color == e or \
+            item.img_url == e or \
+            item.product_code == e or \
+            item.rom == 0 or \
+            item.price == 0:
+        return False
+    else:
+        return True
+
+
 class DataBase:
     def __init__(self):
         self.connection = None
@@ -207,37 +224,24 @@ class DataBase:
             print("ERROR get category_name or shop_name = {}".format(e))
             return False
 
-        e = "error"
-        if category_name == e or \
-                shop_name == e or \
-                brand_name == e or \
-                model_name == e or \
-                var_color == e or \
-                img_url == e or \
-                product_code == e or \
-                var_ram == 0 or \
-                var_rom == 0 or \
-                price == 0 or \
-                local_rating == 0 or \
-                num_rating == 0:
-            print("КАКОГО ХУЯ ЭТА ЗАПИСЬ ЗДЕСЬ ДЕЛАЕТ {} {} {} {}".format(brand_name, model_name, url, price))
-            return
-
         id_product = self.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
         # + Продукт присутствует в #products_table
         if id_product:
-            id_product = id_product[0][0]; print("id_product = {}".format(id_product))
+            id_product = id_product[0][0];
+            print("id_product = {}".format(id_product))
             id_ver_phone = self.execute_read_query(sr.select_id_ver_phone_query,
                                                    (id_product, var_color, var_ram, var_rom))
             # ++ Комплектация присутствует в #version_phones_table
             if id_ver_phone:
-                id_ver_phone = id_ver_phone[0][0]; print("id_ver_phone = {}".format(id_ver_phone))
+                id_ver_phone = id_ver_phone[0][0];
+                print("id_ver_phone = {}".format(id_ver_phone))
                 id_shop_phone = self.execute_read_query(sr.select_id_shop_phone_query,
                                                         (id_ver_phone, id_shop_name))
 
                 # +++ Данную комплектацию можно купить в #shop_phones_table
                 if id_shop_phone:
-                    id_shop_phone = id_shop_phone[0][0]; print("id_shop_phone = {}".format(id_shop_phone))
+                    id_shop_phone = id_shop_phone[0][0];
+                    print("id_shop_phone = {}".format(id_shop_phone))
                     price_phone = self.execute_read_query(sr.select_price_in_price_phone_query, (id_shop_phone,))
 
                     # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
@@ -255,22 +259,28 @@ class DataBase:
                 # --- Данную комплектацию нельзя купить, отсутствует в #shop_phones_table
                 else:
                     print("Такой комплектации нет в данном магазине, добавляю магазин и цену")
-                    id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
+                    id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone,
+                                                                             url, product_code, local_rating,
+                                                                             num_rating)
                     self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
 
             # -- Комплектация отсутствует в #version_phones_table
             else:
                 print("Данная комплектация отсутствует в списке комплектаций, добавляю комплектацию, магазин, цену")
-                id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom, img_url)
-                id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
+                id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom,
+                                                                              img_url)
+                id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url,
+                                                                         product_code, local_rating, num_rating)
                 self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
 
         # - Продукт отсутствует в #products_table
         else:
             print("Данный продукт отсутствует в products_table, добавляю продукт, комплектацию, магазин, цену")
             id_product = self.__insert_product_in_products_table(id_category_name, brand_name, model_name, 0)
-            id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom, img_url)
-            id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url, product_code, local_rating, num_rating)
+            id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_color, var_ram, var_rom,
+                                                                          img_url)
+            id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url,
+                                                                     product_code, local_rating, num_rating)
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
 
         return False

@@ -19,16 +19,18 @@ logger = h.logging.getLogger('mvideoparse')
 
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
-def parse_model_name(name):
+def mvideo_parse_model_name(name):
     # Защита от неправильных названий
     if len(name.split()) < 5:
         return "error", "error", "error"
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
-    rebuilt = ' восст.' if name.find(' восст.') != -1 else ''
+    rebuilt = ' восст.' if (' восст.' in name) else ''
     name = name.replace(rebuilt, '')
     # Оборачивание скобками названия модели, если их не было
     last_word = name.split()[-1]
-    if last_word.isupper() and last_word.find('(') == -1 and last_word.find(')') == -1:
+    if last_word.isupper() and \
+            not ('(' in last_word) and \
+            not (')' in last_word):
         name = name.replace(last_word, '({})'.format(last_word))
     # Понижение регистра
     name = str.lower(name)
@@ -52,23 +54,6 @@ def parse_model_name(name):
     name = name.replace(color, '').replace(brand_name, '').strip()
 
     return brand_name, (name + rebuilt), color
-
-
-# Функция, которая вернет true, если хоть у одного поля поврежденные данные
-def check_item_on_errors(item):
-    e = "error"
-    if item.category == e or \
-            item.shop == e or \
-            item.brand_name == e or \
-            item.model_name == e or \
-            item.color == e or \
-            item.img_url == e or \
-            item.product_code == e or \
-            item.rom == 0 or \
-            item.price == 0:
-        return False
-    else:
-        return True
 
 
 # Парсер МВидео
@@ -134,7 +119,8 @@ class MVideoParse:
             return False
 
         # Если указан неверный город
-        if str.lower(city.text).find(str.lower(h.CURRENT_CITY)) == -1:
+        # if str.lower(city.text).find(str.lower(h.CURRENT_CITY)) == -1:
+        if not (str.lower(h.CURRENT_CITY) in str.lower(city.text)):
 
             # Клик по городу
             if not self.__wd_click_elem(city):
@@ -145,7 +131,8 @@ class MVideoParse:
             city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "city-list__item")
             if city_list:
                 for item in city_list:
-                    if str.lower(item.text).find(str.lower(h.CURRENT_CITY)) != -1:
+                    # if str.lower(item.text).find(str.lower(h.CURRENT_CITY)) != -1:
+                    if str.lower(h.CURRENT_CITY) in str.lower(item.text):
                         time.sleep(1.5)
                         return self.__wd_click_elem(item)
             else:
@@ -306,12 +293,12 @@ class MVideoParse:
         logger.info("Завершение работы")
         self.driver.quit()
 
-        # Метод для парсинга html страницы продукта
-        def __parse_product_page(self, html, url):
-            soup = bs4.BeautifulSoup(html, 'lxml')
+    # Метод для парсинга html страницы продукта
+    def __parse_product_page(self, html, url):
+        soup = bs4.BeautifulSoup(html, 'lxml')
 
-            product_block = soup.select_one("div#product-page")
-            # TODO: Дописать парсинг страницы товара
+        product_block = soup.select_one("div#product-page")
+        # TODO: Дописать парсинг страницы товара
 
     # Метод для парсинга html страницы каталога
     def __parse_catalog_page(self, html):
@@ -374,9 +361,9 @@ class MVideoParse:
             logger.error("No RAM and ROM")
         else:
             for item in specifications:
-                if str.lower(item.text).find("ram") != -1:
+                if "ram" in str.lower(item.text):
                     ram = int(re.findall(r'\d+', item.text)[0])
-                if str.lower(item.text).find("rom") != -1:
+                if "rom" in str.lower(item.text):
                     rom = int(re.findall(r'\d+', item.text)[0])
 
         # Парсинг цен
@@ -396,7 +383,7 @@ class MVideoParse:
         product_code = url[-8:] if len(url) > 8 else "error"
 
         # Парсинг полученных данных
-        brand_name, model_name, color = parse_model_name(model_name) \
+        brand_name, model_name, color = mvideo_parse_model_name(model_name) \
             if model_name != "error" \
             else ("error", "error", "error")
 
@@ -440,7 +427,7 @@ class MVideoParse:
     # Сохранение всех запарсенных данных в SQL
     def __save_result_in_db(self):
         for item in self.result:
-            if not check_item_on_errors(item):
+            if not bd.check_item_on_errors(item):
                 logger.error("Продукт {} {} с артиклом {} в магазине {} содержит 'error' или 0, SKIP".format(
                     item.brand_name, item.model_name, item.product_code, item.shop))
                 continue
@@ -485,6 +472,7 @@ class MVideoParse:
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+
         if not self.__wd_open_browser(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
