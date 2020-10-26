@@ -109,8 +109,8 @@ class DNSParse:
         ActionChains(self.driver).move_to_element(elem).click().perform()
         return True
 
-    # Алгоритм выбора города для всех возможных ситуаций
-    def __wd_city_selection(self):
+    # Алгоритм выбора города для всех возможных ситуаций на странице каталога
+    def __wd_city_selection_catalog(self):
         modal_confirm_city = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']")
 
         # Если нашел всплывающее окно с подтверждением города
@@ -166,8 +166,12 @@ class DNSParse:
 
         return True
 
-    # Проверка по ключевым div-ам что страница прогружена полностью
-    def __wd_check_load_page(self):
+    # Алгоритм выбора города для всех возмодных ситуаций на странице продукта
+    def __wd_city_selection_product(self):
+        pass
+
+    # Проверка по ключевым div-ам что страница каталога прогружена полностью
+    def __wd_check_load_page_catalog(self):
         # Ожидание прогрузки цен
         if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
             return False
@@ -175,26 +179,34 @@ class DNSParse:
         print("PAGE LOAD")
         return True
 
-    # Запуск браузера, загрузка начальной страницы парсинга, выбор города
-    def __wd_open_browser(self, url):
+    # Проверка по ключевым div-ам что страница продукта прогружена полностью
+    def __wd_check_load_page_product(self):
+        pass
+
+    # Запуск браузера, загрузка начальной страницы каталога, выбор города
+    def __wd_open_browser_catalog(self, url):
         self.driver.get(url)
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (1)")
             return False
 
         # Выбор города
-        if not self.__wd_city_selection():
+        if not self.__wd_city_selection_catalog():
             logger.error("Не могу выбрать город")
             return False
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
             return False
 
         return True
+
+    # Запуск браузера, загрузка начальной страницы продукта, выбор города
+    def __wd_open_browser_product(self, url):
+        pass
 
     # Получить текущий код страницы
     def __wd_get_cur_page(self):
@@ -217,7 +229,7 @@ class DNSParse:
             return False
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_next_page")
             return False
 
@@ -518,7 +530,7 @@ class DNSParse:
     def run_catalog(self, url, cur_page=None):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-        if not self.__wd_open_browser(url):
+        if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return
@@ -543,7 +555,7 @@ class DNSParse:
     def run_product(self, url):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-        if not self.__wd_open_browser(url, "product-card-price__current"):
+        if not self.__wd_open_browser_catalog(url, "product-card-price__current"):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return

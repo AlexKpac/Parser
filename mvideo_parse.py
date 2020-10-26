@@ -112,15 +112,14 @@ class MVideoParse:
         ActionChains(self.driver).move_to_element(elem).click().perform()
         return True
 
-    # Алгоритм выбора города для всех возможных ситуаций
-    def __wd_city_selection(self):
+    # Алгоритм выбора города для всех возможных ситуаций для страницы каталога
+    def __wd_city_selection_catalog(self):
         city = self.__wd_find_elem_with_timeout(By.XPATH, "//button[@class='region-selection__select']")
         if not city:
             logger.error("Не найдено поле с названием города")
             return False
 
         # Если указан неверный город
-        # if str.lower(city.text).find(str.lower(h.CURRENT_CITY)) == -1:
         if not (str.lower(h.CURRENT_CITY) in str.lower(city.text)):
 
             # Клик по городу
@@ -166,8 +165,63 @@ class MVideoParse:
 
         return True
 
-    # Проверка по ключевым div-ам что страница прогружена полностью
-    def __wd_check_load_page(self):
+    # Алгоритм выбора города для всех возможных ситуаций для страницы продукта
+    def __wd_city_selection_product(self):
+        city = self.__wd_find_elem_with_timeout(By.ID, "header-city-selection-link")
+        if not city:
+            logger.error("Не найдено поле с названием города")
+            return False
+
+        # Если указан неверный город
+        if not (str.lower(h.CURRENT_CITY) in str.lower(city.text)):
+
+            # Клик по городу
+            if not self.__wd_click_elem(city):
+                logger.error("Не могу нажать на кнопку выбора города")
+                return False
+
+            # Получить список всех городов и если есть нужный, кликнуть по нему
+            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "city-selection-popup-results")
+            if city_list:
+                city_list = self.__wd_find_all_elems_with_timeout(By.XPATH, "//li")
+                for item in city_list:
+                    if str.lower(h.CURRENT_CITY) in str.lower(item.text):
+                        time.sleep(1.5)
+                        return self.__wd_click_elem(item)
+            else:
+                logger.warning("Нет списка городов, попробую вбить вручную")
+
+            # Поиск поля для ввода города
+            input_city = self.__wd_find_elem_with_timeout(By.ID, "region-selection-form-city-input")
+            if not input_city:
+                logger.error("Не найдено поле, куда вводить новый город")
+                return False
+
+            self.__wd_click_elem(input_city)
+            time.sleep(1.5)
+            # Ввод названия города по буквам
+            for char in h.CURRENT_CITY:
+                self.__wd_send_keys(input_city, char)
+                time.sleep(0.2)
+
+            # Если не поставить задержку, окно закрывает, а город не применяет
+            time.sleep(1.5)
+
+            # Выбор города из сгенерированного списка городов
+            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//a[@class='sel-droplist-cities']")
+            if not input_city_item:
+                logger.error("Не найдено элементов при вводе города")
+                return False
+
+            # Клик по нему
+            if not self.__wd_click_elem(input_city_item):
+                logger.error("Не могу нажать на выбранный город")
+                return False
+
+        return True
+
+    # Проверка по ключевым div-ам что страница каталога прогружена полностью
+    def __wd_check_load_page_catalog(self):
         # Ожидание прогрузки пагинации
         if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "pagination__group"):
             return False
@@ -183,6 +237,19 @@ class MVideoParse:
 
         # Ожидание прогрузки переключателя вида товара
         if not self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-views__inner-area']"):
+            return False
+
+        print("PAGE LOAD")
+        return True
+
+    # Проверка по ключевым div-ам что страница товара прогружена полностью
+    def __wd_check_load_page_product(self):
+        # Ожидание прогрузки цен
+        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "fl-pdp-price__current"):
+            return False
+
+        # Ожидание прогрузки изображения товара
+        if not self.__wd_find_elem_with_timeout(By.XPATH, "//img[@class='c-media-container__image']"):
             return False
 
         print("PAGE LOAD")
@@ -211,22 +278,22 @@ class MVideoParse:
 
         return True
 
-    # Запуск браузера, загрузка начальной страницы парсинга, выбор города
-    def __wd_open_browser(self, url):
+    # Запуск браузера, загрузка начальной страницы каталога, выбор города
+    def __wd_open_browser_catalog(self, url):
         self.driver.get(url)
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (1)")
             return False
 
         # Выбор города (срабатывает не всегда с первого раза)
-        if not self.__wd_city_selection():
+        if not self.__wd_city_selection_catalog():
             print("Не могу выбрать город")
             return False
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
             return False
 
@@ -236,8 +303,29 @@ class MVideoParse:
             return False
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (3)")
+            return False
+
+        return True
+
+    # Запуск браузера, загрузка начальной страницы парсинга, выбор города
+    def __wd_open_browser_product(self, url):
+        self.driver.get(url)
+
+        # Ждем, пока не прогрузится страница
+        if not self.__wd_check_load_page_product():
+            logger.error("Не удалось прогрузить страницу в __wd_open_browser (1)")
+            return False
+
+        # Выбор города
+        if not self.__wd_city_selection_product():
+            print("Не могу выбрать город")
+            return False
+
+        # Ждем, пока не прогрузится страница
+        if not self.__wd_check_load_page_product():
+            logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
             return False
 
         return True
@@ -262,7 +350,7 @@ class MVideoParse:
             return False
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_next_page")
             return False
 
@@ -279,9 +367,8 @@ class MVideoParse:
         self.wait.until_not(ec.presence_of_element_located((By.CLASS_NAME,
                                                             "price-block with-blur product-list-card__price")))
 
-
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page():
+        if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_next_page / товар распродан (нет цен на всей странице)")
             return False
 
@@ -297,9 +384,105 @@ class MVideoParse:
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html, url):
         soup = bs4.BeautifulSoup(html, 'lxml')
+        product_block = soup.select_one("div.main-holder")
 
-        product_block = soup.select_one("div#product-page")
-        # TODO: Дописать парсинг страницы товара
+        # Категория
+        category = product_block.select_one('meta[itemprop="category"]')
+        if not category:
+            logger.error("No brand name")
+            category = "error"
+        else:
+            category = category.get('content').strip()
+
+        # Бренд
+        brand_name = product_block.select_one('meta[itemprop="brand"]')
+        if not brand_name:
+            logger.error("No brand name")
+            brand_name = "error"
+        else:
+            brand_name = brand_name.get('content').strip()
+
+        # Название модели
+        model_name = product_block.select_one('h1.e-h1.sel-product-title')
+        if not model_name:
+            logger.error("No model name")
+            model_name = "error"
+        else:
+            model_name = model_name.text.strip()
+
+        # Ссылка на изображение
+        img_url = product_block.select_one('img.c-media-container__image')
+        if not img_url:
+            logger.error("No img url")
+            img_url = "error"
+        else:
+            img_url = img_url.get('src')
+
+        # RAM и ROM
+        ram, rom = 0, 0
+        specifications = product_block.select_one('table.c-specification__table')
+        if not specifications:
+            logger.error("No specifications")
+        else:
+            specifications = specifications.select('tr')
+            for item in specifications:
+                if "ram" in str.lower(item.text):
+                    ram = int(re.findall(r'\d+', item.text)[0])
+                if "rom" in str.lower(item.text):
+                    rom = int(re.findall(r'\d+', item.text)[0])
+
+        # Код продукта
+        product_code = product_block.select_one('p.c-product-code')
+        if not product_code:
+            logger.error("No product code")
+            product_code = "error"
+        else:
+            product_code = product_code.text.replace(' ', '')
+
+        # Цена
+        price = product_block.select_one('div.fl-pdp-price__current')
+        if not price:
+            logger.error("No price")
+            price = 0
+        else:
+            price = re.findall(r'\d+', price.text)
+            price = int(''.join(str(x) for x in price))
+
+        # Рейтинг
+        rating = product_block.select_one('span.c-star-rating__stars.c-star-rating__stars_active.font-icon.icon-star')
+        if not rating:
+            rating = 0
+        else:
+            rating = float(re.findall(r'\d+', rating.get('style'))[0])
+            rating = (5.0 * rating / 100.0) if (rating and rating != 1) else 0
+
+        # На основании скольки отзывов построен рейтинг
+        num_rating = product_block.select_one('span.c-star-rating_reviews-qty')
+        if not num_rating:
+            num_rating = 0
+        else:
+            num_rating = int(re.findall(r'\d+', num_rating.text.replace(' ', ''))[0])
+
+        brand_name, model_name, color = mvideo_parse_model_name(model_name) \
+            if model_name != "error" \
+            else ("error", "error", "error")
+
+        # Добавление полученных результатов в коллекцию
+        self.result.append(h.ParseResult(
+            shop=self.shop,
+            category=str.lower(category),
+            brand_name=str.lower(brand_name),
+            model_name=str.lower(model_name),
+            color=str.lower(color),
+            price=price,
+            ram=ram,
+            rom=rom,
+            img_url=str.lower(img_url),
+            url=str.lower(url),
+            rating=rating,
+            num_rating=num_rating,
+            product_code=str.lower(product_code),
+        ))
 
     # Метод для парсинга html страницы каталога
     def __parse_catalog_page(self, html):
@@ -474,7 +657,7 @@ class MVideoParse:
     def run_catalog(self, url, cur_page=None):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-        if not self.__wd_open_browser(url):
+        if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return
@@ -496,9 +679,9 @@ class MVideoParse:
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
-        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+        # self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-        if not self.__wd_open_browser(url, "product-card-price__current"):
+        if not self.__wd_open_browser_product(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return
@@ -506,9 +689,10 @@ class MVideoParse:
         html = self.__wd_get_cur_page()
         self.__parse_product_page(html, url)
         self.__wd_close_browser()
-        self.__save_result()
-        self.__save_result_in_db()
-        self.db.disconnect()
+        print(self.result[0])
+        # self.__save_result()
+        # self.__save_result_in_db()
+        # self.db.disconnect()
 
 
 models = ('Смартфон Samsung Galaxy S10 Оникс',
@@ -533,5 +717,6 @@ models = ('Смартфон Samsung Galaxy S10 Оникс',
 if __name__ == '__main__':
     time_start = time.time()
     parser = MVideoParse()
-    parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205/f/brand=apple,samsung/pickup=da")
+    # parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205/f/brand=apple,samsung/pickup=da")
+    parser.run_product("https://www.mvideo.ru/products/smartfon-zte-blade-l130-blue-30044612")
     print(f"Время выполнения: {time.time() - time_start} сек")
