@@ -105,9 +105,18 @@ class DNSParse:
         if not elem:
             return False
 
+        for i in range(3):
+            try:
+                elem.click()
+                return True
+            except se.ElementClickInterceptedException:
+                logger.warning("Не могу кликнуть на элемент, пробую еще")
+                time.sleep(1.5)
+
+        return False
         # TODO: доделать обертку try-except
-        ActionChains(self.driver).move_to_element(elem).click().perform()
-        return True
+        # ActionChains(self.driver).move_to_element(elem).click().perform()
+        # return True
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
@@ -215,6 +224,8 @@ class DNSParse:
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
         self.cur_page += 1
+
+        self.__wd_find_elem(By.CLASS_NAME, "ui-radio__content").click()
 
         # Поиск следующей кнопки страницы
         num_page_elem = self.__wd_find_elem(By.XPATH,
@@ -583,5 +594,5 @@ if __name__ == '__main__':
     time_start = time.time()
     parser = DNSParse()
     parser.run_catalog(
-        "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=1&groupBy=none&price=18001-27000&stock=1")
+        "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
     print(f"Время выполнения: {time.time() - time_start} сек")

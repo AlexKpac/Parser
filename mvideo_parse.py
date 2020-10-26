@@ -674,7 +674,7 @@ class MVideoParse:
         self.__wd_close_browser()
         self.__save_result_in_db()
         self.__save_result()
-        # self.__save_price_changes()
+        self.__save_price_changes()
         self.db.disconnect()
 
     # Запуск работы парсера для продукта
