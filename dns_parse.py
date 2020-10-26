@@ -556,10 +556,10 @@ class DNSParse:
                 break
 
         self.__wd_close_browser()
-        # self.__save_result_in_db()
+        self.__save_result_in_db()
         self.__save_result()
-        # self.__save_price_changes()
-        print(self.result)
+        self.__save_price_changes()
+        # print(self.result)
         self.db.disconnect()
 
     # Запуск работы парсера для продукта
@@ -577,7 +577,6 @@ class DNSParse:
         self.__save_result()
         self.__save_result_in_db()
         print(self.result)
-
         self.db.disconnect()
 
 

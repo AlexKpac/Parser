@@ -679,7 +679,7 @@ class MVideoParse:
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
-        # self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
         if not self.__wd_open_browser_product(url):
             logger.error("Open browser fail")
@@ -690,9 +690,9 @@ class MVideoParse:
         self.__parse_product_page(html, url)
         self.__wd_close_browser()
         print(self.result[0])
-        # self.__save_result()
-        # self.__save_result_in_db()
-        # self.db.disconnect()
+        self.__save_result()
+        self.__save_result_in_db()
+        self.db.disconnect()
 
 
 models = ('Смартфон Samsung Galaxy S10 Оникс',
