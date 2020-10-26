@@ -717,6 +717,6 @@ models = ('Смартфон Samsung Galaxy S10 Оникс',
 if __name__ == '__main__':
     time_start = time.time()
     parser = MVideoParse()
-    # parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205/f/brand=apple,samsung/pickup=da")
-    parser.run_product("https://www.mvideo.ru/products/smartfon-zte-blade-l130-blue-30044612")
+    parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # parser.run_product("https://www.mvideo.ru/products/smartfon-zte-blade-l130-blue-30044612")
     print(f"Время выполнения: {time.time() - time_start} сек")

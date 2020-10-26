@@ -101,22 +101,22 @@ class DNSParse:
         return True
 
     # Обертка для клика по элементу через ActionChains
-    def __wd_click_elem(self, elem):
-        if not elem:
-            return False
-
-        for i in range(3):
-            try:
-                elem.click()
-                return True
-            except se.ElementClickInterceptedException:
-                logger.warning("Не могу кликнуть на элемент, пробую еще")
-                time.sleep(1.5)
-
-        return False
-        # TODO: доделать обертку try-except
-        # ActionChains(self.driver).move_to_element(elem).click().perform()
-        # return True
+    # def __wd_click_elem(self, elem):
+    #     if not elem:
+    #         return False
+    #
+    #     for i in range(3):
+    #         try:
+    #             elem.click()
+    #             return True
+    #         except se.ElementClickInterceptedException:
+    #             logger.warning("Не могу кликнуть на элемент, пробую еще")
+    #             time.sleep(1.5)
+    #
+    #     return False
+    #     # TODO: доделать обертку try-except
+    #     # ActionChains(self.driver).move_to_element(elem).click().perform()
+    #     # return True
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
@@ -128,15 +128,25 @@ class DNSParse:
             # if modal_confirm_city.text.find(h.CURRENT_CITY) != -1:
             if str.lower(h.CURRENT_CITY) in str.lower(modal_confirm_city.text):
                 yes_button = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']/a[text()='Да']")
-                if not self.__wd_click_elem(yes_button):
-                    logger.error("Не смог нажать на кнопку ДА")
+                if not yes_button:
+                    logger.error("Не вижу кнопки ДА")
                     return False
+
+                yes_button.click()
+                # if not self.__wd_click_elem(yes_button):
+                #     logger.error("Не смог нажать на кнопку ДА")
+                #     return False
             # Иначе выбор другого
             else:
                 other_button = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']/a[text()='Выбрать другой']")
-                if not self.__wd_click_elem(other_button):
-                    logger.error("Не могу нажать на кнопку ДРУГОЙ")
+                if not other_button:
+                    logger.error("Не вижу кнопки ДРУГОЙ ГОРОД")
                     return False
+
+                other_button.click()
+                # if not self.__wd_click_elem(other_button):
+                #     logger.error("Не могу нажать на кнопку ДРУГОЙ")
+                #     return False
 
                 # Ждем загрузки формы с выбором города и получаем input для ввода города
                 input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
@@ -159,9 +169,10 @@ class DNSParse:
             # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
             # if city_head.text.find(h.CURRENT_CITY) == -1:
             if not (str.lower(h.CURRENT_CITY) in str.lower(city_head.text)):
-                if not self.__wd_click_elem(city_head):
-                    logger.error("Не могу кликнуть по названию города для его смены")
-                    return False
+                city_head.click()
+                # if not self.__wd_click_elem(city_head):
+                #     logger.error("Не могу кликнуть по названию города для его смены")
+                #     return False
 
                 input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
                                                                         "input[@data-role='search-city']")
@@ -225,8 +236,6 @@ class DNSParse:
     def __wd_next_page(self):
         self.cur_page += 1
 
-        self.__wd_find_elem(By.CLASS_NAME, "ui-radio__content").click()
-
         # Поиск следующей кнопки страницы
         num_page_elem = self.__wd_find_elem(By.XPATH,
                                             f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
@@ -235,9 +244,10 @@ class DNSParse:
             return False
 
         # Клик - переход на следующую страницу
-        if not self.__wd_click_elem(num_page_elem):
-            logger.error("Не могу кликнуть на страницу в __wd_next_page")
-            return False
+        num_page_elem.click()
+        # if not self.__wd_click_elem(num_page_elem):
+        #     logger.error("Не могу кликнуть на страницу в __wd_next_page")
+        #     return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -559,7 +569,6 @@ class DNSParse:
         self.__save_result_in_db()
         self.__save_result()
         self.__save_price_changes()
-        # print(self.result)
         self.db.disconnect()
 
     # Запуск работы парсера для продукта
