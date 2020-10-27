@@ -156,8 +156,9 @@ class DNSParse:
                     return False
 
                 # Отправка нужного города
-                ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
-                    send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
+                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
+                # ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
+                #     send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
 
         # Если не нашел всплывающего окна с подтверждением города
         else:
@@ -181,8 +182,9 @@ class DNSParse:
                     return False
 
                 # Отправка нужного города
-                ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
-                    send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
+                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
+                # ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
+                #     send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
 
         return True
 
@@ -235,28 +237,48 @@ class DNSParse:
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
         self.cur_page += 1
+        try:
+            num_page_elem = self.driver.find_element_by_xpath(
+                f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
+            num_page_elem.click()
 
-        # Поиск следующей кнопки страницы
-        num_page_elem = self.__wd_find_elem(By.XPATH,
-                                            f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
-        if not num_page_elem:
+            # Ждем, пока на новой странице не подгрузятся цены, только потом передаем управление
+            if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
+                logger.info(f"Не удалось подгрузить цены на '{self.cur_page}' странице")
+                return False
+
+            time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
+            return True
+
+        # Если страница не найдена - достигнут конец каталога
+        except se.NoSuchElementException:
             logger.info("Достигнут конец каталога")
             return False
 
-        # Клик - переход на следующую страницу
-        num_page_elem.click()
-        # if not self.__wd_click_elem(num_page_elem):
-        #     logger.error("Не могу кликнуть на страницу в __wd_next_page")
+
+        # self.cur_page += 1
+        #
+        # # Поиск следующей кнопки страницы
+        # num_page_elem = self.__wd_find_elem(By.XPATH,
+        #                                     f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
+        # if not num_page_elem:
+        #     logger.info("Достигнут конец каталога")
         #     return False
-
-        # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page")
-            return False
-
-        # Специальная задержка между переключениями страниц для имитации юзера
-        time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
-        return True
+        #
+        # # Клик - переход на следующую страницу
+        # num_page_elem.click()
+        # # if not self.__wd_click_elem(num_page_elem):
+        # #     logger.error("Не могу кликнуть на страницу в __wd_next_page")
+        # #     return False
+        #
+        # # Ждем, пока не прогрузится страница
+        # if not self.__wd_check_load_page_catalog():
+        #     logger.error("Не удалось прогрузить страницу в __wd_next_page")
+        #     return False
+        #
+        # # Специальная задержка между переключениями страниц для имитации юзера
+        # time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
+        # return True
 
     # Завершение работы браузера
     def __wd_close_browser(self):
