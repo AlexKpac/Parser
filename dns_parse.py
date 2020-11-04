@@ -2,6 +2,7 @@ import time
 import re
 import csv
 import datetime
+import configparser
 
 import bs4
 import selenium.common.exceptions as se
@@ -10,6 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.expected_conditions import presence_of_element_located
+
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
@@ -22,8 +24,8 @@ logger = h.logging.getLogger('dnsparse')
 # Парсинг названия модели (получить название модели, цвет и ROM)
 def dns_parse_model_name(brand, name):
     # Понижение регистра
-    name = str.lower(name)
-    brand = str.lower(brand)
+    name = name.lower()
+    brand = brand.lower()
     # Убрать диагональ вначале строки
     name = name.partition(' ')[2]
     # Получить цвет
@@ -47,7 +49,7 @@ def dns_parse_model_name(brand, name):
 # Парсинг характеристик (получить RAM)
 def dns_parse_specifications(specifications):
     # Понижение регистра
-    specifications = str.lower(specifications)
+    specifications = specifications.lower()
     # Получение значения ram из строки характеристик
     ram = re.findall(r'\d+\sгб', specifications)
     # Удалить из строки ROM всё, кроме цифр, если эта строка не пустая, иначе 0
@@ -67,9 +69,13 @@ class DNSParse:
         self.driver.implicitly_wait(1.5)
         self.result = []
         self.price_changes = []
-        self.domain = "https://www.dns-shop.ru/"
+        self.domain = "https://www.dns-shop.ru"
         self.shop = "dns"
         self.db = bd.DataBase()
+        self.config = configparser.ConfigParser()
+        self.config.read('conf.ini', encoding="utf-8")
+        self.current_city = self.config.defaults()['current_city']
+        self.wait_between_pages_sec = int(self.config.defaults()['wait_between_pages_sec'])
 
     # Обертка поиска элемента для обработки исключений
     def __wd_find_elem(self, by, xpath):
@@ -93,30 +99,36 @@ class DNSParse:
 
     # Отправка клавиши в элемент через ActionChains
     def __wd_send_keys(self, elem, keys):
+        pass
+        #     if not elem:
+        #         return False
+        #
+        #     # TODO: доделать обертку try-except
+        #     ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        #     return True
+
+    # Обертка для клика по элементу через ActionChains
+    def __wd_click_elem(self, elem):
         if not elem:
             return False
 
-        # TODO: доделать обертку try-except
-        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        elem.click()
         return True
-
-    # Обертка для клика по элементу через ActionChains
-    # def __wd_click_elem(self, elem):
-    #     if not elem:
-    #         return False
-    #
-    #     for i in range(3):
-    #         try:
-    #             elem.click()
-    #             return True
-    #         except se.ElementClickInterceptedException:
-    #             logger.warning("Не могу кликнуть на элемент, пробую еще")
-    #             time.sleep(1.5)
-    #
-    #     return False
-    #     # TODO: доделать обертку try-except
-    #     # ActionChains(self.driver).move_to_element(elem).click().perform()
-    #     # return True
+        # TODO: доделать обертку try-except
+        ActionChains(self.driver).move_to_element(elem).click().perform()
+        return True
+        # if not elem:
+        #     return False
+        #
+        # for i in range(3):
+        #     try:
+        #         elem.click()
+        #         return True
+        #     except se.ElementClickInterceptedException:
+        #         logger.warning("Не могу кликнуть на элемент, пробую еще")
+        #         time.sleep(1.5)
+        #
+        # return False
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
@@ -126,7 +138,7 @@ class DNSParse:
         if modal_confirm_city:
             # Если сайт предлагает нужный город
             # if modal_confirm_city.text.find(h.CURRENT_CITY) != -1:
-            if str.lower(h.CURRENT_CITY) in str.lower(modal_confirm_city.text):
+            if self.current_city.lower() in modal_confirm_city.text.lower():
                 yes_button = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']/a[text()='Да']")
                 if not yes_button:
                     logger.error("Не вижу кнопки ДА")
@@ -156,7 +168,7 @@ class DNSParse:
                     return False
 
                 # Отправка нужного города
-                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
+                input_city.send_keys(self.current_city, Keys.ENTER)
                 # ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
                 #     send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
 
@@ -169,7 +181,7 @@ class DNSParse:
 
             # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
             # if city_head.text.find(h.CURRENT_CITY) == -1:
-            if not (str.lower(h.CURRENT_CITY) in str.lower(city_head.text)):
+            if not (self.current_city.lower() in city_head.text.lower()):
                 city_head.click()
                 # if not self.__wd_click_elem(city_head):
                 #     logger.error("Не могу кликнуть по названию города для его смены")
@@ -182,7 +194,7 @@ class DNSParse:
                     return False
 
                 # Отправка нужного города
-                input_city.send_keys(h.CURRENT_CITY, Keys.ENTER)
+                input_city.send_keys(self.current_city, Keys.ENTER)
                 # ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
                 #     send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
 
@@ -237,24 +249,77 @@ class DNSParse:
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
         self.cur_page += 1
+
+        # Поиск следующей кнопки страницы
+        num_page_elem = self.__wd_find_elem(By.XPATH,
+                                            f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
+        if not num_page_elem:
+            logger.info("Достигнут конец каталога")
+            return False
+
+        # Клик - переход на следующую страницу
+        if not self.__wd_click_elem(num_page_elem):
+            logger.error("Не могу кликнуть на страницу в __wd_next_page")
+            return False
+
+        # Ждем, пока не прогрузится страница
+        if not self.__wd_check_load_page_catalog():
+            logger.error("Не удалось прогрузить страницу в __wd_next_page")
+            return False
+
+        # Особенность МВидео - при переключении страницы, пока сайт ждет ответ от сервера,
+        # оставляет старые данные с эффектом размытия. Ждем, пока они не исчезнут
+        try:
+            self.wait.until_not(presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
+                self.result[-5].url.replace(self.domain, '')))))
+        except se.TimeoutException:
+            logger.error("TimeoutException в __wd_next_page")
+            logger.error("cur_page = {}\nresult[-1] = {}", self.cur_page, self.result[-5].url.replace(self.domain, ''))
+            raise se.TimeoutException
+
+        # Ждем, пока не прогрузится страница
+        if not self.__wd_check_load_page_catalog():
+            logger.error("Не удалось прогрузить страницу в __wd_next_page / товар распродан (нет цен на всей странице)")
+            return False
+
+        # Специальная задержка между переключениями страниц для имитации юзера
+        time.sleep(self.wait_between_pages_sec)
+        return True
+
+        self.cur_page += 1
         try:
             num_page_elem = self.driver.find_element_by_xpath(
-                f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
+                # f"//a[@class='pagination-widget__page-link' and text()='{self.cur_page}']")
+                f'//a[@class="pagination-widget__page-link pagination-widget__page-link_next "]')
             num_page_elem.click()
+            # ActionChains(self.driver).move_to_element(num_page_elem).pause(0.5).click().pause(1).perform()
+            # time.sleep(1)
 
             # Ждем, пока на новой странице не подгрузятся цены, только потом передаем управление
             if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
-                logger.info(f"Не удалось подгрузить цены на '{self.cur_page}' странице")
+                logger.error(f"Не удалось подгрузить цены на '{self.cur_page}' странице")
                 return False
 
-            time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
+            if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "pagination-widget__pages"):
+                logger.error(f"Не удалось подгрузить пагинацию на '{self.cur_page}' странице")
+                return False
+
+            cur_page_but = self.__wd_find_elem(By.CLASS_NAME, "pagination-widget__page_active")
+            if cur_page_but:
+                if str(self.cur_page) in cur_page_but.text:
+                    print("ВСЁ ОК")
+                else:
+                    print("СТРАНИЦА НЕ СОВПАДАЕТ: {} и {}".format(cur_page_but.text, self.cur_page))
+            else:
+                print("НЕ НАШЕЛ АКТИВНУЮ СТРАНИЦУ")
+
+            time.sleep(self.wait_between_pages_sec)
             return True
 
         # Если страница не найдена - достигнут конец каталога
         except se.NoSuchElementException:
             logger.info("Достигнут конец каталога")
             return False
-
 
         # self.cur_page += 1
         #
@@ -277,7 +342,7 @@ class DNSParse:
         #     return False
         #
         # # Специальная задержка между переключениями страниц для имитации юзера
-        # time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
+        # time.sleep(self.wait_between_pages_sec)
         # return True
 
     # Завершение работы браузера
@@ -360,7 +425,7 @@ class DNSParse:
         cur_price = product_block.select_one("span.product-card-price__current")
         if not cur_price:
             logger.error("No cur price")
-            cur_price = "error"
+            cur_price = 0
         else:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
@@ -374,18 +439,18 @@ class DNSParse:
         # Добавление полученных результатов в коллекцию
         self.result.append(h.ParseResult(
             shop=self.shop,
-            category=str.lower(category),
-            brand_name=str.lower(brand_name),
-            model_name=str.lower(model_name),
-            color=str.lower(color),
+            category=category.lower(),
+            brand_name=brand_name.lower(),
+            model_name=model_name.lower(),
+            color=color.lower(),
             price=cur_price,
             ram=ram,
             rom=rom,
-            img_url=str.lower(img_url),
-            url=str.lower(url),
+            img_url=img_url.lower(),
+            url=url.lower(),
             rating=rating,
             num_rating=num_rating,
-            product_code=str.lower(product_code),
+            product_code=product_code.lower(),
         ))
 
     # Метод для парсинга html страницы каталога
@@ -476,7 +541,7 @@ class DNSParse:
             cur_price = block.select_one('div.product-min-price__current')
             if not cur_price:
                 logger.error("No current price")
-                cur_price = "error"
+                cur_price = 0
             else:
                 cur_price = int(cur_price.text.replace('₽', '').replace(' ', ''))
 
@@ -490,18 +555,18 @@ class DNSParse:
         # Добавление полученных результатов в коллекцию
         self.result.append(h.ParseResult(
             shop=self.shop,
-            category=str.lower(self.category),
-            brand_name=str.lower(brand_name),
-            model_name=str.lower(model_name),
-            color=str.lower(color),
+            category=self.category.lower(),
+            brand_name=brand_name.lower(),
+            model_name=model_name.lower(),
+            color=color.lower(),
             price=cur_price,
             ram=ram,
             rom=rom,
-            img_url=str.lower(img_url),
-            url=str.lower(url),
+            img_url=img_url.lower(),
+            url=url.lower(),
             rating=rating,
             num_rating=num_rating,
-            product_code=str.lower(product_code),
+            product_code=product_code.lower(),
         ))
 
     # Сохранение всего результата в csv файл
@@ -515,7 +580,7 @@ class DNSParse:
     # Сохранение списка товаров, у которых изменились цены в csv
     def __save_price_changes(self):
         if not self.price_changes:
-            logger.error("НЕТ ЗАПИСЕЙ С ИЗМЕНЕНИЕМ ЦЕН")
+            logger.info("НЕТ ЗАПИСЕЙ С ИЗМЕНЕНИЕМ ЦЕН")
             return
 
         with open(h.PRICE_CHANGES_PATH, 'w', newline='') as f:
@@ -533,7 +598,7 @@ class DNSParse:
                 continue
 
             # Сохранение данных в базу. Если цена изменилась - вернет предыдущую
-            prev_price = self.db.add_product_to_bd(
+            result_list, avg_price, hist_min_price = self.db.add_product_to_bd(
                 category_name=item.category,
                 shop_name=item.shop,
                 brand_name=item.brand_name,
@@ -549,24 +614,46 @@ class DNSParse:
                 num_rating=item.num_rating)
 
             # Если выявлено изменение цены - записать в список
-            if prev_price:
-                self.price_changes.append(h.PriceChanges(
-                    shop=item.shop,
-                    category=item.category,
-                    brand_name=item.brand_name,
-                    model_name=item.model_name,
-                    color=item.color,
-                    ram=item.ram,
-                    rom=item.rom,
-                    img_url=item.img_url,
-                    url=item.url,
-                    rating=item.rating,
-                    num_rating=item.num_rating,
-                    product_code=item.product_code,
-                    date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-                    cur_price=item.price,
-                    prev_price=prev_price,
-                    diff=item.price - prev_price,
+            if result_list and avg_price and hist_min_price:
+                for item_result in result_list:
+                    self.price_changes.append(h.PriceChanges(
+                        shop=item_result[1],
+                        category=item.category,
+                        brand_name=item.brand_name,
+                        model_name=item.model_name,
+                        color=item_result[2],
+                        ram=item.ram,
+                        rom=item.rom,
+                        img_url=item.img_url,
+                        url=item_result[3],
+                        date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                        cur_price=item_result[0],
+                        avg_actual_price=int(avg_price),
+                        hist_min_price=hist_min_price[0],
+                        hist_min_shop=hist_min_price[1],
+                        hist_min_date=hist_min_price[2],
+                        diff_cur_avg=int(avg_price-item_result[0]),
+                    ))
+
+    # Загрузить данные с csv, чтобы не парсить сайт
+    def __load_result_in_csv(self):
+        with open(h.CSV_PATH, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                self.result.append(h.ParseResult(
+                    shop=row['Магазин'],
+                    category=row['Категория'],
+                    brand_name=row['Бренд'],
+                    model_name=row['Модель'],
+                    color=row['Цвет'],
+                    price=int(row['Цена']),
+                    ram=int(row['RAM']),
+                    rom=int(row['ROM']),
+                    img_url=row['Ссылка на изображение'],
+                    url=row['Ссылка'],
+                    rating=float(row['Рейтинг']),
+                    num_rating=int(row['Кол-во отзывов']),
+                    product_code=row['Код продукта'],
                 ))
 
     # Запуск работы парсера для каталога
@@ -588,8 +675,10 @@ class DNSParse:
                 break
 
         self.__wd_close_browser()
-        self.__save_result_in_db()
         self.__save_result()
+        # self.__load_result_in_csv()
+        # a, b, c = self.db.check_price(0, 'samsung', 'galaxy a51', 4, 64)
+        self.__save_result_in_db()
         self.__save_price_changes()
         self.db.disconnect()
 
@@ -597,7 +686,7 @@ class DNSParse:
     def run_product(self, url):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-        if not self.__wd_open_browser_catalog(url, "product-card-price__current"):
+        if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return
@@ -619,10 +708,9 @@ models = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
           '6.5" Смартфон realme 6 4/128 ГБ синий',
           '4.7" Смартфон Apple iPhone 7 32 Гб черный матовый')
 
-
 if __name__ == '__main__':
     time_start = time.time()
     parser = DNSParse()
     parser.run_catalog(
-        "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+         "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
     print(f"Время выполнения: {time.time() - time_start} сек")

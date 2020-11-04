@@ -2,6 +2,7 @@ import time
 import re
 import csv
 import datetime
+import configparser
 
 import bs4
 import selenium.common.exceptions as se
@@ -72,6 +73,10 @@ class MVideoParse:
         self.domain = "https://www.mvideo.ru"
         self.shop = "мвидео"
         self.db = bd.DataBase()
+        self.config = configparser.ConfigParser()
+        self.config.read('conf.ini', encoding="utf-8")
+        self.current_city = self.config.defaults()['current_city']
+        self.wait_between_pages_sec = int(self.config.defaults()['wait_between_pages_sec'])
 
     # Обертка поиска элемента для обработки исключений
     def __wd_find_elem(self, by, value):
@@ -120,7 +125,7 @@ class MVideoParse:
             return False
 
         # Если указан неверный город
-        if not (str.lower(h.CURRENT_CITY) in str.lower(city.text)):
+        if not (str.lower(self.current_city) in str.lower(city.text)):
 
             # Клик по городу
             if not self.__wd_click_elem(city):
@@ -132,7 +137,7 @@ class MVideoParse:
             if city_list:
                 for item in city_list:
                     # if str.lower(item.text).find(str.lower(h.CURRENT_CITY)) != -1:
-                    if str.lower(h.CURRENT_CITY) in str.lower(item.text):
+                    if str.lower(self.current_city) in str.lower(item.text):
                         time.sleep(1.5)
                         return self.__wd_click_elem(item)
             else:
@@ -145,7 +150,7 @@ class MVideoParse:
                 return False
 
             # Ввод названия города по буквам
-            for char in h.CURRENT_CITY:
+            for char in self.current_city:
                 self.__wd_send_keys(input_city, char)
                 time.sleep(0.2)
 
@@ -173,7 +178,7 @@ class MVideoParse:
             return False
 
         # Если указан неверный город
-        if not (str.lower(h.CURRENT_CITY) in str.lower(city.text)):
+        if not (str.lower(self.current_city) in str.lower(city.text)):
 
             # Клик по городу
             if not self.__wd_click_elem(city):
@@ -185,7 +190,7 @@ class MVideoParse:
             if city_list:
                 city_list = self.__wd_find_all_elems_with_timeout(By.XPATH, "//li")
                 for item in city_list:
-                    if str.lower(h.CURRENT_CITY) in str.lower(item.text):
+                    if str.lower(self.current_city) in str.lower(item.text):
                         time.sleep(1.5)
                         return self.__wd_click_elem(item)
             else:
@@ -200,7 +205,7 @@ class MVideoParse:
             self.__wd_click_elem(input_city)
             time.sleep(1.5)
             # Ввод названия города по буквам
-            for char in h.CURRENT_CITY:
+            for char in self.current_city:
                 self.__wd_send_keys(input_city, char)
                 time.sleep(0.2)
 
@@ -373,7 +378,7 @@ class MVideoParse:
             return False
 
         # Специальная задержка между переключениями страниц для имитации юзера
-        time.sleep(h.WAIT_BETWEEN_PAGES_SEC)
+        time.sleep(self.wait_between_pages_sec)
         return True
 
     # Завершение работы браузера

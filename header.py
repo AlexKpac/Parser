@@ -5,17 +5,11 @@ import logging
 
 # Путь к webdriver
 WD_PATH = "venv/WebDriverManager/chromedriver.exe"
-# На какую разницу цен необходимо реагировать
-DIF_PRICE_UP_PERCENT = 3
-DIF_PRICE_DOWN_PERCENT = 5
 # Путь для файла с логами изменений цен
 PRICE_CHANGES_PATH = "/Users/Никита/Desktop/dif_price.csv"
 # Путь для файла с результатами парсинга
 CSV_PATH = "/Users/Никита/Desktop/goods.csv"
-# Текущий город для магазинов
-CURRENT_CITY = 'Новосибирск'
-# Время ожидания в сек между переключениями страниц в каталоге товаров
-WAIT_BETWEEN_PAGES_SEC = 4
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -70,13 +64,13 @@ PriceChanges = collections.namedtuple(
         'rom',
         'img_url',
         'url',
-        'rating',
-        'num_rating',
-        'product_code',
         'date_time',
-        'prev_price',
         'cur_price',
-        'diff',
+        'avg_actual_price',
+        'hist_min_price',
+        'hist_min_shop',
+        'hist_min_date',
+        'diff_cur_avg',
     ),
 )
 # Заголовок для csv файлов (изменения цен смартфонов)
@@ -90,13 +84,13 @@ HEADERS_PRICE_CHANGES = (
     'ROM',
     'Ссылка на изображение',
     'Ссылка',
-    'Рейтинг',
-    'Кол-во отзывов',
-    'Код продукта',
     'Дата и время',
-    'Предыдущая цена',
     'Текущая цена',
-    'Изменение',
+    'Средняя цена',
+    'Историческая мин. цена',
+    'Исторический мин. магазин',
+    'Исторический мин. дата',
+    'Разница цены от средней',
 )
 
 # ----------------------------- ТАБЛИЦЫ В БД ----------------------------- #

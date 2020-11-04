@@ -32,24 +32,25 @@ create_versions_phones_table_query = """
     CREATE TABLE IF NOT EXISTS versions_phones_table (
         ID_Ver_Phone     SERIAL PRIMARY KEY,
         ID_Product       INTEGER REFERENCES products_table(ID_Product),
-        Color            VARCHAR(50) NOT NULL,
         RAM              INTEGER NOT NULL,
         ROM              INTEGER NOT NULL,
         Img_URL          VARCHAR(200) NOT NULL
     );
 """
 
-# Таблица: В каком магазине купить продукт - shop_buy_table
+# Таблица: В каком магазине купить продукт - shop_buy_table !!!!!!!!!
 create_shops_phones_table_query = """
     CREATE TABLE IF NOT EXISTS shops_phones_table (
         ID_Shop_Phone    SERIAL PRIMARY KEY,
-        ID_Shop_Name     INTEGER REFERENCES shops_name_table(ID_Shop_Name),
-        ID_Product       INTEGER REFERENCES products_table(ID_Product),
-        ID_Ver_Phone     INTEGER REFERENCES versions_phones_table(ID_Ver_Phone),
+        ID_Shop_Name     INTEGER REFERENCES shops_name_table(ID_Shop_Name) NOT NULL,
+        ID_Product       INTEGER REFERENCES products_table(ID_Product) NOT NULL,
+        ID_Ver_Phone     INTEGER REFERENCES versions_phones_table(ID_Ver_Phone) NOT NULL,
         URL_Product      VARCHAR(200) NOT NULL,
         Product_Code     VARCHAR(20) NOT NULL,
+        Color            VARCHAR(50) NOT NULL,
         Local_Rating     REAL,
-        Num_Local_Rating INTEGER
+        Num_Local_Rating INTEGER,
+        Bonus_Rubles     INTEGER
     );
 """
 
@@ -63,6 +64,22 @@ create_prices_phone_table_query = """
         Price            INTEGER NOT NULL,
         Datetime         TIMESTAMP NOT NULL
     );
+"""
+
+# ----------------------- СОЗДАНИЕ ПРЕДСТАВЛЕНИЙ --------------------------
+
+# Создать представление общей таблицы, где все таблицы соеденены в одну
+create_view_general_table_query = """
+    CREATE VIEW general_table AS
+        SELECT products_table.id_product, products_table.id_category, brand_name, model_name, total_rating,
+        versions_phones_table.id_ver_phone, ram, rom, img_url, 
+        shops_phones_table.id_shop_phone, shops_phones_table.id_shop_name, url_product, product_code, color, 
+            local_rating, num_local_rating, bonus_rubles,
+        price, datetime
+        FROM products_table
+            JOIN versions_phones_table USING (id_product)
+            JOIN shops_phones_table USING (id_ver_phone)
+            JOIN prices_phones_table USING (id_shop_phone)
 """
 
 # --------------------------- ЗАПРОСЫ К БД -----------------------------
@@ -80,7 +97,6 @@ select_id_ver_phone_query = """
     SELECT id_ver_phone FROM versions_phones_table 
     WHERE 
         id_product = %s AND 
-        color = %s      AND
         ram = %s        AND
         rom = %s
 """
@@ -90,7 +106,8 @@ select_id_shop_phone_query = """
     SELECT id_shop_phone FROM shops_phones_table 
     WHERE 
         id_ver_phone = %s AND 
-        id_shop_name = %s
+        id_shop_name = %s AND
+        product_code = %s
 """
 
 # Поиск наличия цены у данного магазина данной комплектации в таблице price_phones_table
@@ -109,14 +126,14 @@ insert_into_prices_phones_table_query = """
 """
 
 insert_into_shops_phones_table_query = """
-    INSERT INTO shops_phones_table (id_shop_name, id_product, id_ver_phone, url_product, product_code,
-                                   local_rating, num_local_rating)
+    INSERT INTO shops_phones_table (id_shop_name, id_product, id_ver_phone, url_product, product_code, color,
+                                   local_rating, num_local_rating, bonus_rubles)
     VALUES %s
     RETURNING id_shop_phone
 """
 
 insert_into_versions_phones_table_query = """
-    INSERT INTO versions_phones_table (id_product, color, ram, rom, img_url)
+    INSERT INTO versions_phones_table (id_product, ram, rom, img_url)
     VALUES %s
     RETURNING id_ver_phone
 """
@@ -125,4 +142,44 @@ insert_into_products_table_query = """
     INSERT INTO products_table (id_category, brand_name, model_name, total_rating)
     VALUES %s
     RETURNING id_product
+"""
+
+# --------------------------- ПОИСК ----------------------------
+
+# Поиск всех цен (исторических) по названию бренда, модели, ROM и RAM
+search_all_prices_by_version_query = """
+    SELECT price, id_shop_name, datetime::DATE
+    FROM general_table
+    WHERE brand_name = %s AND 
+          model_name = %s AND 
+          ram = %s        AND 
+          rom = %s
+"""
+
+# Поиск минимальной цены (исторической) по названию бренда, модели, ROM и RAM
+search_min_historical_price_by_version_query = """
+    SELECT price, id_shop_name, datetime::DATE
+    FROM general_table
+    WHERE brand_name = %s AND 
+          model_name = %s AND 
+          ram = %s        AND 
+          rom = %s
+    ORDER BY price ASC LIMIT 1
+"""
+
+# Поиск только актуальных (с самой свежей датой) цен всех магазинов и цветов
+search_actual_prices_by_version_query = """
+    SELECT price, id_shop_name, color, url_product
+    FROM general_table
+    JOIN (
+        SELECT product_code, MAX(datetime) as MaxDate 
+        FROM general_table
+        WHERE brand_name = %s AND 
+              model_name = %s AND 
+              ram = %s        AND 
+              rom = %s
+        GROUP BY product_code
+    ) AS group_table
+    ON general_table.datetime = group_table.MaxDate AND 
+       general_table.product_code = group_table.product_code
 """
