@@ -103,7 +103,8 @@ select_id_ver_phone_query = """
 
 # Поиск наличия в магазине данной комплектации в таблице shops_phones_table
 select_id_shop_phone_query = """
-    SELECT id_shop_phone FROM shops_phones_table 
+    SELECT id_shop_phone 
+    FROM shops_phones_table 
     WHERE 
         id_ver_phone = %s AND 
         id_shop_name = %s AND
@@ -112,7 +113,8 @@ select_id_shop_phone_query = """
 
 # Поиск наличия цены у данного магазина данной комплектации в таблице price_phones_table
 select_price_in_price_phone_query = """
-    SELECT price FROM prices_phones_table 
+    SELECT price 
+    FROM prices_phones_table 
     WHERE 
         id_shop_phone = %s
 """

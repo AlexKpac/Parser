@@ -4,6 +4,9 @@ from psycopg2 import extras
 import sql_req as sr
 import header as h
 import configparser
+import collections
+
+logger = h.logging.getLogger('bd')
 
 
 # Функция, которая вернет true, если хоть у одного поля поврежденные данные
@@ -22,8 +25,11 @@ def check_item_on_errors(item):
     else:
         return True
 
+
+# Проверить все элементы на равенство
 def all_elem_equal(elements):
     return len(elements) < 1 or len(elements) == elements.count(elements[0])
+
 
 class DataBase:
     def __init__(self):
@@ -33,6 +39,7 @@ class DataBase:
         self.config = configparser.ConfigParser()
         self.config.read('conf.ini', encoding="utf-8")
         self.min_diff_price_per = int(self.config.defaults()['min_diff_price_per'])
+        self.check_price_list = []
 
     # Создание таблиц, если они отсутствуют и заполнение вспомогательных данными
     def __create_tables_and_views(self):
@@ -58,7 +65,7 @@ class DataBase:
             extras.execute_values(self.cursor, "INSERT INTO shops_name_table (Shop_Name) VALUES %s",
                                   h.SHOPS_NAME_LIST)
         except OperationalError as e:
-            print(f"The error '{e}' occurred")
+            print("The error '{}' occurred".format(e))
 
     # Заполнить таблицу categories_name_table данными
     def __insert_category_name(self):
@@ -70,7 +77,7 @@ class DataBase:
             extras.execute_values(self.cursor, "INSERT INTO categories_name_table (Category_Name) VALUES %s",
                                   h.CATEGORIES_NAME_LIST)
         except OperationalError as e:
-            print(f"The error '{e}' occurred")
+            print("The error '{}' occurred".format(e))
 
     # Добавление продукта в таблицу products_table
     def __insert_product_in_products_table(self, id_category_name, brand_name, model_name, total_rating):
@@ -115,11 +122,11 @@ class DataBase:
                 port=db_port,
             )
 
-            print(f"Connection to PostgreSQL DB '{db_name}' successful")
+            print("Connection to PostgreSQL DB '{}' successful".format(db_name))
             self.connection.autocommit = True
             self.cursor = self.connection.cursor()
         except OperationalError as e:
-            print(f"The error '{e}' occurred")
+            print("The error '{}' occurred".format(e))
             return False
 
         return True
@@ -134,7 +141,7 @@ class DataBase:
         try:
             self.cursor.execute(create_database_query)
         except OperationalError as e:
-            print(f"The error '{e}' occurred")
+            print("The error '{}' occurred".format(e))
             return False
 
         return True
@@ -145,14 +152,14 @@ class DataBase:
         if not self.connect(db_name, db_user, db_password, db_host, db_port):
 
             # Если такой базы не существует, подключаемся к основной и создаем новую
-            print(f"Data base '{db_name}' not found")
+            print("Data base '{}' not found".format(db_name))
             if self.connect(self.db_name_basic, db_user, db_password, db_host, db_port):
 
                 # Если подключились к основной - создаем свою
                 if self.create_database(db_name):
 
                     # Если получилось создать новую базу данных - соединяемся с ней
-                    print(f"Data base '{db_name}' created")
+                    print("Data base '{}' created".format(db_name))
                     if not self.connect(db_name, db_user, db_password, db_host, db_port):
                         return False
                     self.__create_tables_and_views()
@@ -167,7 +174,7 @@ class DataBase:
         try:
             self.cursor.execute(query, variables)
         except OperationalError as e:
-            print(f"The error '{e}' occurred")
+            print("The error '{}' occurred".format(e))
             return False
 
         return True
@@ -189,7 +196,7 @@ class DataBase:
             return result
 
         except OperationalError as e:
-            print(f"The error '{e}' occurred")
+            print("The error '{}' occurred".format(e))
             return None
 
     # Отсоединение от БД
@@ -203,11 +210,17 @@ class DataBase:
     # Проверка текущего товара на самую выгодную цену
     def check_price(self, cur_price, brand_name, model_name, ram, rom):
         # Получить список всех актуальных цен на данную комплектацию
-        prices_list = self.execute_read_query(sr.search_actual_prices_by_version_query, (brand_name, model_name, ram, rom))
+        prices_list = self.execute_read_query(sr.search_actual_prices_by_version_query,
+                                              (brand_name, model_name, ram, rom))
         # Поиск средней цены
         avg_price = sum(item[0] for item in prices_list) / len(prices_list)
         # Поиск исторического минимума цены
-        hist_min_price = self.execute_read_query(sr.search_min_historical_price_by_version_query, (brand_name, model_name, ram, rom))
+        hist_min_price = self.execute_read_query(sr.search_min_historical_price_by_version_query,
+                                                 (brand_name, model_name, ram, rom))
+
+        print("check_price: len = {}, prices_list = {}".format(len(prices_list), prices_list))
+        print("avg_price = {}".format(avg_price))
+        print("hist_min_price = {}".format(hist_min_price))
 
         # Составление списка товаров, у которых цена ниже средней на self.min_diff_price_per%
         result_list = []
@@ -224,39 +237,42 @@ class DataBase:
                           url, product_code, local_rating, num_rating, price, bonus_rubles=0):
 
         if not self.connection:
-            print("Can't execute query - no connection")
+            logger.warning("Can't execute query - no connection")
             return False
 
         try:
             id_category_name = h.CATEGORIES_NAME_LIST.index((category_name,)) + 1
             id_shop_name = h.SHOPS_NAME_LIST.index((shop_name,)) + 1
         except ValueError as e:
-            print("ERROR get category_name or shop_name = {}".format(e))
+            logger.error("ERROR get category_name or shop_name = {}".format(e))
             return False
 
         id_product = self.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
         # + Продукт присутствует в #products_table
         if id_product:
             id_product = id_product[0][0]
-            print("id_product = {}".format(id_product))
             id_ver_phone = self.execute_read_query(sr.select_id_ver_phone_query,
                                                    (id_product, var_ram, var_rom))
             # ++ Комплектация присутствует в #version_phones_table
             if id_ver_phone:
                 id_ver_phone = id_ver_phone[0][0]
-                print("id_ver_phone = {}".format(id_ver_phone))
                 id_shop_phone = self.execute_read_query(sr.select_id_shop_phone_query,
                                                         (id_ver_phone, id_shop_name, product_code))
 
                 # +++ Данную комплектацию можно купить в #shop_phones_table
                 if id_shop_phone:
                     id_shop_phone = id_shop_phone[0][0]
-                    print("id_shop_phone = {}".format(id_shop_phone))
                     price_phone = self.execute_read_query(sr.select_price_in_price_phone_query, (id_shop_phone,))
+
+                    if not price_phone:
+                        logger.error("Нет цены, id_prod = {}, "
+                                     "id_ver = {}, id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+                        return False
 
                     # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
                     if price_phone[-1][0] == price:
-                        print("add_product_to_bd: NO CHANGE, IGNORE")
+                        print("NO CHANGE, IGNORE; "
+                              "id_prod = {}, id_ver = {}, id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
 
                     # ---- Цена данной комплектации в данном магазине изменилась - добавляем в список цен
                     else:
@@ -265,7 +281,14 @@ class DataBase:
 
                         # Проверка изменения цены-если изменилась на нужный процент-вернет исторический минимум, иначе 0
                         if price < price_phone[-1][0]:
-                            return self.check_price(price, brand_name, model_name, var_ram, var_rom)
+                            self.check_price_list.append(h.CheckPrice(
+                                cur_price=price,
+                                brand_name=brand_name,
+                                model_name=model_name,
+                                var_ram=var_ram,
+                                var_rom=var_rom,
+                            ))
+                            # return self.check_price(price, brand_name, model_name, var_ram, var_rom)
 
                 # --- Данную комплектацию нельзя купить, отсутствует в #shop_phones_table
                 else:
@@ -274,6 +297,7 @@ class DataBase:
                                                                              url, product_code, var_color, local_rating,
                                                                              num_rating, bonus_rubles)
                     self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+                    print("id_prod = {}, id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
 
             # -- Комплектация отсутствует в #version_phones_table
             else:
@@ -283,6 +307,7 @@ class DataBase:
                                                                          url, product_code, var_color, local_rating,
                                                                          num_rating, bonus_rubles)
                 self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+                print("id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
 
         # - Продукт отсутствует в #products_table
         else:
@@ -293,5 +318,11 @@ class DataBase:
                                                                      product_code, var_color, local_rating, num_rating,
                                                                      bonus_rubles)
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+            print("new id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
 
-        return None, None, None
+        return True
+
+    # Запуск проверки товаров с измененной ценой на поиск выгоды
+    def run_check_price(self):
+        for item in self.check_price_list:
+            self.check_price(item.price, item.brand_name, item.model_name, item.ram, item.rom)

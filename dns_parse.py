@@ -64,7 +64,7 @@ class DNSParse:
         options = Options()
         options.add_argument("window-size=1920,1080")
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
-        self.wait = WebDriverWait(self.driver, 20)
+        self.wait = WebDriverWait(self.driver, 30)
         self.cur_page = 1
         self.driver.implicitly_wait(1.5)
         self.result = []
@@ -112,23 +112,15 @@ class DNSParse:
         if not elem:
             return False
 
-        elem.click()
-        return True
-        # TODO: доделать обертку try-except
-        ActionChains(self.driver).move_to_element(elem).click().perform()
-        return True
-        # if not elem:
-        #     return False
-        #
-        # for i in range(3):
-        #     try:
-        #         elem.click()
-        #         return True
-        #     except se.ElementClickInterceptedException:
-        #         logger.warning("Не могу кликнуть на элемент, пробую еще")
-        #         time.sleep(1.5)
-        #
-        # return False
+        for i in range(3):
+            try:
+                elem.click()
+                return True
+            except se.ElementClickInterceptedException:
+                logger.warning("Не могу кликнуть на элемент, пробую еще")
+                time.sleep(1.5)
+
+        return False
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
@@ -264,86 +256,25 @@ class DNSParse:
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page")
+            logger.error("Не удалось прогрузить страницу в __wd_next_page (1)")
             return False
 
-        # Особенность МВидео - при переключении страницы, пока сайт ждет ответ от сервера,
-        # оставляет старые данные с эффектом размытия. Ждем, пока они не исчезнут
+        # Особенность ДНС - при переключении страницы иногда не меняется контент. Если так - обновляем страницу
         try:
             self.wait.until_not(presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
                 self.result[-5].url.replace(self.domain, '')))))
         except se.TimeoutException:
-            logger.error("TimeoutException в __wd_next_page")
-            logger.error("cur_page = {}\nresult[-1] = {}", self.cur_page, self.result[-5].url.replace(self.domain, ''))
-            raise se.TimeoutException
+            logger.error("TimeoutException в __wd_next_page, обновляю страницу")
+            self.driver.refresh()
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page / товар распродан (нет цен на всей странице)")
+            logger.error("Не удалось прогрузить страницу в __wd_next_page (2)")
             return False
 
         # Специальная задержка между переключениями страниц для имитации юзера
         time.sleep(self.wait_between_pages_sec)
         return True
-
-        self.cur_page += 1
-        try:
-            num_page_elem = self.driver.find_element_by_xpath(
-                # f"//a[@class='pagination-widget__page-link' and text()='{self.cur_page}']")
-                f'//a[@class="pagination-widget__page-link pagination-widget__page-link_next "]')
-            num_page_elem.click()
-            # ActionChains(self.driver).move_to_element(num_page_elem).pause(0.5).click().pause(1).perform()
-            # time.sleep(1)
-
-            # Ждем, пока на новой странице не подгрузятся цены, только потом передаем управление
-            if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
-                logger.error(f"Не удалось подгрузить цены на '{self.cur_page}' странице")
-                return False
-
-            if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "pagination-widget__pages"):
-                logger.error(f"Не удалось подгрузить пагинацию на '{self.cur_page}' странице")
-                return False
-
-            cur_page_but = self.__wd_find_elem(By.CLASS_NAME, "pagination-widget__page_active")
-            if cur_page_but:
-                if str(self.cur_page) in cur_page_but.text:
-                    print("ВСЁ ОК")
-                else:
-                    print("СТРАНИЦА НЕ СОВПАДАЕТ: {} и {}".format(cur_page_but.text, self.cur_page))
-            else:
-                print("НЕ НАШЕЛ АКТИВНУЮ СТРАНИЦУ")
-
-            time.sleep(self.wait_between_pages_sec)
-            return True
-
-        # Если страница не найдена - достигнут конец каталога
-        except se.NoSuchElementException:
-            logger.info("Достигнут конец каталога")
-            return False
-
-        # self.cur_page += 1
-        #
-        # # Поиск следующей кнопки страницы
-        # num_page_elem = self.__wd_find_elem(By.XPATH,
-        #                                     f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']")
-        # if not num_page_elem:
-        #     logger.info("Достигнут конец каталога")
-        #     return False
-        #
-        # # Клик - переход на следующую страницу
-        # num_page_elem.click()
-        # # if not self.__wd_click_elem(num_page_elem):
-        # #     logger.error("Не могу кликнуть на страницу в __wd_next_page")
-        # #     return False
-        #
-        # # Ждем, пока не прогрузится страница
-        # if not self.__wd_check_load_page_catalog():
-        #     logger.error("Не удалось прогрузить страницу в __wd_next_page")
-        #     return False
-        #
-        # # Специальная задержка между переключениями страниц для имитации юзера
-        # time.sleep(self.wait_between_pages_sec)
-        # return True
 
     # Завершение работы браузера
     def __wd_close_browser(self):
@@ -632,8 +563,9 @@ class DNSParse:
                         hist_min_price=hist_min_price[0],
                         hist_min_shop=hist_min_price[1],
                         hist_min_date=hist_min_price[2],
-                        diff_cur_avg=int(avg_price-item_result[0]),
+                        diff_cur_avg=int(avg_price - item_result[0]),
                     ))
+
 
     # Загрузить данные с csv, чтобы не парсить сайт
     def __load_result_in_csv(self):
