@@ -20,7 +20,6 @@ import header as h
 
 logger = h.logging.getLogger('dnsparse')
 
-
 # Парсинг названия модели (получить название модели, цвет и ROM)
 def dns_parse_model_name(brand, name):
     # Понижение регистра

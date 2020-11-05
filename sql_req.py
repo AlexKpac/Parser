@@ -1,3 +1,7 @@
+# --
+# Создание БД
+create_database_query = "CREATE DATABASE "
+
 # --------------------- СОЗДАНИЕ ТАБЛИЦ ------------------------------
 
 # Таблица Категории - categories_name_table
@@ -120,6 +124,12 @@ select_price_in_price_phone_query = """
 """
 
 # --------------------------- ЗАПИСЬ В БД ----------------------------
+
+# Заполнить таблицу названий магазинов
+insert_into_shops_name_table_query = "INSERT INTO shops_name_table (Shop_Name) VALUES %s"
+
+# Заполнить таблицу названий категорий
+insert_into_categories_name_table_query = "INSERT INTO categories_name_table (Category_Name) VALUES %s"
 
 # Добавление цены в prices_phone
 insert_into_prices_phones_table_query = """

@@ -4,7 +4,7 @@ from psycopg2 import extras
 import sql_req as sr
 import header as h
 import configparser
-import collections
+import sys
 
 logger = h.logging.getLogger('bd')
 
@@ -14,8 +14,6 @@ class DataBase:
         self.connection = None
         self.cursor = None
         self.db_name_basic = "postgres"
-        self.config = configparser.ConfigParser()
-        self.config.read('conf.ini', encoding="utf-8")
 
     # Создание таблиц, если они отсутствуют и заполнение вспомогательных данными
     def __create_tables_and_views(self):
@@ -38,8 +36,7 @@ class DataBase:
             return
 
         try:
-            extras.execute_values(self.cursor, "INSERT INTO shops_name_table (Shop_Name) VALUES %s",
-                                  h.SHOPS_NAME_LIST)
+            extras.execute_values(self.cursor, sr.insert_into_shops_name_table_query, h.SHOPS_NAME_LIST)
         except OperationalError as e:
             logger.error("The error '{}' occurred".format(e))
 
@@ -50,8 +47,7 @@ class DataBase:
             return
 
         try:
-            extras.execute_values(self.cursor, "INSERT INTO categories_name_table (Category_Name) VALUES %s",
-                                  h.CATEGORIES_NAME_LIST)
+            extras.execute_values(self.cursor, sr.insert_into_categories_name_table_query, h.CATEGORIES_NAME_LIST)
         except OperationalError as e:
             logger.error("The error '{}' occurred".format(e))
 
@@ -61,9 +57,8 @@ class DataBase:
             logger.error("Can't create database - no connection")
             return False
 
-        create_database_query = "CREATE DATABASE " + db_name
         try:
-            self.cursor.execute(create_database_query)
+            self.cursor.execute(sr.create_database_query + db_name)
         except OperationalError as e:
             logger.error("The error '{}' occurred".format(e))
             return False
@@ -72,9 +67,8 @@ class DataBase:
 
     # Соединение с базой данных
     def connect(self, db_name, db_user, db_password, db_host, db_port):
-        if not self.connection:
+        if self.connection:
             self.disconnect()
-            self.connection = None
 
         try:
             self.connection = psycopg2.connect(
@@ -85,7 +79,7 @@ class DataBase:
                 port=db_port,
             )
 
-            logger.error("Connection to PostgreSQL DB '{}' successful".format(db_name))
+            logger.info("Connection to PostgreSQL DB '{}' successful".format(db_name))
             self.connection.autocommit = True
             self.cursor = self.connection.cursor()
         except OperationalError as e:
