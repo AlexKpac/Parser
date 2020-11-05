@@ -40,21 +40,22 @@ class Checker:
         self.config.read('conf.ini', encoding="utf-8")
         self.min_diff_price_per = int(self.config.defaults()['min_diff_price_per'])
         self.product_list = product_list
+        self.check_price_list = []
         self.result = []
 
         # Добавление продукта в таблицу products_table
 
     def __insert_product_in_products_table(self, id_category_name, brand_name, model_name, total_rating):
-        id_product = self.execute_read_query(sr.insert_into_products_table_query,
-                                             [(id_category_name, brand_name, model_name, total_rating), ])
+        id_product = self.db.execute_read_query(sr.insert_into_products_table_query,
+                                                [(id_category_name, brand_name, model_name, total_rating), ])
 
         return id_product[0][0] if id_product else None
 
         # Добавление комплектации в таблицу versions_phones_table
 
     def __insert_version_in_versions_phones_table(self, id_product, ram, rom, img_url):
-        id_ver_phone = self.execute_read_query(sr.insert_into_versions_phones_table_query,
-                                               [(id_product, ram, rom, img_url), ])
+        id_ver_phone = self.db.execute_read_query(sr.insert_into_versions_phones_table_query,
+                                                  [(id_product, ram, rom, img_url), ])
 
         return id_ver_phone[0][0] if id_ver_phone else None
 
@@ -62,17 +63,18 @@ class Checker:
 
     def __insert_shop_in_shops_phones_table(self, id_shop_name, id_product, id_ver_phone, url, product_code, var_color,
                                             local_rating, num_local_rating, bonus_rubles=0):
-        id_shop_phone = self.execute_read_query(sr.insert_into_shops_phones_table_query,
-                                                [(id_shop_name, id_product, id_ver_phone, url, product_code, var_color,
-                                                  local_rating, num_local_rating, bonus_rubles), ])
+        id_shop_phone = self.db.execute_read_query(sr.insert_into_shops_phones_table_query,
+                                                   [(id_shop_name, id_product, id_ver_phone, url, product_code,
+                                                     var_color,
+                                                     local_rating, num_local_rating, bonus_rubles), ])
 
         return id_shop_phone[0][0] if id_shop_phone else None
 
         # Добавление цены определенного магазина определенной комплектации в prices_phones_table
 
     def __insert_price_in_prices_phones_table(self, id_shop_name, id_product, id_shop_phone, price, datetime='now()'):
-        self.execute_query(sr.insert_into_prices_phones_table_query,
-                           [(id_shop_name, id_product, id_shop_phone, price, datetime), ])
+        self.db.execute_query(sr.insert_into_prices_phones_table_query,
+                              [(id_shop_name, id_product, id_shop_phone, price, datetime), ])
 
     def __check_price_in_db(self, cur_price, brand_name, model_name, ram, rom):
         # Получить список всех актуальных цен на данную комплектацию
@@ -110,41 +112,41 @@ class Checker:
                 writer.writerow(item)
 
     # Добавление спарсенного товара в БД
-    def add_product_to_bd(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color, img_url,
-                          url, product_code, local_rating, num_rating, price, bonus_rubles=0):
+    def add_product_to_bd(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color,
+                          img_url, url, product_code, local_rating, num_rating, price, bonus_rubles=0):
 
-        if not self.connection:
+        if not self.db.connection:
             logger.warning("Can't execute query - no connection")
-            return False
+            return 'error'
 
         try:
             id_category_name = h.CATEGORIES_NAME_LIST.index((category_name,)) + 1
             id_shop_name = h.SHOPS_NAME_LIST.index((shop_name,)) + 1
         except ValueError as e:
             logger.error("ERROR get category_name or shop_name = {}".format(e))
-            return False
+            return 'error'
 
-        id_product = self.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
+        id_product = self.db.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
         # + Продукт присутствует в #products_table
         if id_product:
             id_product = id_product[0][0]
-            id_ver_phone = self.execute_read_query(sr.select_id_ver_phone_query,
-                                                   (id_product, var_ram, var_rom))
+            id_ver_phone = self.db.execute_read_query(sr.select_id_ver_phone_query,
+                                                      (id_product, var_ram, var_rom))
             # ++ Комплектация присутствует в #version_phones_table
             if id_ver_phone:
                 id_ver_phone = id_ver_phone[0][0]
-                id_shop_phone = self.execute_read_query(sr.select_id_shop_phone_query,
-                                                        (id_ver_phone, id_shop_name, product_code))
+                id_shop_phone = self.db.execute_read_query(sr.select_id_shop_phone_query,
+                                                           (id_ver_phone, id_shop_name, product_code))
 
                 # +++ Данную комплектацию можно купить в #shop_phones_table
                 if id_shop_phone:
                     id_shop_phone = id_shop_phone[0][0]
-                    price_phone = self.execute_read_query(sr.select_price_in_price_phone_query, (id_shop_phone,))
+                    price_phone = self.db.execute_read_query(sr.select_price_in_price_phone_query, (id_shop_phone,))
 
                     if not price_phone:
                         logger.error("Нет цены, id_prod = {}, "
                                      "id_ver = {}, id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
-                        return False
+                        return 'error'
 
                     # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
                     if price_phone[-1][0] == price:
@@ -155,17 +157,10 @@ class Checker:
                     else:
                         print("Новая цена на эту комплектацию в этом магазине, добавляю цену")
                         self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
+                        return 'price'
+                        # Проверка изменения цены - если стала меньше
+                        # if price < price_phone[-1][0]:
 
-                        # Проверка изменения цены-если изменилась на нужный процент-вернет исторический минимум, иначе 0
-                        if price < price_phone[-1][0]:
-                            self.check_price_list.append(h.CheckPrice(
-                                cur_price=price,
-                                brand_name=brand_name,
-                                model_name=model_name,
-                                var_ram=var_ram,
-                                var_rom=var_rom,
-                            ))
-                            # return self.check_price(price, brand_name, model_name, var_ram, var_rom)
 
                 # --- Данную комплектацию нельзя купить, отсутствует в #shop_phones_table
                 else:
@@ -175,6 +170,7 @@ class Checker:
                                                                              num_rating, bonus_rubles)
                     self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
                     print("id_prod = {}, id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+                    return 'version'
 
             # -- Комплектация отсутствует в #version_phones_table
             else:
@@ -185,6 +181,7 @@ class Checker:
                                                                          num_rating, bonus_rubles)
                 self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
                 print("id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+                return 'shop'
 
         # - Продукт отсутствует в #products_table
         else:
@@ -196,45 +193,26 @@ class Checker:
                                                                      bonus_rubles)
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
             print("new id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+            return 'product'
 
-        return True
+        return 'error'
 
     # Запуск проверки товаров с измененной ценой на поиск выгоды
-    def run_check_price(self):
-        for item in self.check_price_list:
-            self.check_price(item.price, item.brand_name, item.model_name, item.ram, item.rom)
+    def check_prices(self, check_price_list=None):
 
-    def run(self):
-        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+        if not check_price_list:
+            check_price_list = self.check_price_list
 
-        for item in self.product_list:
-            if not check_item_on_errors(item):
-                logger.warning("Продукт {} {} с артиклом {} в магазине {} содержит 'error', SKIP".format(
-                    item.brand_name, item.model_name, item.product_code, item.shop))
-                continue
-
-            # Сохранение данных в базу. Если цена изменилась - вернет предыдущую
-            self.db.add_product_to_bd(
-                category_name=item.category,
-                shop_name=item.shop,
-                brand_name=item.brand_name,
-                model_name=item.model_name,
-                var_color=item.color,
-                var_ram=item.ram,
-                var_rom=item.rom,
-                price=item.price,
-                img_url=item.img_url,
-                url=item.url,
-                product_code=item.product_code,
-                local_rating=item.rating,
-                num_rating=item.num_rating)
-
-            result_list, avg_price, hist_min_price = 0
+        for item in check_price_list:
+            result_list, avg_price, hist_min_price = self.__check_price_in_db(item.price,
+                                                                              item.brand_name,
+                                                                              item.model_name,
+                                                                              item.ram, item.rom)
 
             # Если выявлено изменение цены - записать в список
             if result_list and avg_price and hist_min_price:
                 for item_result in result_list:
-                    self.price_changes.append(h.PriceChanges(
+                    self.result.append(h.PriceChanges(
                         shop=item_result[1],
                         category=item.category,
                         brand_name=item.brand_name,
@@ -253,4 +231,42 @@ class Checker:
                         diff_cur_avg=int(avg_price - item_result[0]),
                     ))
 
+    def adding_all_products_to_db(self, product_list=None):
+
+        if not product_list:
+            product_list = self.product_list
+
+        for item in product_list:
+            # Проверка элемента на некорректные поля
+            if not check_item_on_errors(item):
+                logger.warning("Продукт {} {} с артиклом {} в магазине {} содержит 'error', SKIP".format(
+                    item.brand_name, item.model_name, item.product_code, item.shop))
+                continue
+
+            # Сохранение данных в базу. Если цена изменилась - вернет предыдущую
+            resp = self.add_product_to_bd(
+                category_name=item.category,
+                shop_name=item.shop,
+                brand_name=item.brand_name,
+                model_name=item.model_name,
+                var_color=item.color,
+                var_ram=item.ram,
+                var_rom=item.rom,
+                price=item.price,
+                img_url=item.img_url,
+                url=item.url,
+                product_code=item.product_code,
+                local_rating=item.rating,
+                num_rating=item.num_rating)
+
+            # Если при добавлении товара в базу была изменена только цена -
+            # добавляем в очередь на проверку выгоды
+            if resp == 'price':
+                self.check_price_list.append(item)
+
+    def run(self):
+        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+        self.adding_all_products_to_db()
+        self.check_prices()
         self.db.disconnect()
+        self.__save_result()

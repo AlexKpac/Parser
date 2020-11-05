@@ -15,8 +15,10 @@ from selenium.webdriver.support.expected_conditions import presence_of_element_l
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
+
 import bd
 import header as h
+import checker
 
 logger = h.logging.getLogger('dnsparse')
 
@@ -70,7 +72,6 @@ class DNSParse:
         self.price_changes = []
         self.domain = "https://www.dns-shop.ru"
         self.shop = "dns"
-        self.db = bd.DataBase()
         self.config = configparser.ConfigParser()
         self.config.read('conf.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
@@ -507,65 +508,6 @@ class DNSParse:
             for item in self.result:
                 writer.writerow(item)
 
-    # Сохранение списка товаров, у которых изменились цены в csv
-    def __save_price_changes(self):
-        if not self.price_changes:
-            logger.info("НЕТ ЗАПИСЕЙ С ИЗМЕНЕНИЕМ ЦЕН")
-            return
-
-        with open(h.PRICE_CHANGES_PATH, 'w', newline='') as f:
-            writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-            writer.writerow(h.HEADERS_PRICE_CHANGES)
-            for item in self.price_changes:
-                writer.writerow(item)
-
-    # Сохранение всех запарсенных данных в SQL
-    def __save_result_in_db(self):
-        for item in self.result:
-            if not bd.check_item_on_errors(item):
-                logger.error("Продукт {} {} с артиклом {} в магазине {} содержит 'error', SKIP".format(
-                    item.brand_name, item.model_name, item.product_code, item.shop))
-                continue
-
-            # Сохранение данных в базу. Если цена изменилась - вернет предыдущую
-            result_list, avg_price, hist_min_price = self.db.add_product_to_bd(
-                category_name=item.category,
-                shop_name=item.shop,
-                brand_name=item.brand_name,
-                model_name=item.model_name,
-                var_color=item.color,
-                var_ram=item.ram,
-                var_rom=item.rom,
-                price=item.price,
-                img_url=item.img_url,
-                url=item.url,
-                product_code=item.product_code,
-                local_rating=item.rating,
-                num_rating=item.num_rating)
-
-            # Если выявлено изменение цены - записать в список
-            if result_list and avg_price and hist_min_price:
-                for item_result in result_list:
-                    self.price_changes.append(h.PriceChanges(
-                        shop=item_result[1],
-                        category=item.category,
-                        brand_name=item.brand_name,
-                        model_name=item.model_name,
-                        color=item_result[2],
-                        ram=item.ram,
-                        rom=item.rom,
-                        img_url=item.img_url,
-                        url=item_result[3],
-                        date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-                        cur_price=item_result[0],
-                        avg_actual_price=int(avg_price),
-                        hist_min_price=hist_min_price[0],
-                        hist_min_shop=hist_min_price[1],
-                        hist_min_date=hist_min_price[2],
-                        diff_cur_avg=int(avg_price - item_result[0]),
-                    ))
-
-
     # Загрузить данные с csv, чтобы не парсить сайт
     def __load_result_in_csv(self):
         with open(h.CSV_PATH, 'r') as f:
@@ -589,34 +531,27 @@ class DNSParse:
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
-        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
-
-        if not self.__wd_open_browser_catalog(url):
-            logger.error("Open browser fail")
-            self.__wd_close_browser()
-            return
-
-        if cur_page:
-            self.cur_page = cur_page
-
-        while True:
-            html = self.__wd_get_cur_page()
-            self.__parse_catalog_page(html)
-            if not self.__wd_next_page():
-                break
+        # if not self.__wd_open_browser_catalog(url):
+        #     logger.error("Open browser fail")
+        #     self.__wd_close_browser()
+        #     return
+        #
+        # if cur_page:
+        #     self.cur_page = cur_page
+        #
+        # while True:
+        #     html = self.__wd_get_cur_page()
+        #     self.__parse_catalog_page(html)
+        #     if not self.__wd_next_page():
+        #         break
 
         self.__wd_close_browser()
-        self.__save_result()
-        # self.__load_result_in_csv()
-        # a, b, c = self.db.check_price(0, 'samsung', 'galaxy a51', 4, 64)
-        self.__save_result_in_db()
-        self.__save_price_changes()
-        self.db.disconnect()
+        # self.__save_result()
+        self.__load_result_in_csv()
+        return self.result
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
-        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
-
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
@@ -626,9 +561,7 @@ class DNSParse:
         self.__parse_product_page(html, url)
         self.__wd_close_browser()
         self.__save_result()
-        self.__save_result_in_db()
-        print(self.result)
-        self.db.disconnect()
+        return self.result
 
 
 models = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
@@ -642,6 +575,8 @@ models = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
 if __name__ == '__main__':
     time_start = time.time()
     parser = DNSParse()
-    parser.run_catalog(
+    result = parser.run_catalog(
          "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    check = checker.Checker(result)
+    check.run()
     print(f"Время выполнения: {time.time() - time_start} сек")
