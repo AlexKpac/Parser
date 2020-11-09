@@ -58,9 +58,9 @@ def find_in_pr_price_change_list(nametuple, brand_name, model_name, ram, rom, pr
 
 
 # Поиск элемента по заданным параметрам в nametuple PriceChanges
-def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, color):
+def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, shop, color):
     print('--nametuple={}'.format(namedtuple))
-    print('--brand={}, model={}, ram={}, rom={}, price={}, color={}'.format(brand_name, model_name, ram, rom, price, color))
+    print('--brand={}, model={}, ram={}, rom={}, price={}, shop={}, color={}'.format(brand_name, model_name, ram, rom, price, shop, color))
     if not namedtuple:
         return False
 
@@ -70,6 +70,7 @@ def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, 
                 item.ram == ram and \
                 item.rom == rom and \
                 item.cur_price == price and \
+                item.shop == shop and \
                 item.color == color:
             print('--TRUE')
             return True
@@ -323,7 +324,7 @@ class Checker:
                 for item_result in result_list:
                     # Для исключительных ситуаций: проверка, что такого элемента с такой ценой и цветом еще нет в списке
                     if not find_in_pc_result_list(self.pc_result_list, item.brand_name, item.model_name,
-                                                  item.ram, item.rom, item_result[0], item_result[2]):
+                                                  item.ram, item.rom, item_result[0], result_list[1], item_result[2]):
                         self.pc_result_list.append(h.PriceChanges(
                             shop=item_result[1],
                             category=item.category,

@@ -257,7 +257,7 @@ class DNSParse:
         return True
 
     # Запуск браузера, загрузка начальной страницы продукта, выбор города
-    def __wd_open_browser_prоduct(self, url):
+    def __wd_open_browser_product(self, url):
         pass
 
     # Получить текущий код страницы
