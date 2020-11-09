@@ -15,12 +15,37 @@ from selenium.webdriver.support.expected_conditions import presence_of_element_l
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
-
-import bd
+import bot
 import header as h
 import checker
 
 logger = h.logging.getLogger('dnsparse')
+
+
+# Загрузить данные с csv, чтобы не парсить сайт
+def load_result_from_csv():
+    pr_result_list = []
+    with open(h.CSV_PATH, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            pr_result_list.append(h.ParseResult(
+                shop=row['Магазин'],
+                category=row['Категория'],
+                brand_name=row['Бренд'],
+                model_name=row['Модель'],
+                color=row['Цвет'],
+                price=int(row['Цена']),
+                ram=int(row['RAM']),
+                rom=int(row['ROM']),
+                img_url=row['Ссылка на изображение'],
+                url=row['Ссылка'],
+                rating=float(row['Рейтинг']),
+                num_rating=int(row['Кол-во отзывов']),
+                product_code=row['Код продукта'],
+            ))
+
+    return pr_result_list
+
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
 def dns_parse_model_name(brand, name):
@@ -65,13 +90,14 @@ class DNSParse:
         options = Options()
         options.add_argument("window-size=1920,1080")
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
-        self.wait = WebDriverWait(self.driver, 30)
-        self.cur_page = 1
         self.driver.implicitly_wait(1.5)
-        self.result = []
-        self.price_changes = []
+        self.wait = WebDriverWait(self.driver, 30)
+        self.pr_result_list = []
+        self.cur_page = 1
+        # Данные магазина
         self.domain = "https://www.dns-shop.ru"
         self.shop = "dns"
+        # Конфиг
         self.config = configparser.ConfigParser()
         self.config.read('conf.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
@@ -231,7 +257,7 @@ class DNSParse:
         return True
 
     # Запуск браузера, загрузка начальной страницы продукта, выбор города
-    def __wd_open_browser_product(self, url):
+    def __wd_open_browser_prоduct(self, url):
         pass
 
     # Получить текущий код страницы
@@ -262,7 +288,7 @@ class DNSParse:
         # Особенность ДНС - при переключении страницы иногда не меняется контент. Если так - обновляем страницу
         try:
             self.wait.until_not(presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
-                self.result[-5].url.replace(self.domain, '')))))
+                self.pr_result_list[-5].url.replace(self.domain, '')))))
         except se.TimeoutException:
             logger.error("TimeoutException в __wd_next_page, обновляю страницу")
             self.driver.refresh()
@@ -368,7 +394,7 @@ class DNSParse:
         ram = dns_parse_specifications(specifications) if specifications != "error" else 0
 
         # Добавление полученных результатов в коллекцию
-        self.result.append(h.ParseResult(
+        self.pr_result_list.append(h.ParseResult(
             shop=self.shop,
             category=category.lower(),
             brand_name=brand_name.lower(),
@@ -484,7 +510,7 @@ class DNSParse:
         ram = dns_parse_specifications(specifications) if specifications != "error" else 0
 
         # Добавление полученных результатов в коллекцию
-        self.result.append(h.ParseResult(
+        self.pr_result_list.append(h.ParseResult(
             shop=self.shop,
             category=self.category.lower(),
             brand_name=brand_name.lower(),
@@ -505,7 +531,7 @@ class DNSParse:
         with open(h.CSV_PATH, 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
-            for item in self.result:
+            for item in self.pr_result_list:
                 writer.writerow(item)
 
     # Загрузить данные с csv, чтобы не парсить сайт
@@ -513,7 +539,7 @@ class DNSParse:
         with open(h.CSV_PATH, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                self.result.append(h.ParseResult(
+                self.pr_result_list.append(h.ParseResult(
                     shop=row['Магазин'],
                     category=row['Категория'],
                     brand_name=row['Бренд'],
@@ -548,7 +574,7 @@ class DNSParse:
         self.__wd_close_browser()
         # self.__save_result()
         self.__load_result_in_csv()
-        return self.result
+        return self.pr_result_list
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
@@ -561,7 +587,7 @@ class DNSParse:
         self.__parse_product_page(html, url)
         self.__wd_close_browser()
         self.__save_result()
-        return self.result
+        return self.pr_result_list
 
 
 models = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
@@ -574,9 +600,12 @@ models = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
 
 if __name__ == '__main__':
     time_start = time.time()
-    parser = DNSParse()
-    result = parser.run_catalog(
-         "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    # parser = DNSParse()
+    # result = parser.run_catalog(
+    #      "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    result = load_result_from_csv()
     check = checker.Checker(result)
     check.run()
+    # bot = bot.Bot()
+    # bot.run()
     print(f"Время выполнения: {time.time() - time_start} сек")

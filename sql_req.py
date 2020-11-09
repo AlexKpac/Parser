@@ -158,14 +158,15 @@ insert_into_products_table_query = """
 
 # --------------------------- ПОИСК ----------------------------
 
-# Поиск всех цен (исторических) по названию бренда, модели, ROM и RAM
+# Поиск всех цен (исторических) по названию бренда, модели, ROM и RAM и сортировка по убыванию
 search_all_prices_by_version_query = """
-    SELECT price, id_shop_name, datetime::DATE
+    SELECT price, id_shop_name, datetime
     FROM general_table
     WHERE brand_name = %s AND 
           model_name = %s AND 
           ram = %s        AND 
           rom = %s
+    ORDER BY datetime DESC
 """
 
 # Поиск минимальной цены (исторической) по названию бренда, модели, ROM и RAM
