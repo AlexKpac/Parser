@@ -603,9 +603,11 @@ if __name__ == '__main__':
     # parser = DNSParse()
     # result = parser.run_catalog(
     #      "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+
     result = load_result_from_csv()
     check = checker.Checker(result)
     check.run()
+
     # bot = bot.Bot()
     # bot.run()
     print(f"Время выполнения: {time.time() - time_start} сек")

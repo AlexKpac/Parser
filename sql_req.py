@@ -79,7 +79,7 @@ create_view_general_table_query = """
         versions_phones_table.id_ver_phone, ram, rom, img_url, 
         shops_phones_table.id_shop_phone, shops_phones_table.id_shop_name, url_product, product_code, color, 
             local_rating, num_local_rating, bonus_rubles,
-        price, datetime
+        id, price, datetime
         FROM products_table
             JOIN versions_phones_table USING (id_product)
             JOIN shops_phones_table USING (id_ver_phone)
@@ -182,7 +182,7 @@ search_min_historical_price_by_version_query = """
 
 # Поиск только актуальных (с самой свежей датой) цен всех магазинов и цветов
 search_actual_prices_by_version_query = """
-    SELECT price, id_shop_name, color, url_product
+    SELECT price, id_shop_name, datetime, color, url_product
     FROM general_table
     JOIN (
         SELECT product_code, MAX(datetime) as MaxDate 
@@ -195,4 +195,20 @@ search_actual_prices_by_version_query = """
     ) AS group_table
     ON general_table.datetime = group_table.MaxDate AND 
        general_table.product_code = group_table.product_code
+"""
+
+# ----------------------- ОБНОВЛЕНИЕ ДАННЫХ ---------------------------
+
+# Обновление даты у цены
+update_datetime_in_price_phone_table_query = """
+    UPDATE prices_phones_table 
+    SET datetime = now() 
+    WHERE id =
+        (SELECT id 
+        FROM general_table 
+        WHERE id_product = %s AND
+             id_ver_phone = %s AND
+             id_shop_phone = %s AND
+             price = %s
+        )
 """

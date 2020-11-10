@@ -81,7 +81,7 @@ def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, 
 
 # Вернет список с одним или несколькими магазинами и разными цветами, но с самыми низкими ценами
 def find_min_price_in_prices_list(price_list):
-    pos_price, pos_shop, pos_color, pos_url = 0, 1, 2, 3
+    pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
 
     # Если в списке все цены равны (не важно сколько магазинов) или список пуст - возвращаем список без изменений
     if all_elem_equal_in_tuple_list(price_list, pos_price):
@@ -145,8 +145,8 @@ class Checker:
 
     # Проверка списка товаров с измененной ценой на выгодное предложение
     def __check_price_for_benefit(self, cur_price, brand_name, model_name, ram, rom):
-        pos_price, pos_shop, pos_color, pos_url = 0, 1, 2, 3
-        pos_datetime = 2
+        pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+
         null_result = (None, None, None)
 
         # Получить список всех актуальных цен на данную комплектацию
@@ -197,7 +197,7 @@ class Checker:
         # Составление списка товаров, у которых цена ниже средней на self.min_diff_price_per%
         result_list = []
         for price in prices_list:
-            if price[0] < avg_price:
+            if price[0] < avg_price and (datetime.datetime.now() - price[pos_datetime]).total_seconds() < 60:
                 diff_per = 100 - (cur_price / avg_price * 100)
                 if diff_per >= self.min_diff_price_per:
                     result_list.append(price)
@@ -257,7 +257,10 @@ class Checker:
 
                     # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
                     if price_phone[-1][0] == price:
-                        print("NO CHANGE, IGNORE; "
+                        # Если ничего не изменилось - обновить дату у цены
+                        self.db.execute_query(sr.update_datetime_in_price_phone_table_query, (id_product, id_ver_phone,
+                                                                                              id_shop_phone, price))
+                        print("NO CHANGE, IGNORE, UPDATE DATETIME; "
                               "id_prod = {}, id_ver = {}, id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
 
                     # ---- Цена данной комплектации в данном магазине изменилась - добавляем в список цен
@@ -303,6 +306,7 @@ class Checker:
 
     # Запуск проверки товаров с измененной ценой на поиск выгоды
     def check_prices(self, pr_price_change_list=None):
+        pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
 
         if not pr_price_change_list:
             pr_price_change_list = self.pr_price_change_list
@@ -323,25 +327,26 @@ class Checker:
             if result_list and avg_price and hist_min_price:
                 for item_result in result_list:
                     # Для исключительных ситуаций: проверка, что такого элемента с такой ценой и цветом еще нет в списке
-                    if not find_in_pc_result_list(self.pc_result_list, item.brand_name, item.model_name,
-                                                  item.ram, item.rom, item_result[0], result_list[1], item_result[2]):
+                    if not find_in_pc_result_list(self.pc_result_list, item.brand_name, item.model_name, item.ram,
+                                                  item.rom, item_result[pos_price], result_list[pos_shop],
+                                                  item_result[pos_color]):
                         self.pc_result_list.append(h.PriceChanges(
-                            shop=item_result[1],
+                            shop=item_result[pos_shop],
                             category=item.category,
                             brand_name=item.brand_name,
                             model_name=item.model_name,
-                            color=item_result[2],
+                            color=item_result[pos_color],
                             ram=item.ram,
                             rom=item.rom,
                             img_url=item.img_url,
-                            url=item_result[3],
+                            url=item_result[pos_url],
                             date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-                            cur_price=item_result[0],
+                            cur_price=item_result[pos_price],
                             avg_actual_price=int(avg_price),
-                            hist_min_price=hist_min_price[0],
-                            hist_min_shop=hist_min_price[1],
-                            hist_min_date=hist_min_price[2],
-                            diff_cur_avg=int(avg_price - item_result[0]),
+                            hist_min_price=hist_min_price[pos_price],
+                            hist_min_shop=hist_min_price[pos_shop],
+                            hist_min_date=hist_min_price[pos_datetime],
+                            diff_cur_avg=int(avg_price - item_result[pos_price]),
                         ))
 
     # Добавление всех товаров в базу

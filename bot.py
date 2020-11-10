@@ -4,8 +4,33 @@ import configparser
 import header as h
 import csv
 import collections
+import datetime
 
 logger = h.logging.getLogger('bot')
+
+SHOP_NAMES = [
+    'М.видео',
+    'Эльдорадо',
+    'DNS',
+    'DNS Технопоинт',
+    'МТС',
+    'Ситилинк',
+    'RBT.ru',
+    'Онлайнтрейд',
+    'Связной',
+    'ТехноСити',
+    'Билайн',
+    'МегаФон',
+    'е2е4',
+    'НОУ-ХАУ',
+    're:Store',
+    'Официальный интернет-магазин Samsung',
+    'Официальный интернет-магазин Huawei',
+    'Ozon',
+    'Wildberries',
+    'Sony Store',
+    'Tmall',
+]
 
 
 def wrap_in_tag(tag, text):
@@ -33,6 +58,15 @@ def find_all_versions_in_pc_prod_list(elements, brand_name, model_name, ram, rom
     return result
 
 
+def find_all_shops_in_pc_prod_list(elements, shop):
+    result = []
+    for item in elements:
+        if item.shop == shop:
+            result.append(item)
+
+    return result
+
+
 class Bot:
     def __init__(self):
         self.config = configparser.ConfigParser()
@@ -48,27 +82,56 @@ class Bot:
     # Подготовка текста для поста
     def __format_text(self, version_list):
         # Ссылки
+        shops_set = list(set(item.shop for item in version_list))
+        print(shops_set)
 
-        list_one_shop = []
-        while version_list:
-            shop
-        urls = ''
-        for item in version_list:
-            urls += '<a href="{}">{}</a>\n'.format(item.url, item.color.title())
+        # Группировка позиций по магазину и создание списка ссылок на разные магазины с разными цветами
+        hashtags = ''
+        links_shop_list = []
+        for shop in shops_set:
+            # Генерация тегов магазинов
+            hashtags += '#' + SHOP_NAMES[shop - 1] + ' '
+
+            # Генерация ссылок
+            urls = ''
+            for item in version_list:
+                if item.shop == shop:
+                    urls += '<a href="{}">► {}</a>\n'.format(item.url, item.color.title())  # → ► ● ○ •
+            links_shop_list.append(urls)
 
         item = version_list[0]
-
         # Заголовок
-        full_name = item.brand_name.title() + ' ' + item.model_name.title()
-        text = wrap_in_tag('b', full_name) + '\n\n'
+        full_name = item.category[0:-1].title() + ' ' + item.brand_name.title() + ' ' + item.model_name.title()
+        text = wrap_in_tag('b', full_name) + '\n'
+        # Характеристики
+        text += wrap_in_tag('b', item.ram) + '/' + wrap_in_tag('b', item.rom) + ' <b>Gb</b>\n\n'
+
         # Цена
+        # text += '●●●○○\n'
+
+        text += '🔥🔥🔥\n'
         s_price = '{0:,}'.format(item.cur_price).replace(',', ' ')
-        text += 'Цена: ' + wrap_in_tag('i', s_price) + ' ₽' + '\n\n'
+        text += 'Выгодная цена: <b><i>{}</i></b>'.format(s_price) + ' ₽' + '\n'
+        text += '<i>(Дешевле на <i>{}</i></i> ₽<i>)</i>\n\n'.format(int(item.avg_actual_price - item.cur_price))
 
-        sshop = h.SHOPS_NAME_LIST[item.shop-1][0]
+        # Исторический минимум
+        if item.cur_price < item.hist_min_price:
+            text += 'Данная цена является самой низкой за всё время\n'
+        else:
+            date_time = datetime.datetime.strptime(item.hist_min_date, '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
+            print('!!!! {}'.format(date_time))
+            text += '<i>Минимальная была <i>{}</i> ₽ в <b>{}</b> {}.</i>\n'.format(
+                item.hist_min_price, SHOP_NAMES[item.hist_min_shop - 1], date_time)
 
-        # Теги
-        text += '#' + item.shop + '\n#' + item.brand_name
+        # Ссылки
+        indx = 0
+        for link_set in links_shop_list:
+            text += '\nКупить в <b><u>' + SHOP_NAMES[shops_set[indx] - 1] + '</u></b>:\n'
+            text += link_set
+            indx += 1
+
+        # Тег бренда
+        text += '\n' + hashtags + '#' + item.brand_name
 
         return text
 
@@ -124,6 +187,10 @@ class Bot:
             version_list = find_all_versions_in_pc_prod_list(self.pc_product_list, item.brand_name, item.model_name,
                                                              item.ram, item.rom, item.cur_price)
 
+            print('=' * 100)
+            for item in version_list:
+                print(item)
+
             self.send_post(version_list)
 
             # Удаление из основного списка взятой группы version_list
@@ -133,10 +200,9 @@ class Bot:
     def send_post(self, version_list):
 
         item = version_list[0]
-
         text = self.__format_text(version_list)
         print(text)
-        self.bot.send_photo(chat_id=self.chat_id, photo=item.img_url, caption=text, parse_mode='Html') #, reply_markup=urls)
+        self.bot.send_photo(chat_id=self.chat_id, photo=item.img_url, caption=text, parse_mode='Html')
 
     # Запуск бота
     def run(self):
