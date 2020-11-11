@@ -328,7 +328,7 @@ class Checker:
                 for item_result in result_list:
                     # Для исключительных ситуаций: проверка, что такого элемента с такой ценой и цветом еще нет в списке
                     if not find_in_pc_result_list(self.pc_result_list, item.brand_name, item.model_name, item.ram,
-                                                  item.rom, item_result[pos_price], result_list[pos_shop],
+                                                  item.rom, item_result[pos_price], item_result[pos_shop],
                                                   item_result[pos_color]):
                         self.pc_result_list.append(h.PriceChanges(
                             shop=item_result[pos_shop],
@@ -354,6 +354,10 @@ class Checker:
 
         if not pr_product_list:
             pr_product_list = self.pr_product_list
+
+        if not pr_product_list:
+            logger.warning('pr_product_list is empty')
+            return
 
         for item in pr_product_list:
             # Проверка элемента на некорректные поля

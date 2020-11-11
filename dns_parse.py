@@ -1,7 +1,6 @@
 import time
 import re
 import csv
-import datetime
 import configparser
 
 import bs4
@@ -560,7 +559,7 @@ class DNSParse:
         # if not self.__wd_open_browser_catalog(url):
         #     logger.error("Open browser fail")
         #     self.__wd_close_browser()
-        #     return
+        #     return None
         #
         # if cur_page:
         #     self.cur_page = cur_page
@@ -581,7 +580,7 @@ class DNSParse:
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
-            return
+            return None
 
         html = self.__wd_get_cur_page()
         self.__parse_product_page(html, url)

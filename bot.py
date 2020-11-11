@@ -77,61 +77,66 @@ class Bot:
         self.bot = telebot.TeleBot(self.config['bot']['token'])
         self.pc_product_list = []
 
-    # Обертка строки в html теги
-
     # Подготовка текста для поста
     def __format_text(self, version_list):
-        # Ссылки
+        product = version_list[0]
+        # НАЗВАНИЕ МОДЕЛИ
+        text = '<b>{} {} {}</b>'.format(
+            product.category[0:-1].title(), product.brand_name.title(), product.model_name.title())
+
+        # КОМПЛЕКТАЦИЯ
+        text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom)
+
+        # ЦЕНА
+        # text += '🔥🔥🔥\n'
+        # text += '⭐⭐⭐\n'
+        # text += '🍪🍪🍪\n'
+        # text += '👑👑👑\n'
+        # text += '💎💎💎\n'
+        # text += '💥💥💥\n'
+        # text += '🌞🌞🌞\n'
+        # text += '🔴🔴🔴\n'
+        text += '🚩🚩🚩\n'
+        s_price = '{0:,}'.format(product.cur_price).replace(',', ' ')
+        text += 'Выгодная цена: <b><i>{}</i></b> ₽\n'.format(s_price)
+        s_price = '{0:,}'.format(int(product.avg_actual_price - product.cur_price))
+        text += '<i>(Дешевле на {}</i> ₽<i>)</i>\n\n'.format(s_price).replace(',', ' ')
+
+        # ИСТОРИЧЕСКИЙ МИНИМУМ
+        if product.cur_price < product.hist_min_price:
+            text += '<i>Данная цена является самой низкой за всё время</i>\n'
+        else:
+            date_time = datetime.datetime.strptime(product.hist_min_date, '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
+            s_price = '{0:,}'.format(product.hist_min_price).replace(',', ' ')
+            text += '<i>Минимальная цена {}</i> ₽ <i>была {} в {}</i>\n'.format(
+                s_price, SHOP_NAMES[product.hist_min_shop - 1], date_time)
+
+        # СПИСОК ССЫЛОК ДЛЯ ПОКУПКИ
         shops_set = list(set(item.shop for item in version_list))
-        print(shops_set)
 
         # Группировка позиций по магазину и создание списка ссылок на разные магазины с разными цветами
-        hashtags = ''
+        hashtag_shops = ''
         links_shop_list = []
         for shop in shops_set:
             # Генерация тегов магазинов
-            hashtags += '#' + SHOP_NAMES[shop - 1] + ' '
+            hashtag_shops += '#' + h.SHOPS_NAME_LIST[shop - 1][0] + ' '
 
             # Генерация ссылок
             urls = ''
-            for item in version_list:
-                if item.shop == shop:
-                    urls += '<a href="{}">► {}</a>\n'.format(item.url, item.color.title())  # → ► ● ○ •
+            for product in version_list:
+                if product.shop == shop:
+                    urls += '<a href="{}">› {}</a>\n'.format(product.url, product.color.title())  # → ► ● ○ • ›
             links_shop_list.append(urls)
 
-        item = version_list[0]
-        # Заголовок
-        full_name = item.category[0:-1].title() + ' ' + item.brand_name.title() + ' ' + item.model_name.title()
-        text = wrap_in_tag('b', full_name) + '\n'
-        # Характеристики
-        text += wrap_in_tag('b', item.ram) + '/' + wrap_in_tag('b', item.rom) + ' <b>Gb</b>\n\n'
-
-        # Цена
-        # text += '●●●○○\n'
-
-        text += '🔥🔥🔥\n'
-        s_price = '{0:,}'.format(item.cur_price).replace(',', ' ')
-        text += 'Выгодная цена: <b><i>{}</i></b>'.format(s_price) + ' ₽' + '\n'
-        text += '<i>(Дешевле на <i>{}</i></i> ₽<i>)</i>\n\n'.format(int(item.avg_actual_price - item.cur_price))
-
-        # Исторический минимум
-        if item.cur_price < item.hist_min_price:
-            text += 'Данная цена является самой низкой за всё время\n'
-        else:
-            date_time = datetime.datetime.strptime(item.hist_min_date, '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
-            print('!!!! {}'.format(date_time))
-            text += '<i>Минимальная была <i>{}</i> ₽ в <b>{}</b> {}.</i>\n'.format(
-                item.hist_min_price, SHOP_NAMES[item.hist_min_shop - 1], date_time)
-
-        # Ссылки
+        # Генерация ссылок
         indx = 0
         for link_set in links_shop_list:
-            text += '\nКупить в <b><u>' + SHOP_NAMES[shops_set[indx] - 1] + '</u></b>:\n'
+            text += '\nКупить в <b><u>{}</u></b>:\n'.format(SHOP_NAMES[shops_set[indx] - 1])
             text += link_set
             indx += 1
 
-        # Тег бренда
-        text += '\n' + hashtags + '#' + item.brand_name
+        # ХЭШТЕГИ
+        text += '\n' + '#' + product.brand_name + ' ' + hashtag_shops
 
         return text
 

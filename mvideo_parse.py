@@ -13,10 +13,35 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.action_chains import ActionChains
 
-import bd
+import checker
 import header as h
 
 logger = h.logging.getLogger('mvideoparse')
+
+
+# Загрузить данные с csv, чтобы не парсить сайт
+def load_result_from_csv():
+    pr_result_list = []
+    with open(h.CSV_PATH, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            pr_result_list.append(h.ParseResult(
+                shop=row['Магазин'],
+                category=row['Категория'],
+                brand_name=row['Бренд'],
+                model_name=row['Модель'],
+                color=row['Цвет'],
+                price=int(row['Цена']),
+                ram=int(row['RAM']),
+                rom=int(row['ROM']),
+                img_url=row['Ссылка на изображение'],
+                url=row['Ссылка'],
+                rating=float(row['Рейтинг']),
+                num_rating=int(row['Кол-во отзывов']),
+                product_code=row['Код продукта'],
+            ))
+
+    return pr_result_list
 
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
@@ -65,14 +90,14 @@ class MVideoParse:
         options.add_argument("window-size=1920,1080")
         # options.add_experimental_option('prefs', {'geolocation': True})
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
-        self.wait = WebDriverWait(self.driver, 15)
         self.driver.implicitly_wait(1.5)
+        self.wait = WebDriverWait(self.driver, 15)
         self.cur_page = 1
-        self.result = []
-        self.price_changes = []
+        self.pr_result_list = []
+        # Данные магазина
         self.domain = "https://www.mvideo.ru"
         self.shop = "мвидео"
-        self.db = bd.DataBase()
+        # Конфиг
         self.config = configparser.ConfigParser()
         self.config.read('conf.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
@@ -228,21 +253,25 @@ class MVideoParse:
     # Проверка по ключевым div-ам что страница каталога прогружена полностью
     def __wd_check_load_page_catalog(self):
         # Ожидание прогрузки пагинации
-        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "pagination__group"):
+        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "pagination"):
             return False
+        print('pagination OK')
 
         # Ожидание прогрузки цен
-        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "price__actual-price"):
+        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "price__main-value"):
             return False
+        print('price OK')
 
         # Ожидание прогрузки изображения товара
-        if not self.__wd_find_elem_with_timeout(By.XPATH,
-                                                "//img[@class='product-picture__picture product-picture__filler']"):
+        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-picture__img"):
+                                                # "//img[@class='product-picture__img product-picture__img--list']"):
             return False
+        print('img OK')
 
         # Ожидание прогрузки переключателя вида товара
-        if not self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-views__inner-area']"):
+        if not self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-view-switcher__inner-area']"):
             return False
+        print('switcher OK')
 
         print("PAGE LOAD")
         return True
@@ -263,9 +292,9 @@ class MVideoParse:
     # Переключение на отображение товаров в виде списка
     def __wd_mvideo_select_list_view(self):
         # Если есть этот тег в html коде, значит сейчас стоит табличный вид, переключаем на список
-        if self.__wd_find_elem(By.XPATH, "//div[@class='listing-views__pointer listing-views__pointer--grid']"):
+        if self.__wd_find_elem(By.XPATH, "//div[@class='listing-view-switcher__pointer listing-view-switcher__pointer--grid']"):
             # Переключение с табличного вида на список
-            listing_views = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-views__inner-area']")
+            listing_views = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-view-switcher__inner-area']")
             if not listing_views:
                 logger.error("Не могу найти listing views")
                 return False
@@ -277,7 +306,7 @@ class MVideoParse:
 
         # Но если нет и тега list (вид списка) - то ошибка
         elif not self.__wd_find_elem(By.XPATH,
-                                     "//div[@class='listing-views__pointer listing-views__pointer--list']"):
+                                     "//mvid-button[@class='listing-view-switcher__button listing-view-switcher__button--list']"):
             logger.error("Не вижу тегов для переключения вида товара")
             return False
 
@@ -287,15 +316,17 @@ class MVideoParse:
     def __wd_open_browser_catalog(self, url):
         self.driver.get(url)
 
+        time.sleep(10)
+        print("After sleep 10")
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (1)")
             return False
 
         # Выбор города (срабатывает не всегда с первого раза)
-        if not self.__wd_city_selection_catalog():
-            print("Не могу выбрать город")
-            return False
+        # if not self.__wd_city_selection_catalog():
+        #     print("Не могу выбрать город")
+        #     return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -367,7 +398,7 @@ class MVideoParse:
         # Особенность МВидео - при переключении страницы, пока сайт ждет ответ от сервера,
         # оставляет старые данные с эффектом размытия. Ждем, пока они не исчезнут
         self.wait.until_not(ec.presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
-            self.result[-1].url.replace(self.domain, '')))))
+            self.pr_result_list[-1].url.replace(self.domain, '')))))
         # Тоже особенность МВидео - данные могут прогрузится, а цены нет, будут висеть 9999 с эффектом размытия.
         self.wait.until_not(ec.presence_of_element_located((By.CLASS_NAME,
                                                             "price-block with-blur product-list-card__price")))
@@ -473,7 +504,7 @@ class MVideoParse:
             else ("error", "error", "error")
 
         # Добавление полученных результатов в коллекцию
-        self.result.append(h.ParseResult(
+        self.pr_result_list.append(h.ParseResult(
             shop=self.shop,
             category=str.lower(category),
             brand_name=str.lower(brand_name),
@@ -577,7 +608,7 @@ class MVideoParse:
             else ("error", "error", "error")
 
         # Добавление полученных результатов в коллекцию
-        self.result.append(h.ParseResult(
+        self.pr_result_list.append(h.ParseResult(
             shop=self.shop,
             category=str.lower(self.category),
             brand_name=str.lower(brand_name),
@@ -598,75 +629,17 @@ class MVideoParse:
         with open(h.CSV_PATH, 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
-            for item in self.result:
+            for item in self.pr_result_list:
                 writer.writerow(item)
-
-    # Сохранение списка товаров, у которых изменились цены в csv
-    def __save_price_changes(self):
-        if not self.price_changes:
-            logger.info("НЕТ ЗАПИСЕЙ С ИЗМЕНЕНИЕМ ЦЕН")
-            return
-
-        with open(h.PRICE_CHANGES_PATH, 'w', newline='') as f:
-            writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-            writer.writerow(h.HEADERS_PRICE_CHANGES)
-            for item in self.price_changes:
-                writer.writerow(item)
-
-    # Сохранение всех запарсенных данных в SQL
-    def __save_result_in_db(self):
-        for item in self.result:
-            if not bd.check_item_on_errors(item):
-                logger.error("Продукт {} {} с артиклом {} в магазине {} содержит 'error' или 0, SKIP".format(
-                    item.brand_name, item.model_name, item.product_code, item.shop))
-                continue
-
-            # Сохранение данных в базу. Если цена изменилась - вернет предыдущую
-            prev_price = self.db.add_product_to_bd(
-                category_name=item.category,
-                shop_name=item.shop,
-                brand_name=item.brand_name,
-                model_name=item.model_name,
-                var_color=item.color,
-                var_ram=item.ram,
-                var_rom=item.rom,
-                price=item.price,
-                img_url=item.img_url,
-                url=item.url,
-                product_code=item.product_code,
-                local_rating=item.rating,
-                num_rating=item.num_rating)
-
-            # Если выявлено изменение цены - записать в список
-            if prev_price:
-                self.price_changes.append(h.PriceChanges(
-                    shop=item.shop,
-                    category=item.category,
-                    brand_name=item.brand_name,
-                    model_name=item.model_name,
-                    color=item.color,
-                    ram=item.ram,
-                    rom=item.rom,
-                    img_url=item.img_url,
-                    url=item.url,
-                    rating=item.rating,
-                    num_rating=item.num_rating,
-                    product_code=item.product_code,
-                    date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-                    cur_price=item.price,
-                    prev_price=prev_price,
-                    diff=item.price - prev_price,
-                ))
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
-        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
-
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
-            return
+            return None
 
+        return
         if cur_page:
             self.cur_page = cur_page
 
@@ -677,27 +650,21 @@ class MVideoParse:
                 break
 
         self.__wd_close_browser()
-        self.__save_result_in_db()
         self.__save_result()
-        self.__save_price_changes()
-        self.db.disconnect()
+        return self.pr_result_list
 
     # Запуск работы парсера для продукта
     def run_product(self, url):
-        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
-
         if not self.__wd_open_browser_product(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
-            return
+            return None
 
         html = self.__wd_get_cur_page()
         self.__parse_product_page(html, url)
         self.__wd_close_browser()
-        print(self.result[0])
         self.__save_result()
-        self.__save_result_in_db()
-        self.db.disconnect()
+        return self.pr_result_list
 
 
 models = ('Смартфон Samsung Galaxy S10 Оникс',
@@ -722,6 +689,9 @@ models = ('Смартфон Samsung Galaxy S10 Оникс',
 if __name__ == '__main__':
     time_start = time.time()
     parser = MVideoParse()
-    parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
-    # parser.run_product("https://www.mvideo.ru/products/smartfon-zte-blade-l130-blue-30044612")
+    result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # result = load_result_from_csv()
+    check = checker.Checker(result_list)
+    check.run()
+
     print(f"Время выполнения: {time.time() - time_start} сек")
