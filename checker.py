@@ -60,7 +60,8 @@ def find_in_pr_price_change_list(nametuple, brand_name, model_name, ram, rom, pr
 # Поиск элемента по заданным параметрам в nametuple PriceChanges
 def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, shop, color):
     print('--nametuple={}'.format(namedtuple))
-    print('--brand={}, model={}, ram={}, rom={}, price={}, shop={}, color={}'.format(brand_name, model_name, ram, rom, price, shop, color))
+    print('--brand={}, model={}, ram={}, rom={}, price={}, shop={}, color={}'.format(brand_name, model_name, ram, rom,
+                                                                                     price, shop, color))
     if not namedtuple:
         return False
 
@@ -95,6 +96,20 @@ def find_min_price_in_prices_list(price_list):
             result.append(item)
 
     return result
+
+
+# Поиск товара в буфере (определить наличие)
+def find_in_stock_in_parse_result_list(parse_result_list, product_code, shop, price):
+    print('==code = {}, shop = {}, price={}'.format(product_code, h.SHOPS_NAME_LIST[shop-1][0], price))
+    for item in parse_result_list:
+        if item.product_code == product_code and \
+                item.shop == h.SHOPS_NAME_LIST[shop-1][0] and \
+                item.price == price:
+            print('==TRUE')
+            return True
+
+    print('==FALSE')
+    return False
 
 
 class Checker:
@@ -145,7 +160,7 @@ class Checker:
 
     # Проверка списка товаров с измененной ценой на выгодное предложение
     def __check_price_for_benefit(self, cur_price, brand_name, model_name, ram, rom):
-        pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+        pos_price, pos_shop, pos_datetime, pos_color, pos_url, pos_prod_code = 0, 1, 2, 3, 4, 5
 
         null_result = (None, None, None)
 
@@ -197,7 +212,8 @@ class Checker:
         # Составление списка товаров, у которых цена ниже средней на self.min_diff_price_per%
         result_list = []
         for price in prices_list:
-            if price[0] < avg_price and (datetime.datetime.now() - price[pos_datetime]).total_seconds() < 60:
+            if price[0] < avg_price and find_in_stock_in_parse_result_list(self.pr_product_list, price[pos_prod_code],
+                                                                           price[pos_shop], price[pos_price]):
                 diff_per = 100 - (cur_price / avg_price * 100)
                 if diff_per >= self.min_diff_price_per:
                     result_list.append(price)
@@ -258,9 +274,7 @@ class Checker:
                     # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
                     if price_phone[-1][0] == price:
                         # Если ничего не изменилось - обновить дату у цены
-                        self.db.execute_query(sr.update_datetime_in_price_phone_table_query, (id_product, id_ver_phone,
-                                                                                              id_shop_phone, price))
-                        print("NO CHANGE, IGNORE, UPDATE DATETIME; "
+                        print("NO CHANGE, IGNORE; "
                               "id_prod = {}, id_ver = {}, id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
 
                     # ---- Цена данной комплектации в данном магазине изменилась - добавляем в список цен
