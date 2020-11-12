@@ -12,6 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 
 import checker
 import header as h
@@ -312,11 +313,23 @@ class MVideoParse:
 
         return True
 
+    # Скролл вниз для прогрузки товаров на странице
+    def __wd_mvideo_scroll_down(self):
+        for i in range(12):
+            ActionChains(self.driver).send_keys(Keys.PAGE_DOWN).perform()
+            time.sleep(0.3)
+
+        if not self.__wd_check_load_page_catalog():
+            logger.error("Не удалось прогрузить страницу в __wd_next_page (1)")
+            return False
+
+        return True
+
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
         self.driver.get(url)
 
-        time.sleep(10)
+        time.sleep(5)
         print("After sleep 10")
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -339,8 +352,8 @@ class MVideoParse:
             return False
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_open_browser (3)")
+        if not self.__wd_mvideo_scroll_down():
+            logger.error("Не удалось прогрузить страницу после скролла в __wd_open_browser (3)")
             return False
 
         return True
@@ -375,7 +388,7 @@ class MVideoParse:
         self.cur_page += 1
 
         # Поиск следующей кнопки страницы
-        num_page_elem = self.__wd_find_elem(By.XPATH, f"//div[@class='pagination__group']/a[text()={self.cur_page}]")
+        num_page_elem = self.__wd_find_elem(By.XPATH, f"//li[@class='page-item number-item']/a[text()={self.cur_page}]")
         if not num_page_elem:
             logger.info("Достигнут конец каталога")
             return False
@@ -387,7 +400,7 @@ class MVideoParse:
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page")
+            logger.error("Не удалось прогрузить страницу в __wd_next_page (2)")
             return False
 
         # Переключение на отображение товаров в виде списка
@@ -398,7 +411,7 @@ class MVideoParse:
         # Особенность МВидео - при переключении страницы, пока сайт ждет ответ от сервера,
         # оставляет старые данные с эффектом размытия. Ждем, пока они не исчезнут
         self.wait.until_not(ec.presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
-            self.pr_result_list[-1].url.replace(self.domain, '')))))
+            self.pr_result_list[-1].url))))
         # Тоже особенность МВидео - данные могут прогрузится, а цены нет, будут висеть 9999 с эффектом размытия.
         self.wait.until_not(ec.presence_of_element_located((By.CLASS_NAME,
                                                             "price-block with-blur product-list-card__price")))
@@ -406,6 +419,11 @@ class MVideoParse:
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_next_page / товар распродан (нет цен на всей странице)")
+            return False
+
+        # Скролл вниз и ожидание прогрузки страницы
+        if not self.__wd_mvideo_scroll_down():
+            logger.error("Не удалось прогрузить страницу после скролла в __wd_next_page (1)")
             return False
 
         # Специальная задержка между переключениями страниц для имитации юзера
@@ -533,7 +551,10 @@ class MVideoParse:
             self.category = str.lower(self.category[-1].text.replace(' ', '').replace('\n', ''))
 
         # Контейнер с элементами
-        container = soup.select('div.products-raw')
+        container = soup.select('div.product-cards-layout__item')
+        for item in container:
+            print(item)
+
         for block in container:
             self.__parse_catalog_block(block)
         del container
@@ -541,17 +562,17 @@ class MVideoParse:
     # Метод для парсинга html страницы товара
     def __parse_catalog_block(self, block):
         # Название модели и URL
-        model_name_url_block = block.select_one('a.product-title.product-title--clamp')
+        model_name_url_block = block.select_one('a.product-title__text')
         if not model_name_url_block:
             logger.error("No model name and URL")
             model_name = "error"
             url = "error"
         else:
-            url = self.domain + model_name_url_block.get('href')
+            url = model_name_url_block.get('href')
             model_name = model_name_url_block.text.replace('\n', '').strip()
 
         # Ссылка на изображение товара
-        img_url = block.select_one('img.product-picture__picture.product-picture__filler')
+        img_url = block.select_one('img.product-picture__img.product-picture__img--list')
         if not img_url:
             logger.error("No img url")
             img_url = "error"
@@ -559,7 +580,7 @@ class MVideoParse:
             img_url = img_url.get('src')
 
         # Рейтинг товара
-        rating = block.select_one('span.star-rating__stars')
+        rating = block.select_one('span.stars-container')
         if not rating:
             rating = 0
         else:
@@ -567,7 +588,7 @@ class MVideoParse:
             rating = rating[0] if rating else 0
 
         # На основании скольки отзывов построен рейтинг
-        num_rating = block.select_one('span.star-rating__reviews')
+        num_rating = block.select_one('span.product-rating__feedback.product-rating__feedback--with-link')
         if not num_rating:
             num_rating = 0
         else:
@@ -576,7 +597,7 @@ class MVideoParse:
 
         # Парсинг значений RAM и ROM
         ram, rom = 0, 0
-        specifications = block.select('div.product-feature-list__item')
+        specifications = block.select('li.product-feature-list__item.product-feature-list__item--undefined')
         if not specifications:
             logger.error("No RAM and ROM")
         else:
@@ -587,17 +608,17 @@ class MVideoParse:
                     rom = int(re.findall(r'\d+', item.text)[0])
 
         # Парсинг цен
-        promo_price = block.select_one('div.promo__price')
+        promo_price = block.select_one('span.price__main-value.price__main-value--old')
         # Если есть блок акции - берем цену с него
         if promo_price:
-            price = int(re.findall(r'\d+', promo_price.text.replace(' ', ''))[0])
+            price = int(re.findall(r'\d+', promo_price.text.replace(u'\xa0', ''))[0])
         else:
-            price = block.select_one('div.price__actual-price')
+            price = block.select_one('span.price__main-value')
             if not price:
                 logger.error("No price")
                 price = 0
             else:
-                price = int(re.findall(r'\d+', price.text.replace(' ', ''))[0])
+                price = int(re.findall(r'\d+', price.text.replace(u'\xa0', ''))[0])
 
         # Код продукта
         product_code = url[-8:] if len(url) > 8 else "error"
@@ -624,6 +645,8 @@ class MVideoParse:
             product_code=str.lower(product_code),
         ))
 
+        print(self.pr_result_list[-1])
+
     # Сохранение всего результата в csv файл
     def __save_result(self):
         with open(h.CSV_PATH, 'w', newline='') as f:
@@ -639,7 +662,6 @@ class MVideoParse:
             self.__wd_close_browser()
             return None
 
-        return
         if cur_page:
             self.cur_page = cur_page
 
@@ -649,7 +671,7 @@ class MVideoParse:
             if not self.__wd_next_page():
                 break
 
-        self.__wd_close_browser()
+        # self.__wd_close_browser()
         self.__save_result()
         return self.pr_result_list
 
