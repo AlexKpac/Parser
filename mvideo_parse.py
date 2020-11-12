@@ -145,35 +145,43 @@ class MVideoParse:
 
     # Алгоритм выбора города для всех возможных ситуаций для страницы каталога
     def __wd_city_selection_catalog(self):
-        city = self.__wd_find_elem_with_timeout(By.XPATH, "//button[@class='region-selection__select']")
+        city = self.__wd_find_elem_with_timeout(By.XPATH, "//span[@class='location-text top-navbar-link']")
         if not city:
             logger.error("Не найдено поле с названием города")
             return False
 
         # Если указан неверный город
         if not (str.lower(self.current_city) in str.lower(city.text)):
+            print("Неверный город")
 
             # Клик по городу
             if not self.__wd_click_elem(city):
                 logger.error("Не могу нажать на кнопку выбора города")
                 return False
 
+            print("Клик по городу")
+
             # Получить список всех городов и если есть нужный, кликнуть по нему
-            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "city-list__item")
+            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "location-select__location")
             if city_list:
                 for item in city_list:
-                    # if str.lower(item.text).find(str.lower(h.CURRENT_CITY)) != -1:
-                    if str.lower(self.current_city) in str.lower(item.text):
+                    if str.lower(self.current_city) in str.lower(item.text): #
                         time.sleep(1.5)
                         return self.__wd_click_elem(item)
             else:
                 logger.warning("Нет списка городов, попробую вбить вручную")
 
+            logger.warning("Не вижу нужный город в списке, пробую вбить вручную")
+
             # Поиск поля для ввода города
-            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//input[@class='base-input find-input__input']")
+            input_city = self.__wd_find_elem_with_timeout(By.CLASS_NAME, "location-select__input-wrap")
             if not input_city:
                 logger.error("Не найдено поле, куда вводить новый город")
                 return False
+
+            # Кликнуть на форму для ввода текста
+            time.sleep(1)
+            ActionChains(self.driver).move_to_element(input_city).click().perform()
 
             # Ввод названия города по буквам
             for char in self.current_city:
@@ -184,7 +192,7 @@ class MVideoParse:
             time.sleep(1.5)
 
             # Выбор города из сгенерированного списка городов
-            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//li[@class='city-list__item']/a")
+            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//li[@class='location-select__location']")
             if not input_city_item:
                 logger.error("Не найдено элементов при вводе города")
                 return False
@@ -198,6 +206,7 @@ class MVideoParse:
 
     # Алгоритм выбора города для всех возможных ситуаций для страницы продукта
     def __wd_city_selection_product(self):
+        return True
         city = self.__wd_find_elem_with_timeout(By.ID, "header-city-selection-link")
         if not city:
             logger.error("Не найдено поле с названием города")
@@ -329,17 +338,21 @@ class MVideoParse:
     def __wd_open_browser_catalog(self, url):
         self.driver.get(url)
 
-        time.sleep(5)
-        print("After sleep 10")
-        # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page_catalog():
+        # Ждем, пока не прогрузится страница, даем 3 попытки, т.к. сайт при первом запуске часто выдает пустую страницу
+        for i in range(3):
+            if not self.__wd_check_load_page_catalog():
+                logger.error("Не удалось прогрузить страницу в __wd_open_browser (1), пробую обновить")
+                self.driver.refresh()
+            else:
+                break
+        else:
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (1)")
             return False
 
         # Выбор города (срабатывает не всегда с первого раза)
-        # if not self.__wd_city_selection_catalog():
-        #     print("Не могу выбрать город")
-        #     return False
+        if not self.__wd_city_selection_catalog():
+            print("Не могу выбрать город")
+            return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -671,7 +684,7 @@ class MVideoParse:
             if not self.__wd_next_page():
                 break
 
-        # self.__wd_close_browser()
+        self.__wd_close_browser()
         self.__save_result()
         return self.pr_result_list
 
