@@ -427,13 +427,17 @@ class MVideoParse:
             logger.error("Не смог переключить отображение товара в виде списока")
             return False
 
-        # Особенность МВидео - при переключении страницы, пока сайт ждет ответ от сервера,
-        # оставляет старые данные с эффектом размытия. Ждем, пока они не исчезнут
-        self.wait.until_not(ec.presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
-            self.pr_result_list[-1].url))))
-        # Тоже особенность МВидео - данные могут прогрузится, а цены нет, будут висеть 9999 с эффектом размытия.
-        self.wait.until_not(ec.presence_of_element_located((By.CLASS_NAME,
-                                                            "price-block with-blur product-list-card__price")))
+        try:
+            # Особенность МВидео - при переключении страницы, пока сайт ждет ответ от сервера,
+            # оставляет старые данные с эффектом размытия. Ждем, пока они не исчезнут
+            self.wait.until_not(ec.presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
+                self.pr_result_list[-1].url))))
+            # Тоже особенность МВидео - данные могут прогрузится, а цены нет, будут висеть 9999 с эффектом размытия.
+            # self.wait.until_not(ec.presence_of_element_located((By.CLASS_NAME,
+            #                                                     "price-block with-blur product-list-card__price")))
+        except se.TimeoutException:
+            logger.error('Не пропадает телефон с прошлой страницы, не могу прогрузить текущую')
+            return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
