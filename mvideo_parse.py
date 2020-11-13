@@ -354,6 +354,8 @@ class MVideoParse:
             print("Не могу выбрать город")
             return False
 
+        time.sleep(1)
+
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
@@ -363,6 +365,8 @@ class MVideoParse:
         if not self.__wd_mvideo_select_list_view():
             logger.error("Не смог переключить отображение товара в виде списока")
             return False
+
+        time.sleep(1)
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_mvideo_scroll_down():
@@ -384,6 +388,8 @@ class MVideoParse:
         if not self.__wd_city_selection_product():
             print("Не могу выбрать город")
             return False
+
+        time.sleep(1)
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_product():
