@@ -324,7 +324,7 @@ class MVideoParse:
 
     # Скролл вниз для прогрузки товаров на странице
     def __wd_mvideo_scroll_down(self):
-        for i in range(12):
+        for i in range(14):
             ActionChains(self.driver).send_keys(Keys.PAGE_DOWN).perform()
             time.sleep(0.3)
 

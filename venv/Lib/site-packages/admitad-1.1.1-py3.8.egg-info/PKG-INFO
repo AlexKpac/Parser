@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: admitad
+Version: 1.1.1
+Summary: A Python wrapper around the Admitad API
+Home-page: https://github.com/admitad/admitad-python-api
+Author: Admitad Dev Bot
+Author-email: dev@admitad.com
+License: MIT
+Download-URL: https://github.com/admitad/admitad-python-api/tarball/1.1.1
+Description: UNKNOWN
+Keywords: admitad
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Communications
+Classifier: Topic :: Internet
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.5
