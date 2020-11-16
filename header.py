@@ -9,7 +9,7 @@ WD_PATH = "venv/WebDriverManager/chromedriver.exe"
 PRICE_CHANGES_PATH = "/Users/Никита/Desktop/dif_price.csv"
 # Путь для файла с результатами парсинга
 CSV_PATH = "/Users/Никита/Desktop/goods.csv"
-
+CSV_PATH_RAW = "/Users/Никита/Desktop/"
 
 logging.basicConfig(level=logging.INFO)
 

@@ -518,8 +518,8 @@ class DNSParse:
             price=cur_price,
             ram=ram,
             rom=rom,
-            img_url=img_url.lower(),
-            url=url.lower(),
+            img_url=img_url,
+            url=url,
             rating=rating,
             num_rating=num_rating,
             product_code=product_code.lower(),
@@ -527,7 +527,7 @@ class DNSParse:
 
     # Сохранение всего результата в csv файл
     def __save_result(self):
-        with open(h.CSV_PATH, 'w', newline='') as f:
+        with open(h.CSV_PATH_RAW + "dns.csv", 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
             for item in self.pr_result_list:
@@ -535,7 +535,7 @@ class DNSParse:
 
     # Загрузить данные с csv, чтобы не парсить сайт
     def __load_result_in_csv(self):
-        with open(h.CSV_PATH, 'r') as f:
+        with open(h.CSV_PATH_RAW + "dns.csv", 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 self.pr_result_list.append(h.ParseResult(
@@ -553,26 +553,27 @@ class DNSParse:
                     num_rating=int(row['Кол-во отзывов']),
                     product_code=row['Код продукта'],
                 ))
+        return self.pr_result_list
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
-        # if not self.__wd_open_browser_catalog(url):
-        #     logger.error("Open browser fail")
-        #     self.__wd_close_browser()
-        #     return None
-        #
-        # if cur_page:
-        #     self.cur_page = cur_page
-        #
-        # while True:
-        #     html = self.__wd_get_cur_page()
-        #     self.__parse_catalog_page(html)
-        #     if not self.__wd_next_page():
-        #         break
+        if not self.__wd_open_browser_catalog(url):
+            logger.error("Open browser fail")
+            self.__wd_close_browser()
+            return None
+
+        if cur_page:
+            self.cur_page = cur_page
+
+        while True:
+            html = self.__wd_get_cur_page()
+            self.__parse_catalog_page(html)
+            if not self.__wd_next_page():
+                break
 
         self.__wd_close_browser()
-        # self.__save_result()
-        self.__load_result_in_csv()
+        self.__save_result()
+        # self.__load_result_in_csv()
         return self.pr_result_list
 
     # Запуск работы парсера для продукта

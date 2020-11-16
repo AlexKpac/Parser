@@ -265,23 +265,18 @@ class MVideoParse:
         # Ожидание прогрузки пагинации
         if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "pagination"):
             return False
-        print('pagination OK')
 
         # Ожидание прогрузки цен
         if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "price__main-value"):
             return False
-        print('price OK')
 
         # Ожидание прогрузки изображения товара
         if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-picture__img"):
-                                                # "//img[@class='product-picture__img product-picture__img--list']"):
             return False
-        print('img OK')
 
         # Ожидание прогрузки переключателя вида товара
         if not self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-view-switcher__inner-area']"):
             return False
-        print('switcher OK')
 
         print("PAGE LOAD")
         return True
@@ -575,8 +570,6 @@ class MVideoParse:
 
         # Контейнер с элементами
         container = soup.select('div.product-cards-layout__item')
-        for item in container:
-            print(item)
 
         for block in container:
             self.__parse_catalog_block(block)
@@ -668,11 +661,9 @@ class MVideoParse:
             product_code=str.lower(product_code),
         ))
 
-        print(self.pr_result_list[-1])
-
     # Сохранение всего результата в csv файл
     def __save_result(self):
-        with open(h.CSV_PATH, 'w', newline='') as f:
+        with open(h.CSV_PATH_RAW + "mvideo.csv", 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
             for item in self.pr_result_list:
