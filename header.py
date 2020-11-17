@@ -6,10 +6,13 @@ import logging
 # Путь к webdriver
 WD_PATH = "venv/WebDriverManager/chromedriver.exe"
 # Путь для файла с логами изменений цен
-PRICE_CHANGES_PATH = "/Users/Никита/Desktop/dif_price.csv"
+# PRICE_CHANGES_PATH = "/Users/Никита/Desktop/dif_price.csv"
+PRICE_CHANGES_PATH = "cache/dif_price.csv"
 # Путь для файла с результатами парсинга
-CSV_PATH = "/Users/Никита/Desktop/goods.csv"
-CSV_PATH_RAW = "/Users/Никита/Desktop/"
+# CSV_PATH = "/Users/Никита/Desktop/goods.csv"
+# CSV_PATH_RAW = "/Users/Никита/Desktop/"
+CSV_PATH = "cache/goods.csv"
+CSV_PATH_RAW = "cache/"
 
 logging.basicConfig(level=logging.INFO)
 
