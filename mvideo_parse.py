@@ -740,7 +740,7 @@ if __name__ == '__main__':
     parser = MVideoParse()
     result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
     # result = load_result_from_csv()
-    # check = checker.Checker(result_list)
-    # check.run()
+    check = checker.Checker(result_list)
+    check.run()
 
     print(f"Время выполнения: {time.time() - time_start} сек")

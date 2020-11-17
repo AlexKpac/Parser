@@ -99,11 +99,10 @@ def find_min_price_in_prices_list(price_list):
 
 
 # Поиск товара в буфере (определить наличие)
-def find_in_stock_in_parse_result_list(parse_result_list, product_code, shop, price):
-    print('==code = {}, shop = {}, price={}'.format(product_code, h.SHOPS_NAME_LIST[shop-1][0], price))
+def find_in_stock_in_parse_result_list(parse_result_list, url, price):
+    print('==url = {}, price={}'.format(url, price))
     for item in parse_result_list:
-        if item.product_code == product_code and \
-                item.shop == h.SHOPS_NAME_LIST[shop-1][0] and \
+        if item.url == url and \
                 item.price == price:
             print('==TRUE')
             return True
@@ -160,7 +159,7 @@ class Checker:
 
     # Проверка списка товаров с измененной ценой на выгодное предложение
     def __check_price_for_benefit(self, cur_price, brand_name, model_name, ram, rom):
-        pos_price, pos_shop, pos_datetime, pos_color, pos_url, pos_prod_code = 0, 1, 2, 3, 4, 5
+        pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
 
         null_result = (None, None, None)
 
@@ -212,8 +211,9 @@ class Checker:
         # Составление списка товаров, у которых цена ниже средней на self.min_diff_price_per%
         result_list = []
         for price in prices_list:
-            if price[0] < avg_price and find_in_stock_in_parse_result_list(self.pr_product_list, price[pos_prod_code],
-                                                                           price[pos_shop], price[pos_price]):
+            # parse_result_list, url, price
+            if price[0] < avg_price and find_in_stock_in_parse_result_list(self.pr_product_list, price[pos_url],
+                                                                           price[pos_price]):
                 diff_per = 100 - (cur_price / avg_price * 100)
                 if diff_per >= self.min_diff_price_per:
                     result_list.append(price)
