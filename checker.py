@@ -13,14 +13,13 @@ logger = h.logging.getLogger('checker')
 
 # Функция, которая вернет true, если хоть у одного поля поврежденные данные
 def check_item_on_errors(item):
-    e = "error"
-    if item.category == e or \
-            item.shop == e or \
-            item.brand_name == e or \
-            item.model_name == e or \
-            item.color == e or \
-            item.img_url == e or \
-            item.product_code == e or \
+    if not item.category or \
+            not item.shop or \
+            not item.brand_name or \
+            not item.model_name or \
+            not item.color or \
+            not item.img_url or \
+            not item.product_code or \
             item.rom == 0 or \
             item.price == 0:
         return False

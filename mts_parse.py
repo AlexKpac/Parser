@@ -548,7 +548,8 @@ if __name__ == '__main__':
 
     parser = MTSParse()
     result_list = parser.run_catalog(
-        "https://shop.mts.ru/catalog/smartfony/")
+        #"https://shop.mts.ru/catalog/smartfony/")
+        "https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
 
     # result_list = load_result_from_csv()
     # check = checker.Checker(result_list)
