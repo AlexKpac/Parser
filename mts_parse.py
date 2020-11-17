@@ -381,24 +381,24 @@ class MTSParse:
         # Название модели
         model_name = block.select_one('div.card-product-description__name')
         if not model_name:
-            logger.error("No model name and URL")
-            model_name = "error"
+            logger.warning("No model name and URL")
+            return
         else:
             model_name = model_name.text.replace('\n', '').strip()
 
         # URL
         url = block.select_one('a.card-product-description__heading')
         if not url:
-            logger.error("No URL")
-            url = "error"
+            logger.warning("No URL")
+            return
         else:
             url = self.domain + url.get('href')
 
         # Ссылка на изображение товара
         img_url = block.select_one('img.gallery__img')
         if not img_url:
-            logger.error("No img url")
-            img_url = "error"
+            logger.warning("No img url")
+            return
         else:
             img_url = img_url.get('src')
 
@@ -422,8 +422,8 @@ class MTSParse:
         # Цена, ветвление: 2 вида акций, поиск по тегам
         cur_price = block.select_one('span.product-price__current')
         if not cur_price:
-            logger.error("No price")
-            cur_price = 0
+            logger.warning("No price")
+            return
         else:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
@@ -438,9 +438,11 @@ class MTSParse:
                     break
 
         # Парсинг названия модели
-        brand_name, model_name, color, ram, rom = mts_parse_model_name(model_name) \
-            if model_name != "error" \
-            else ("error", "error", "error", 0, 0)
+        brand_name, model_name, color, ram, rom = mts_parse_model_name(model_name)
+
+        if not brand_name or not model_name or not color:
+            logger.warning("No brand name, model name or color")
+            return
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(

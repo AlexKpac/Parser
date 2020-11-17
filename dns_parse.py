@@ -62,13 +62,14 @@ def dns_parse_model_name(brand, name):
     # Удалить из названия модели RAM/ROM или только ROM
     name = name.replace(ram_rom[0] if ram_rom else rom, '')
     # Удалить из строки ROM всё, кроме цифр
-    rom = re.findall(r'\d+', rom)[0]
+    rom = re.findall(r'\d+', rom)
+    rom = int(rom[0]) if rom else 0
     # Удалить из строки модели цвет, название бренда и слово "смартфон"
     name = name.replace(color, '').replace(brand, '').replace('смартфон', '')
     # Удалить лишние пробелы
     name = ' '.join(name.split())
 
-    return name, color, int(rom)
+    return name, color, rom
 
 
 # Парсинг характеристик (получить RAM)
@@ -433,9 +434,8 @@ class DNSParse:
         # Название модели и URL
         model_name_url_block = block.select_one('div.product-info__title-link > a.ui-link')
         if not model_name_url_block:
-            logger.error("No model name and URL")
-            model_name = "error"
-            url = "error"
+            logger.warning("No model name and URL")
+            return
         else:
             url = self.domain + model_name_url_block.get('href')
             model_name = model_name_url_block.text
@@ -443,24 +443,24 @@ class DNSParse:
         # Название бренда
         brand_name = block.select_one('i[data-product-param=brand]')
         if not brand_name:
-            logger.error("No brand name")
-            brand_name = "error"
+            logger.warning("No brand name")
+            return
         else:
             brand_name = brand_name.get('data-value')
 
         # Ссылка на изображение товара
         img_url = block.select_one('img')
         if not img_url:
-            logger.error("No img url")
-            img_url = "error"
+            logger.warning("No img url")
+            return
         else:
             img_url = img_url.get('data-src')
 
         # Характеристики товара
         specifications = block.select_one('span.product-info__title-description')
         if not specifications:
-            logger.error("No specifications")
-            specifications = "error"
+            logger.warning("No specifications")
+            return
         else:
             specifications = specifications.text
 
@@ -481,8 +481,8 @@ class DNSParse:
         # Код продукта
         product_code = block.select_one('div.product-info__code > span')
         if not product_code:
-            logger.error("No product code")
-            product_code = "error"
+            logger.warning("No product code")
+            return
         else:
             product_code = product_code.text
 
@@ -496,17 +496,21 @@ class DNSParse:
         else:
             cur_price = block.select_one('div.product-min-price__current')
             if not cur_price:
-                logger.error("No current price")
-                cur_price = 0
+                logger.warning("No current price")
+                return
             else:
                 cur_price = int(cur_price.text.replace('₽', '').replace(' ', ''))
 
         # Парсинг полученных данных
-        model_name, color, rom = dns_parse_model_name(brand_name, model_name) \
-            if brand_name != "error" and model_name != "error" \
-            else ("error", "error", 0)
+        model_name, color, rom = dns_parse_model_name(brand_name, model_name)
 
-        ram = dns_parse_specifications(specifications) if specifications != "error" else 0
+        if not model_name or not color:
+            logger.warning("No model name or color")
+            return
+
+        ram = dns_parse_specifications(specifications)
+        if not ram:
+            logger.warning("No ram")
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(

@@ -49,7 +49,7 @@ def load_result_from_csv():
 def mvideo_parse_model_name(name):
     # Защита от неправильных названий
     if len(name.split()) < 5:
-        return "error", "error", "error"
+        return None, None, None
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
     rebuilt = ' восст.' if (' восст.' in name) else ''
     name = name.replace(rebuilt, '')
@@ -165,7 +165,7 @@ class MVideoParse:
             city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "location-select__location")
             if city_list:
                 for item in city_list:
-                    if str.lower(self.current_city) in str.lower(item.text): #
+                    if str.lower(self.current_city) in str.lower(item.text):  #
                         time.sleep(1.5)
                         return self.__wd_click_elem(item)
             else:
@@ -297,9 +297,11 @@ class MVideoParse:
     # Переключение на отображение товаров в виде списка
     def __wd_mvideo_select_list_view(self):
         # Если есть этот тег в html коде, значит сейчас стоит табличный вид, переключаем на список
-        if self.__wd_find_elem(By.XPATH, "//div[@class='listing-view-switcher__pointer listing-view-switcher__pointer--grid']"):
+        if self.__wd_find_elem(By.XPATH,
+                               "//div[@class='listing-view-switcher__pointer listing-view-switcher__pointer--grid']"):
             # Переключение с табличного вида на список
-            listing_views = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-view-switcher__inner-area']")
+            listing_views = self.__wd_find_elem_with_timeout(By.XPATH,
+                                                             "//div[@class='listing-view-switcher__inner-area']")
             if not listing_views:
                 logger.error("Не могу найти listing views")
                 return False
@@ -579,10 +581,14 @@ class MVideoParse:
     def __parse_catalog_block(self, block):
         # Название модели и URL
         model_name_url_block = block.select_one('a.product-title__text')
+
+        if 'pda' in model_name_url_block.text.lower():
+            logger.warning("PDA detected")
+            return
+
         if not model_name_url_block:
-            logger.error("No model name and URL")
-            model_name = "error"
-            url = "error"
+            logger.warning("No model name and URL")
+            return
         else:
             url = model_name_url_block.get('href')
             model_name = model_name_url_block.text.replace('\n', '').strip()
@@ -590,8 +596,8 @@ class MVideoParse:
         # Ссылка на изображение товара
         img_url = block.select_one('img.product-picture__img.product-picture__img--list')
         if not img_url:
-            logger.error("No img url")
-            img_url = "error"
+            logger.warning("No img url")
+            return
         else:
             img_url = img_url.get('src')
 
@@ -615,7 +621,7 @@ class MVideoParse:
         ram, rom = 0, 0
         specifications = block.select('li.product-feature-list__item.product-feature-list__item--undefined')
         if not specifications:
-            logger.error("No RAM and ROM")
+            logger.warning("No RAM and ROM")
         else:
             for item in specifications:
                 if "ram" in str.lower(item.text):
@@ -631,34 +637,41 @@ class MVideoParse:
         else:
             price = block.select_one('span.price__main-value')
             if not price:
-                logger.error("No price")
-                price = 0
+                logger.warning("No price")
+                return
             else:
                 price = int(re.findall(r'\d+', price.text.replace(u'\xa0', ''))[0])
 
         # Код продукта
-        product_code = url[-8:] if len(url) > 8 else "error"
+        if len(url) > 8:
+            product_code = url[-8:]
+        else:
+            logger.warning("No product code")
+            return
 
         # Парсинг полученных данных
-        brand_name, model_name, color = mvideo_parse_model_name(model_name) \
-            if model_name != "error" \
-            else ("error", "error", "error")
+        brand_name, model_name, color = mvideo_parse_model_name(model_name)
+        if not brand_name or \
+                not model_name or \
+                not color:
+            logger.warning("No brand name, model name or color")
+            return
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(
             shop=self.shop,
-            category=str.lower(self.category),
-            brand_name=str.lower(brand_name),
-            model_name=str.lower(model_name),
-            color=str.lower(color),
+            category=self.category.lower(),
+            brand_name=brand_name.lower(),
+            model_name=model_name.lower(),
+            color=color.lower(),
             price=price,
             ram=ram,
             rom=rom,
-            img_url=str.lower(img_url),
-            url=str.lower(url),
+            img_url=img_url.lower(),
+            url=url.lower(),
             rating=rating,
             num_rating=num_rating,
-            product_code=str.lower(product_code),
+            product_code=product_code.lower(),
         ))
 
     # Сохранение всего результата в csv файл
@@ -727,7 +740,7 @@ if __name__ == '__main__':
     parser = MVideoParse()
     result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
     # result = load_result_from_csv()
-    check = checker.Checker(result_list)
-    check.run()
+    # check = checker.Checker(result_list)
+    # check.run()
 
     print(f"Время выполнения: {time.time() - time_start} сек")

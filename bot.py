@@ -88,7 +88,7 @@ class Bot:
         text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom)
 
         # ЦЕНА
-        # text += '🔥🔥🔥\n'
+        text += '🔥🔥🔥\n'
         # text += '⭐⭐⭐\n'
         # text += '🍪🍪🍪\n'
         # text += '👑👑👑\n'
@@ -96,7 +96,7 @@ class Bot:
         # text += '💥💥💥\n'
         # text += '🌞🌞🌞\n'
         # text += '🔴🔴🔴\n'
-        text += '🚩🚩🚩\n'
+        # text += '🚩🚩🚩\n'
         s_price = '{0:,}'.format(product.cur_price).replace(',', ' ')
         text += 'Выгодная цена: <b><i>{}</i></b> ₽\n'.format(s_price)
         s_price = '{0:,}'.format(int(product.avg_actual_price - product.cur_price))
@@ -203,10 +203,8 @@ class Bot:
                 self.pc_product_list.remove(item)
 
     def send_post(self, version_list):
-
         item = version_list[0]
         text = self.__format_text(version_list)
-        print(text)
         self.bot.send_photo(chat_id=self.chat_id, photo=item.img_url, caption=text, parse_mode='Html')
 
     # Запуск бота
