@@ -101,7 +101,7 @@ class DataBase:
                 if self.create_database(db_name):
 
                     # Если получилось создать новую базу данных - соединяемся с ней
-                    logger.error("Data base '{}' created".format(db_name))
+                    logger.info("Data base '{}' created".format(db_name))
                     if not self.connect(db_name, db_user, db_password, db_host, db_port):
                         return False
 

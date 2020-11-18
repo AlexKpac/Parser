@@ -112,7 +112,7 @@ select_id_shop_phone_query = """
     WHERE 
         id_ver_phone = %s AND 
         id_shop_name = %s AND
-        product_code = %s
+        url_product = %s
 """
 
 # Поиск наличия цены у данного магазина данной комплектации в таблице price_phones_table

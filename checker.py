@@ -258,9 +258,9 @@ class Checker:
             if id_ver_phone:
                 id_ver_phone = id_ver_phone[0][0]
                 id_shop_phone = self.db.execute_read_query(sr.select_id_shop_phone_query,
-                                                           (id_ver_phone, id_shop_name, product_code))
+                                                           (id_ver_phone, id_shop_name, url))
 
-                # +++ Данную комплектацию можно купить в #shop_phones_table
+                # +++ Данную комплектацию можно купить в этом магазине в #shop_phones_table
                 if id_shop_phone:
                     id_shop_phone = id_shop_phone[0][0]
                     price_phone = self.db.execute_read_query(sr.select_price_in_price_phone_query, (id_shop_phone,))
@@ -282,7 +282,7 @@ class Checker:
                         self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
                         return 'price'
 
-                # --- Данную комплектацию нельзя купить, отсутствует в #shop_phones_table
+                # --- Данную комплектацию нельзя купить в этом магазине, магазин отсутствует в #shop_phones_table
                 else:
                     print("Такой комплектации нет в данном магазине, добавляю магазин и цену")
                     id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone,
@@ -375,7 +375,7 @@ class Checker:
         for item in pr_product_list:
             # Проверка элемента на некорректные поля
             if not check_item_on_errors(item):
-                logger.warning("Продукт {} {} с артиклом {} в магазине {} содержит 'error', SKIP".format(
+                logger.warning("Продукт {} {} с артиклом {} в магазине {} содержит 'None', SKIP".format(
                     item.brand_name, item.model_name, item.product_code, item.shop))
                 continue
 

@@ -105,7 +105,7 @@ class MTSParse:
         self.cur_page = 2
         # Данные магазина
         self.domain = "https://www.shop.mts.ru"
-        self.shop = "mts"
+        self.shop = "мтс"
         # Конфиг
         self.config = configparser.ConfigParser()
         self.config.read('conf.ini', encoding="utf-8")

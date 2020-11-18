@@ -5,6 +5,8 @@ import header as h
 import csv
 import collections
 import datetime
+import requests
+from PIL import Image, ImageDraw
 
 logger = h.logging.getLogger('bot')
 
@@ -31,6 +33,29 @@ SHOP_NAMES = [
     'Sony Store',
     'Tmall',
 ]
+
+
+def image_change(url):
+    # Загрузить изображение с url
+    try:
+        resp = requests.get(url, stream=True).raw
+    except requests.exceptions.RequestException as e:
+        logger.error("Can't get img from url :(")
+        return None
+
+    # Попытка открыть изображение средствами PIL
+    try:
+        img = Image.open(resp)
+    except IOError:
+        logger.error("Unable to open image")
+        return None
+
+    im = Image.new('RGB', (267, 200), color=('#FFFFFF'))
+    result_image = ImageDraw.Draw(im)
+
+
+    im.show()
+    #img.save('sid.jpg', 'jpeg')
 
 
 def wrap_in_tag(tag, text):
@@ -276,3 +301,6 @@ class Bot:
 # bot = Bot()
 # bot.send_post("samsung", "note 10 ultra", 59999, "dns",
 #               "https://c.dns-shop.ru/thumb/st4/fit/200/200/03fbdbd83838fd1e6774a7efeee109a9/a05ad1ff1f69afcfc2b83579e8775712ae86aa15d428d0285637bd7a859bcbfd.jpg")
+
+
+# image_change('https://c.dns-shop.ru/thumb/st1/fit/200/200/c5160a2ec7d635fef6adff937fabfef2/51cafeecd39759f3fca434ab57f7e78236e6f2e0e0d676d8a910118ad8adf241.jpg')

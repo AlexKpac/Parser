@@ -9,7 +9,7 @@ WD_PATH = "venv/WebDriverManager/chromedriver.exe"
 # PRICE_CHANGES_PATH = "/Users/Никита/Desktop/dif_price.csv"
 PRICE_CHANGES_PATH = "cache/dif_price.csv"
 # Путь для файла с результатами парсинга
-# CSV_PATH = "/Users/Никита/Desktop/goods.csv"
+# CSV_PATH = "/Users/Никита/Desktop/goods1.csv"
 # CSV_PATH_RAW = "/Users/Никита/Desktop/"
 CSV_PATH = "cache/goods.csv"
 CSV_PATH_RAW = "cache/"
