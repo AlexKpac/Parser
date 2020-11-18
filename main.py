@@ -58,7 +58,7 @@ if __name__ == '__main__':
     result_list.extend(result)
 
     parser = MTSParse()
-    result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
+    result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/?id=62427_233815 ")
     # result = load_result_from_csv("mts.csv")
     result_list.extend(result)
 
