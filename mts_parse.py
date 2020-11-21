@@ -51,6 +51,8 @@ def mts_parse_model_name(name):
     # Защита от неправильных названий
     if len(name.split()) < 3:
         return "error", "error", "error", 0, 0
+    # Проверка названия в словаре исключений названий моделей
+    name = h.find_and_replace_except_model_name(name)
     # Понижение регистра
     name = str.lower(name)
     name = name.replace('dual sim', '').replace('lte', '')
@@ -506,7 +508,7 @@ class MTSParse:
             if not self.__wd_next_page():
                 break
 
-        # self.__wd_close_browser()
+        self.__wd_close_browser()
         self.__save_result()
         return self.pr_result_list
 

@@ -1,5 +1,63 @@
 import collections
 import logging
+import re
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('header')
+
+# Добавить запись в словарь
+def add_entry_to_dictionary(path, entry):
+    if not entry:
+        return
+
+    with open(path, 'a', encoding='UTF-8') as f:
+        f.write(entry.lower() + '\n')
+
+
+def update_color_dictionary():
+    COLOR_DICTIONARY_LIST.clear()
+
+    with open(COLORS_DICTIONARY_PATH, 'r', encoding='UTF-8') as f:
+        lines = f.readlines()
+        for line in lines:
+            # удалим заключительный символ перехода строки
+            current_place = line[:-1]
+            # добавим элемент в конец списка
+            COLOR_DICTIONARY_LIST.append(current_place)
+
+
+# ЗАМОРОЖЕННАЯ Ф-ЦИЯ. Поиск цвета в названии модели, используя словарь цветов
+def find_color_in_model_name(model_name):
+    # Поиск цвета из словаря в строке названия модели
+    res = []
+    for item in COLOR_DICTIONARY_LIST:
+        res += [(m.start(), m.group(), m.end()) for m in re.finditer(item, model_name)
+                if m.end() == len(model_name) or not model_name[m.end()].isalpha()]
+
+    # Совпадений не найдено
+    if not res:
+        logger.warning("Цвет не найден, ведется поиск вручную")
+        return None
+
+    # Найдено(ы) совпадение(ия), ищем элемент с максимальной длиной
+    first_occur = min(res)
+    first_occur_all = [item[1] for item in res if item[0] == first_occur[0]]
+    color = max(first_occur_all, key=len)
+
+    return color
+
+
+# Поиск в строке названия фраз из списка исключения и их замена
+def find_and_replace_except_model_name(model_name):
+    model_name = model_name.lower()
+    # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
+    res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_DICT.keys()), model_name)
+    # Если есть - подменяем
+    if res:
+        res = res[0]
+        model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_DICT.get(res))
+
+    return model_name
 
 # ----------------------------- НАСТРОЙКИ -----------------------------
 
@@ -13,10 +71,20 @@ PRICE_CHANGES_PATH = "cache/dif_price.csv"
 # CSV_PATH_RAW = "/Users/Никита/Desktop/"
 CSV_PATH = "cache/goods.csv"
 CSV_PATH_RAW = "cache/"
-
-logging.basicConfig(level=logging.INFO)
+COLORS_DICTIONARY_PATH = "dictionaries/colors.dic"
+EXCEPT_MODEL_NAMES_PATH = "dictionaries/except_model_names.dic"
 
 # ----------------------------- КОЛЛЕКЦИЯ -----------------------------
+
+# Словарь цветов
+COLOR_DICTIONARY_LIST = []
+# Словарь исключений названий моделей
+EXCEPT_MODEL_NAMES_DICT = {}
+
+# Единое название для всех восстановленных айфонов
+REBUILT_IPHONE_NAME = ""
+# Список слов, которые необходимо исключать из названий цветов
+IGNORE_WORDS_FOR_COLOR = []
 
 # Коллекция для хранения результатов парсинга одного товара (смартфоны)
 ParseResult = collections.namedtuple(

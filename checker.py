@@ -224,7 +224,6 @@ class Checker:
     # Сохранение результата
     def __save_result(self):
         if not self.pc_result_list:
-            logger.info("НЕТ ЗАПИСЕЙ С ИЗМЕНЕНИЕМ ЦЕН")
             return
 
         with open(h.PRICE_CHANGES_PATH, 'w', newline='') as f:
@@ -412,3 +411,4 @@ class Checker:
         self.check_prices()
         self.db.disconnect()
         self.__save_result()
+        return self.pc_result_list

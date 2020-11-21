@@ -36,6 +36,7 @@ SHOP_NAMES = [
 
 
 def image_change(url):
+    W, H = 640, 480
     # Загрузить изображение с url
     try:
         resp = requests.get(url, stream=True).raw
@@ -50,11 +51,17 @@ def image_change(url):
         logger.error("Unable to open image")
         return None
 
-    im = Image.new('RGB', (267, 200), color=('#FFFFFF'))
-    result_image = ImageDraw.Draw(im)
+    # Если высота не соответствует H - изменение размера изображения с учетом пропорций
+    if img.height != H:
+        width, height = img.size
+        new_height = H
+        new_width = int(new_height * width / height)
+        img = img.resize((new_width, new_height), Image.ANTIALIAS)
 
+    im = Image.new('RGB', (W, H), color='#FFFFFF')
+    im.paste(img, (int((W - img.width) / 2), 0), 0)
 
-    im.show()
+    return im
     #img.save('sid.jpg', 'jpeg')
 
 
@@ -98,7 +105,6 @@ class Bot:
         self.config.read('conf.ini', encoding="utf-8")
         self.chat_id = self.config['bot']['chat_id']
         self.ignore_brands = self.config['bot-ignore']['brands'].lower().split('\n')
-        print(self.ignore_brands)
         self.bot = telebot.TeleBot(self.config['bot']['token'])
         self.pc_product_list = []
 
@@ -106,7 +112,7 @@ class Bot:
     def __format_text(self, version_list):
         product = version_list[0]
         # НАЗВАНИЕ МОДЕЛИ
-        text = '<b>{} {} {}</b>'.format(
+        text = '<b>{} {} {}</b>\n'.format(
             product.category[0:-1].title(), product.brand_name.title(), product.model_name.title())
 
         # КОМПЛЕКТАЦИЯ
@@ -131,7 +137,8 @@ class Bot:
         if product.cur_price < product.hist_min_price:
             text += '<i>Данная цена является самой низкой за всё время</i>\n'
         else:
-            date_time = datetime.datetime.strptime(product.hist_min_date, '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
+            print("!!!!!!!!! '{}'".format(product.hist_min_date))
+            date_time = datetime.datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
             s_price = '{0:,}'.format(product.hist_min_price).replace(',', ' ')
             text += '<i>Минимальная цена {}</i> ₽ <i>была {} в {}</i>\n'.format(
                 s_price, SHOP_NAMES[product.hist_min_shop - 1], date_time)
@@ -230,11 +237,18 @@ class Bot:
     def send_post(self, version_list):
         item = version_list[0]
         text = self.__format_text(version_list)
-        self.bot.send_photo(chat_id=self.chat_id, photo=item.img_url, caption=text, parse_mode='Html')
+        # self.bot.send_photo(chat_id=self.chat_id, photo=item.img_url, caption=text, parse_mode='Html')
+        img = image_change(item.img_url)
+        self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html')
 
     # Запуск бота
-    def run(self):
-        self.get_data()
+    def run(self, pc_product_list):
+        if not pc_product_list:
+            logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
+            return
+        print(")))))))))))")
+        # self.get_data()
+        self.pc_product_list = pc_product_list
         self.filtering_data()
         self.post_all()
 
@@ -303,4 +317,5 @@ class Bot:
 #               "https://c.dns-shop.ru/thumb/st4/fit/200/200/03fbdbd83838fd1e6774a7efeee109a9/a05ad1ff1f69afcfc2b83579e8775712ae86aa15d428d0285637bd7a859bcbfd.jpg")
 
 
-# image_change('https://c.dns-shop.ru/thumb/st1/fit/200/200/c5160a2ec7d635fef6adff937fabfef2/51cafeecd39759f3fca434ab57f7e78236e6f2e0e0d676d8a910118ad8adf241.jpg')
+# image_change('https://img.mvideo.ru/pdb/small_pic/480/30045359b.jpg')
+# image_change('https://c.dns-shop.ru/thumb/st1/fit/200/200/6894029a9c81f3cf3257d2d2483935ec/5301b91d8e758695b85d0ee1a20f7b46cd56cbecc7dd1628b76f45630190b242.jpg')

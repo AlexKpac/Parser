@@ -24,7 +24,7 @@ create_shops_name_table_query = """
 create_products_table_query = """
     CREATE TABLE IF NOT EXISTS products_table (
         ID_Product       SERIAL PRIMARY KEY,
-        ID_Category      INTEGER REFERENCES categories_name_table(ID_Category),
+        ID_Category      INTEGER REFERENCES categories_name_table(ID_Category) NOT NULL,
         Brand_Name       VARCHAR(20) NOT NULL,
         Model_Name       VARCHAR(100) NOT NULL,
         Total_Rating     REAL
@@ -35,26 +35,38 @@ create_products_table_query = """
 create_versions_phones_table_query = """
     CREATE TABLE IF NOT EXISTS versions_phones_table (
         ID_Ver_Phone     SERIAL PRIMARY KEY,
-        ID_Product       INTEGER REFERENCES products_table(ID_Product),
+        ID_Product       INTEGER NOT NULL,
         RAM              INTEGER NOT NULL,
         ROM              INTEGER NOT NULL,
-        Img_URL          VARCHAR(200) NOT NULL
+        Img_URL          VARCHAR(200) NOT NULL,
+        
+        FOREIGN KEY (ID_Product)
+            REFERENCES products_table(ID_Product) MATCH SIMPLE
+            ON UPDATE NO ACTION
+            ON DELETE CASCADE
+            NOT VALID
     );
 """
 
-# Таблица: В каком магазине купить продукт - shop_buy_table !!!!!!!!!
+# Таблица: В каком магазине купить продукт - shop_buy_table
 create_shops_phones_table_query = """
     CREATE TABLE IF NOT EXISTS shops_phones_table (
         ID_Shop_Phone    SERIAL PRIMARY KEY,
         ID_Shop_Name     INTEGER REFERENCES shops_name_table(ID_Shop_Name) NOT NULL,
-        ID_Product       INTEGER REFERENCES products_table(ID_Product) NOT NULL,
-        ID_Ver_Phone     INTEGER REFERENCES versions_phones_table(ID_Ver_Phone) NOT NULL,
+        ID_Product       INTEGER NOT NULL,
+        ID_Ver_Phone     INTEGER NOT NULL,
         URL_Product      VARCHAR(200) NOT NULL,
         Product_Code     VARCHAR(20) NOT NULL,
         Color            VARCHAR(50) NOT NULL,
         Local_Rating     REAL,
         Num_Local_Rating INTEGER,
-        Bonus_Rubles     INTEGER
+        Bonus_Rubles     INTEGER,
+        
+        FOREIGN KEY (ID_Ver_Phone)
+            REFERENCES versions_phones_table(ID_Ver_Phone) MATCH SIMPLE
+            ON UPDATE NO ACTION
+            ON DELETE CASCADE
+            NOT VALID
     );
 """
 
@@ -62,11 +74,17 @@ create_shops_phones_table_query = """
 create_prices_phone_table_query = """
     CREATE TABLE IF NOT EXISTS prices_phones_table (
         ID               SERIAL PRIMARY KEY,
-        ID_Shop_Name     INTEGER REFERENCES shops_name_table(ID_Shop_Name),
-        ID_Product       INTEGER REFERENCES products_table(ID_Product),
-        ID_Shop_Phone    INTEGER REFERENCES shops_phones_table(ID_Shop_Phone),
+        ID_Shop_Name     INTEGER REFERENCES shops_name_table(ID_Shop_Name) NOT NULL,
+        ID_Product       INTEGER NOT NULL,
+        ID_Shop_Phone    INTEGER NOT NULL,
         Price            INTEGER NOT NULL,
-        Datetime         TIMESTAMP NOT NULL
+        Datetime         TIMESTAMP NOT NULL,
+        
+        FOREIGN KEY (ID_Shop_Phone)
+            REFERENCES shops_phones_table(ID_Shop_Phone) MATCH SIMPLE
+            ON UPDATE NO ACTION
+            ON DELETE CASCADE
+            NOT VALID
     );
 """
 
@@ -100,8 +118,8 @@ select_id_product_query = """
 select_id_ver_phone_query = """
     SELECT id_ver_phone FROM versions_phones_table 
     WHERE 
-        id_product = %s AND 
-        ram = %s        AND
+        id_product = %s       AND 
+        (ram = %s or ram = 0) AND
         rom = %s
 """
 
@@ -162,9 +180,9 @@ insert_into_products_table_query = """
 search_all_prices_by_version_query = """
     SELECT price, id_shop_name, datetime
     FROM general_table
-    WHERE brand_name = %s AND 
-          model_name = %s AND 
-          ram = %s        AND 
+    WHERE brand_name = %s       AND 
+          model_name = %s       AND 
+          (ram = %s or ram = 0) AND 
           rom = %s
     ORDER BY datetime DESC
 """
@@ -173,9 +191,9 @@ search_all_prices_by_version_query = """
 search_min_historical_price_by_version_query = """
     SELECT price, id_shop_name, datetime::DATE
     FROM general_table
-    WHERE brand_name = %s AND 
-          model_name = %s AND 
-          ram = %s        AND 
+    WHERE brand_name = %s       AND 
+          model_name = %s       AND 
+          (ram = %s or ram = 0) AND 
           rom = %s
     ORDER BY price ASC LIMIT 1
 """
@@ -187,9 +205,9 @@ search_actual_prices_by_version_query = """
     JOIN (
         SELECT product_code, MAX(datetime) as MaxDate 
         FROM general_table
-        WHERE brand_name = %s AND 
-              model_name = %s AND 
-              ram = %s        AND 
+        WHERE brand_name = %s       AND 
+              model_name = %s       AND 
+              (ram = %s OR ram = 0) AND 
               rom = %s
         GROUP BY product_code
     ) AS group_table

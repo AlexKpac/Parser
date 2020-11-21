@@ -19,6 +19,10 @@ class DataBase:
     def __create_tables_and_views(self):
         self.execute_query(sr.create_categories_name_table_query)
         self.execute_query(sr.create_shops_name_table_query)
+
+        self.__insert_shops_name_table()
+        self.__insert_category_name()
+
         self.execute_query(sr.create_products_table_query)
         self.execute_query(sr.create_versions_phones_table_query)
         self.execute_query(sr.create_shops_phones_table_query)
@@ -26,8 +30,6 @@ class DataBase:
 
         self.execute_query(sr.create_view_general_table_query)
 
-        self.__insert_shops_name_table()
-        self.__insert_category_name()
 
     # Заполнить таблицу shops_name_table данными
     def __insert_shops_name_table(self):
