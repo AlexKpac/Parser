@@ -158,9 +158,9 @@ class Bot:
         text += '<i>(Дешевле на {}</i> ₽<i>)</i>\n\n'.format(s_price).replace(',', ' ')
 
         # ИСТОРИЧЕСКИЙ МИНИМУМ
-        if product.cur_price < product.hist_min_price:
+        if product.cur_price <= product.hist_min_price:
             text += '<i>Данная цена является самой низкой за всё время</i>\n'
-        elif product.cur_price != product.hist_min_price:
+        else:
             date_time = datetime.datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
             s_price = '{0:,}'.format(product.hist_min_price).replace(',', ' ')
             text += '<i>Минимальная цена {}</i> ₽ <i>была {} в {}</i>\n'.format(
