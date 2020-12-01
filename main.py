@@ -1,16 +1,115 @@
-from selenium import webdriver
-from lxml import html
+import csv
+from time import time
+import re
+import configparser
 
-page_num = 1
-url = 'https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?p={}&i=1&mode=list&brand=brand-apple'.format(page_num)
+from dns_parse import DNSParse
+from mvideo_parse import MVideoParse
+from mts_parse import MTSParse
+from checker import Checker
+from bot import Bot
+import header as h
 
-driver = webdriver.Chrome(executable_path=r'C:\Py_Projects\ParserOnlineShop\venv\WebDriverManager\chrome\85.0.4183.87\chromedriver_win32\chromedriver.exe')
-driver.get(url)
+logger = h.logging.getLogger('main')
 
-content = driver.page_source
-tree = html.fromstring(content)
 
-print(tree.xpath('//div[@class="n-catalog-product__info"]')[0].attrib)
+# ЗАМОРОЖЕННАЯ Ф-ЦИЯ. Чтение словаря цветов с файла
+def load_color_dictionary_list():
+    # Словарь цветов
+    with open(h.COLORS_DICTIONARY_PATH, 'r', encoding='UTF-8') as f:
+        lines = f.readlines()
+        for line in lines:
+            # удалим заключительный символ перехода строки
+            current_place = line[:-1]
+            # добавим элемент в конец списка
+            h.COLOR_DICTIONARY_LIST.append(current_place)
 
-#last_page = tree.xpath('//span[@class=" item edge"]')[0].attrib.get('data-page-number')
-#print(last_page)
+
+# Чтение словаря исключений названий моделей
+def load_exceptions_model_names():
+    with open(h.EXCEPT_MODEL_NAMES_PATH, 'r', encoding='UTF-8') as f:
+        for line in f:
+            res = re.findall(r"\[.+?]", line)
+            # Отсечь кривые записи
+            if len(res) != 2:
+                continue
+            # Добавить в словарь
+            h.EXCEPT_MODEL_NAMES_DICT[res[0].replace('[', '').replace(']', '').lower()] = \
+                res[1].replace('[', '').replace(']', '').lower()
+
+    # for key, value in h.EXCEPT_MODEL_NAMES_DICT.items():
+    #     print("{0}: {1}".format(key, value))
+
+
+# Загрузить данные с csv, чтобы не парсить сайт
+def load_result_from_csv(name):
+    pr_result_list = []
+    with open(h.CSV_PATH_RAW + name, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            pr_result_list.append(h.ParseResult(
+                shop=row['Магазин'],
+                category=row['Категория'],
+                brand_name=row['Бренд'],
+                model_name=row['Модель'],
+                color=row['Цвет'],
+                price=int(row['Цена']),
+                ram=int(row['RAM']),
+                rom=int(row['ROM']),
+                img_url=row['Ссылка на изображение'],
+                url=row['Ссылка'],
+                rating=float(row['Рейтинг']),
+                num_rating=int(row['Кол-во отзывов']),
+                product_code=row['Код продукта'],
+            ))
+
+    return pr_result_list
+
+
+# Сохранение всего результата в csv файл
+def save_result_list(elements):
+    with open(h.CSV_PATH, 'w', newline='') as f:
+        writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(h.HEADERS)
+        for item in elements:
+            writer.writerow(item)
+
+
+# Чтение данных
+def read_config():
+    config = configparser.ConfigParser()
+    config.read('conf.ini', encoding="utf-8")
+    h.REBUILT_IPHONE_NAME = ' ' + config.defaults()['rebuilt_iphone_name']
+    h.IGNORE_WORDS_FOR_COLOR = config['parser']['color_ignore'].lower().split('\n')
+
+
+if __name__ == '__main__':
+    time_start = time()
+    result_list = []
+
+    load_exceptions_model_names()
+    read_config()
+
+    parser = MVideoParse()
+    result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # result = load_result_from_csv("mvideo.csv")
+    result_list.extend(result)
+
+    parser = MTSParse()
+    result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/?id=62427_233815 ")
+    # result = load_result_from_csv("mts.csv")
+    result_list.extend(result)
+
+    parser = DNSParse()
+    result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    # result = load_result_from_csv("dns.csv")
+    result_list.extend(result)
+
+    save_result_list(result_list)
+
+    check = Checker(result_list)
+    benefit_price_list = check.run()
+
+    bot = Bot()
+    bot.run(benefit_price_list)
+    logger.info(f"Время выполнения: {time() - time_start} сек")
