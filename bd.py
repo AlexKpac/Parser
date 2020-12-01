@@ -114,13 +114,13 @@ class DataBase:
     # Отправка sql запроса в БД
     def execute_query(self, query, variables=None):
         if not self.connection:
-            print("Can't execute query - no connection")
+            logger.info("Can't execute query - no connection")
             return False
 
         try:
             self.cursor.execute(query, variables)
         except OperationalError as e:
-            print("The error '{}' occurred".format(e))
+            logger.info("The error '{}' occurred".format(e))
             return False
 
         return True

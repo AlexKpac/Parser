@@ -58,9 +58,9 @@ def find_in_pr_price_change_list(nametuple, brand_name, model_name, ram, rom, pr
 
 # Поиск элемента по заданным параметрам в nametuple PriceChanges
 def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, shop, color):
-    print('--nametuple={}'.format(namedtuple))
-    print('--brand={}, model={}, ram={}, rom={}, price={}, shop={}, color={}'.format(brand_name, model_name, ram, rom,
-                                                                                     price, shop, color))
+    logger.info('--nametuple={}'.format(namedtuple))
+    logger.info('--brand={}, model={}, ram={}, rom={}, price={}, shop={}, color={}'.format(brand_name, model_name, ram,
+                                                                                           rom, price, shop, color))
     if not namedtuple:
         return False
 
@@ -72,10 +72,10 @@ def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, 
                 item.cur_price == price and \
                 item.shop == shop and \
                 item.color == color:
-            print('--TRUE')
+            logger.info('--TRUE')
             return True
 
-    print('--FALSE')
+    logger.info('--FALSE')
     return False
 
 
@@ -99,14 +99,14 @@ def find_min_price_in_prices_list(price_list):
 
 # Поиск товара в буфере (определить наличие)
 def find_in_stock_in_parse_result_list(parse_result_list, url, price):
-    print('==url = {}, price={}'.format(url, price))
+    logger.info('==url = {}, price={}'.format(url, price))
     for item in parse_result_list:
         if item.url == url and \
                 item.price == price:
-            print('==TRUE')
+            logger.info('==TRUE')
             return True
 
-    print('==FALSE')
+    logger.info('==FALSE')
     return False
 
 
@@ -176,8 +176,8 @@ class Checker:
         if not hist_min_price:
             return null_result
 
-        print('-' * 50)
-        print("hist origin: {}".format(hist_min_price))
+        logger.info('-' * 50)
+        logger.info("hist origin: {}".format(hist_min_price))
 
         # Если магазин один, то удалить последние добавленные актуальные цены
         indx = 0
@@ -186,26 +186,26 @@ class Checker:
             for item in hist_min_price:
                 # if item[pos_price] == cur_price:
                 if (last_datetime - item[pos_datetime]).total_seconds() < 1:
-                    print('dif_time = {}'.format((last_datetime - item[pos_datetime]).total_seconds()))
+                    logger.info('dif_time = {}'.format((last_datetime - item[pos_datetime]).total_seconds()))
                     indx += 1
                 else:
                     break
-            print('indx = {}, new hist: {}'.format(indx, hist_min_price[indx:]))
+            logger.info('indx = {}, new hist: {}'.format(indx, hist_min_price[indx:]))
             hist_min_price = min(hist_min_price[indx:])
         else:
             hist_min_price = min(hist_min_price)
 
-        print('hist_min = {}'.format(hist_min_price))
+        logger.info('hist_min = {}'.format(hist_min_price))
         # Поиск средней цены
         avg_price = ((cur_price + hist_min_price[pos_price]) / 2) if is_one_shop \
             else sum(item[pos_price] for item in prices_list) / len(prices_list)
 
-        print('hist_min_price = {}'.format(hist_min_price[pos_price]))
-        print('cur_price = {}, hist_min_price = {}'.format(cur_price, hist_min_price[0]))
-        print('is_one_shop: {}'.format(is_one_shop))
-        print("check_price: len = {}, prices_list = {}".format(len(prices_list), prices_list))
-        print("avg_price = {}".format(avg_price))
-        print("hist_min_price res = {}".format(hist_min_price))
+        logger.info('hist_min_price = {}'.format(hist_min_price[pos_price]))
+        logger.info('cur_price = {}, hist_min_price = {}'.format(cur_price, hist_min_price[0]))
+        logger.info('is_one_shop: {}'.format(is_one_shop))
+        logger.info("check_price: len = {}, prices_list = {}".format(len(prices_list), prices_list))
+        logger.info("avg_price = {}".format(avg_price))
+        logger.info("hist_min_price res = {}".format(hist_min_price))
 
         # Составление списка товаров, у которых цена ниже средней на self.min_diff_price_per%
         result_list = []
@@ -217,7 +217,7 @@ class Checker:
                 if diff_per >= self.min_diff_price_per:
                     result_list.append(price)
 
-        print('YES' if result_list else 'NO')
+        logger.info('YES' if result_list else 'NO')
 
         return find_min_price_in_prices_list(result_list), avg_price, hist_min_price
 
@@ -272,46 +272,48 @@ class Checker:
                     # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
                     if price_phone[-1][0] == price:
                         # Если ничего не изменилось - обновить дату у цены
-                        print("NO CHANGE, IGNORE; "
-                              "id_prod = {}, id_ver = {}, id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+                        logger.info("NO CHANGE, IGNORE; "
+                                    "id_prod = {}, id_ver = {}, id_shop = {}".format(id_product, id_ver_phone,
+                                                                                     id_shop_phone))
 
                     # ---- Цена данной комплектации в данном магазине изменилась - добавляем в список цен
                     else:
-                        print("Новая цена на эту комплектацию в этом магазине, добавляю цену")
+                        logger.info("Новая цена на эту комплектацию в этом магазине, добавляю цену")
                         self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
                         return 'price'
 
                 # --- Данную комплектацию нельзя купить в этом магазине, магазин отсутствует в #shop_phones_table
                 else:
-                    print("Такой комплектации нет в данном магазине, добавляю магазин и цену")
+                    logger.info("Такой комплектации нет в данном магазине, добавляю магазин и цену")
                     id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone,
                                                                              url, product_code, var_color, local_rating,
                                                                              num_rating, bonus_rubles)
                     self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
-                    print("id_prod = {}, id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+                    logger.info(
+                        "id_prod = {}, id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
                     return 'version'
 
             # -- Комплектация отсутствует в #version_phones_table
             else:
-                print("Данная комплектация отсутствует в списке комплектаций, добавляю комплектацию, магазин, цену")
+                logger.info("Данная комплектация отсутствует в списке комплектаций, добавляю комплектацию, магазин, цену")
                 id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_ram, var_rom, img_url)
                 id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone,
                                                                          url, product_code, var_color, local_rating,
                                                                          num_rating, bonus_rubles)
                 self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
-                print("id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+                logger.info("id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
                 return 'shop'
 
         # - Продукт отсутствует в #products_table
         else:
-            print("Данный продукт отсутствует в products_table, добавляю продукт, комплектацию, магазин, цену")
+            logger.info("Данный продукт отсутствует в products_table, добавляю продукт, комплектацию, магазин, цену")
             id_product = self.__insert_product_in_products_table(id_category_name, brand_name, model_name, 0)
             id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_ram, var_rom, img_url)
             id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone, url,
                                                                      product_code, var_color, local_rating, num_rating,
                                                                      bonus_rubles)
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
-            print("new id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+            logger.info("new id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
             return 'product'
 
         return 'error'
@@ -324,7 +326,7 @@ class Checker:
             pr_price_change_list = self.pr_price_change_list
 
         for item in pr_price_change_list:
-            print(item)
+            logger.info(item)
 
         for item in pr_price_change_list:
             result_list, avg_price, hist_min_price = self.__check_price_for_benefit(item.price,
@@ -333,7 +335,7 @@ class Checker:
                                                                                     item.ram, item.rom)
 
             for item11 in result_list:
-                print('==item11={}'.format(item11))
+                logger.info('==item11={}'.format(item11))
 
             # Если выявлено изменение цены - записать в список
             if result_list and avg_price and hist_min_price:
@@ -399,7 +401,7 @@ class Checker:
             if resp == 'price' and not find_in_pr_price_change_list(self.pr_price_change_list, item.brand_name,
                                                                     item.model_name,
                                                                     item.ram, item.rom, item.price):
-                print(item)
+                logger.info(item)
                 self.pr_price_change_list.append(item)
 
     # Запуск

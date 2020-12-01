@@ -167,14 +167,14 @@ class MTSParse:
 
         # Если указан неверный город
         if not (str.lower(self.current_city) in str.lower(city.text)):
-            print("Неверный город")
+            logger.info("Неверный город")
 
             # Клик по городу
             if not self.__wd_click_elem(city):
                 logger.error("Не могу нажать на кнопку выбора города")
                 return False
 
-            print("Клик по городу")
+            logger.info("Клик по городу")
 
             # Получить список всех городов и если есть нужный, кликнуть по нему
             city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "default-regions__item")
@@ -233,9 +233,9 @@ class MTSParse:
         # Ожидание прогрузки пагинации
         # if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "pagination"):
         #     return False
-        # print('Пагинация прогрузилась')
+        # logger.info('Пагинация прогрузилась')
 
-        print("PAGE LOAD")
+        logger.info("PAGE LOAD")
         return True
 
     # Проверка по ключевым div-ам что страница продукта прогружена полностью
@@ -255,16 +255,16 @@ class MTSParse:
         return True
 
     def __wd_mts_close_modal(self):
-        print("Попытка закрыть сраное окно")
+        logger.info("Попытка закрыть сраное окно")
         modal = self.__wd_find_elem(By.XPATH, "//iframe[@class='flocktory-widget']")
 
         if modal:
-            print("Сраное окно детектед")
+            logger.info("Сраное окно детектед")
             close_button = self.__wd_find_elem(By.XPATH, "//button[@class='close']")
             if close_button:
-                print("Кнопка закрытия сраного окна детектед")
+                logger.info("Кнопка закрытия сраного окна детектед")
                 self.__wd_click_elem(close_button)
-        print("Конец попытки")
+        logger.info("Конец попытки")
 
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
@@ -433,7 +433,7 @@ class MTSParse:
         if promo_code:
             for item in promo_code:
                 if 'промокод' in item.text:
-                    print('Нашел промокод "{}", применяю'.format(item.text))
+                    logger.info('Нашел промокод "{}", применяю'.format(item.text))
                     promo_code = re.findall(r'\d+', item.text.replace(' ', ''))
                     promo_code = int(promo_code[0]) if promo_code else 0
                     cur_price -= promo_code
@@ -559,4 +559,4 @@ if __name__ == '__main__':
 
     # bot = bot.Bot()
     # bot.run()
-    print(f"Время выполнения: {time.time() - time_start} сек")
+    logger.info(f"Время выполнения: {time.time() - time_start} сек")

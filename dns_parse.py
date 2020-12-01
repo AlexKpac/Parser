@@ -98,6 +98,7 @@ class DNSParse:
     def __init__(self):
         options = Options()
         options.add_argument("window-size=1920,1080")
+        options.add_argument("--disable-notifications")
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
         self.driver.implicitly_wait(1.5)
         self.wait = WebDriverWait(self.driver, 30)
@@ -237,7 +238,7 @@ class DNSParse:
         if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
             return False
 
-        print("PAGE LOAD")
+        logger.info("PAGE LOAD")
         return True
 
     # Проверка по ключевым div-ам что страница продукта прогружена полностью
@@ -449,8 +450,6 @@ class DNSParse:
             url = self.domain + model_name_url_block.get('href')
             model_name = model_name_url_block.text
 
-        self.model_name_list.append(model_name)
-
         # Название бренда
         brand_name = block.select_one('i[data-product-param=brand]')
         if not brand_name:
@@ -498,10 +497,10 @@ class DNSParse:
             product_code = product_code.text
 
         # Цена, ветвление: 2 вида акций, поиск по тегам
-        cur_price = block.select_one('mark.product-min-price__min-price')
+        cur_price = block.select_one('div.product-min-price__min')
 
         # Если есть "акция"
-        if cur_price:
+        if cur_price and not ('скидка' in cur_price.text):
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
         # Если есть "выгода"
         else:
@@ -1252,14 +1251,14 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
-    # parser = DNSParse()
-    # result = parser.run_catalog(
-    #     "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    parser = DNSParse()
+    result = parser.run_catalog(
+        "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
 
-    result = load_result_from_csv()
-    check = checker.Checker(result)
-    res1 = check.run()
-
-    bot = bot.Bot()
-    bot.run(res1)
-    print(f"Время выполнения: {time.time() - time_start} сек")
+    # result = load_result_from_csv()
+    # check = checker.Checker(result)
+    # res1 = check.run()
+    #
+    # bot = bot.Bot()
+    # bot.run(res1)
+    logger.info(f"Время выполнения: {time.time() - time_start} сек")

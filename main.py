@@ -10,6 +10,8 @@ from checker import Checker
 from bot import Bot
 import header as h
 
+logger = h.logging.getLogger('main')
+
 
 # ЗАМОРОЖЕННАЯ Ф-ЦИЯ. Чтение словаря цветов с файла
 def load_color_dictionary_list():
@@ -110,4 +112,4 @@ if __name__ == '__main__':
 
     bot = Bot()
     bot.run(benefit_price_list)
-    print(f"Время выполнения: {time() - time_start} сек")
+    logger.info(f"Время выполнения: {time() - time_start} сек")

@@ -6,6 +6,7 @@ import csv
 import collections
 import datetime
 import requests
+import time
 from PIL import Image, ImageDraw
 
 logger = h.logging.getLogger('bot')
@@ -106,6 +107,11 @@ class Bot:
         self.chat_id = self.config['bot']['chat_id']
         self.ignore_brands = self.config['bot-ignore']['brands'].lower().split('\n')
         self.bot = telebot.TeleBot(self.config['bot']['token'])
+        self.one_star_per = int(self.config['bot-stars']['one_star_per'])
+        self.two_star_per = int(self.config['bot-stars']['two_star_per'])
+        self.three_star_per = int(self.config['bot-stars']['three_star_per'])
+        self.four_star_per = int(self.config['bot-stars']['four_star_per'])
+        self.five_star_per = int(self.config['bot-stars']['five_star_per'])
         self.pc_product_list = []
 
     # Подготовка текста для поста
@@ -118,8 +124,26 @@ class Bot:
         # КОМПЛЕКТАЦИЯ
         text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom)
 
+        # ОГОНЬКИ
+        per = 100 - product.cur_price / product.avg_actual_price * 100
+        if per <= self.one_star_per:
+            star = 1
+        elif per <= self.two_star_per:
+            star = 2
+        elif per <= self.three_star_per:
+            star = 3
+        elif per <= self.four_star_per:
+            star = 4
+        elif per <= self.five_star_per:
+            star = 5
+        else:
+            star = 6
+
+        logger.info("{} ЗВЕЗД".format(star))
+        text += '🔥' * star
+        text += '\n'
+
         # ЦЕНА
-        text += '🔥🔥🔥\n'
         # text += '⭐⭐⭐\n'
         # text += '🍪🍪🍪\n'
         # text += '👑👑👑\n'
@@ -136,8 +160,7 @@ class Bot:
         # ИСТОРИЧЕСКИЙ МИНИМУМ
         if product.cur_price < product.hist_min_price:
             text += '<i>Данная цена является самой низкой за всё время</i>\n'
-        else:
-            print("!!!!!!!!! '{}'".format(product.hist_min_date))
+        elif product.cur_price != product.hist_min_price:
             date_time = datetime.datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
             s_price = '{0:,}'.format(product.hist_min_price).replace(',', ' ')
             text += '<i>Минимальная цена {}</i> ₽ <i>была {} в {}</i>\n'.format(
@@ -199,8 +222,8 @@ class Bot:
                     diff_cur_avg=int(row['Разница цены от средней']),
                 ))
 
-        print(self.pc_product_list)
-        print('-' * 100)
+        logger.info(self.pc_product_list)
+        logger.info('-' * 100)
 
     # Фильтрация входных данных - удаление дубликатов и применение игнор-листа
     def filtering_data(self):
@@ -224,11 +247,8 @@ class Bot:
             version_list = find_all_versions_in_pc_prod_list(self.pc_product_list, item.brand_name, item.model_name,
                                                              item.ram, item.rom, item.cur_price)
 
-            print('=' * 100)
-            for item in version_list:
-                print(item)
-
             self.send_post(version_list)
+            time.sleep(1)
 
             # Удаление из основного списка взятой группы version_list
             for item in version_list:
@@ -237,16 +257,21 @@ class Bot:
     def send_post(self, version_list):
         item = version_list[0]
         text = self.__format_text(version_list)
-        # self.bot.send_photo(chat_id=self.chat_id, photo=item.img_url, caption=text, parse_mode='Html')
         img = image_change(item.img_url)
-        self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html')
+        # Отправка поста в обертке
+        for i in range(3):
+            try:
+                self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html')
+                break
+            except telebot.apihelper.ApiException:
+                logger.warning("Слишком много постов в телеграм, ожидаем 40 сек, ({})".format(i + 1))
+                time.sleep(20)
 
     # Запуск бота
     def run(self, pc_product_list):
         if not pc_product_list:
             logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
             return
-        print(")))))))))))")
         # self.get_data()
         self.pc_product_list = pc_product_list
         self.filtering_data()

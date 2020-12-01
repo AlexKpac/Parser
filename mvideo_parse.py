@@ -74,6 +74,7 @@ class MVideoParse:
     def __init__(self):
         options = Options()
         options.add_argument("window-size=1920,1080")
+        options.add_argument("--disable-notifications")
         # options.add_experimental_option('prefs', {'geolocation': True})
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
         self.driver.implicitly_wait(1.5)
@@ -88,8 +89,6 @@ class MVideoParse:
         self.config.read('conf.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
         self.wait_between_pages_sec = int(self.config.defaults()['wait_between_pages_sec'])
-
-        self.model_list = []
 
     # Обертка поиска элемента для обработки исключений
     def __wd_find_elem(self, by, value):
@@ -139,14 +138,14 @@ class MVideoParse:
 
         # Если указан неверный город
         if not (str.lower(self.current_city) in str.lower(city.text)):
-            print("Неверный город")
+            logger.info("Неверный город")
 
             # Клик по городу
             if not self.__wd_click_elem(city):
                 logger.error("Не могу нажать на кнопку выбора города")
                 return False
 
-            print("Клик по городу")
+            logger.info("Клик по городу")
 
             # Получить список всех городов и если есть нужный, кликнуть по нему
             city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "location-select__location")
@@ -265,7 +264,7 @@ class MVideoParse:
         if not self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='listing-view-switcher__inner-area']"):
             return False
 
-        print("PAGE LOAD")
+        logger.info("PAGE LOAD")
         return True
 
     # Проверка по ключевым div-ам что страница товара прогружена полностью
@@ -278,7 +277,7 @@ class MVideoParse:
         if not self.__wd_find_elem_with_timeout(By.XPATH, "//img[@class='c-media-container__image']"):
             return False
 
-        print("PAGE LOAD")
+        logger.info("PAGE LOAD")
         return True
 
     # Переключение на отображение товаров в виде списка
@@ -300,7 +299,7 @@ class MVideoParse:
 
         # Но если нет и тега list (вид списка) - то ошибка
         elif not self.__wd_find_elem(By.XPATH,
-                                     "//mvid-button[@class='listing-view-switcher__button listing-view-switcher__button--list']"):
+                                     "//div[@class='listing-view-switcher__pointer listing-view-switcher__pointer--list']"):
             logger.error("Не вижу тегов для переключения вида товара")
             return False
 
@@ -335,7 +334,7 @@ class MVideoParse:
 
         # Выбор города (срабатывает не всегда с первого раза)
         if not self.__wd_city_selection_catalog():
-            print("Не могу выбрать город")
+            logger.info("Не могу выбрать город")
             return False
 
         time.sleep(1)
@@ -370,7 +369,7 @@ class MVideoParse:
 
         # Выбор города
         if not self.__wd_city_selection_product():
-            print("Не могу выбрать город")
+            logger.info("Не могу выбрать город")
             return False
 
         time.sleep(1)
@@ -391,7 +390,7 @@ class MVideoParse:
         self.cur_page += 1
 
         # Поиск следующей кнопки страницы
-        num_page_elem = self.__wd_find_elem(By.XPATH, f"//li[@class='page-item number-item']/a[text()={self.cur_page}]")
+        num_page_elem = self.__wd_find_elem(By.XPATH, f"//li[@class='page-item number-item ng-star-inserted']/a[text()={self.cur_page}]")
         if not num_page_elem:
             logger.info("Достигнут конец каталога")
             return False
@@ -402,8 +401,13 @@ class MVideoParse:
             return False
 
         # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page (2)")
+        for i in range(3):
+            if not self.__wd_check_load_page_catalog():
+                logger.error("Не удалось прогрузить страницу в __wd_next_page (2) / товар распродан (нет цен на всей странице), обновляю")
+                self.driver.refresh()
+            else:
+                break
+        else:
             return False
 
         # Переключение на отображение товаров в виде списка
@@ -580,8 +584,6 @@ class MVideoParse:
             url = model_name_url_block.get('href')
             model_name = model_name_url_block.text.replace('\n', '').strip()
 
-        self.model_list.append(model_name)
-
         # Ссылка на изображение товара
         img_url = block.select_one('img.product-picture__img.product-picture__img--list')
         if not img_url:
@@ -689,9 +691,6 @@ class MVideoParse:
 
         self.__wd_close_browser()
         self.__save_result()
-
-        # for item in self.model_list:
-        #     print(item)
 
         return self.pr_result_list
 
@@ -1181,16 +1180,16 @@ if __name__ == '__main__':
     import main
     main.load_exceptions_model_names()
 
-    for item in models:
-        print(h.find_and_replace_except_model_name(item))
+    # for item in models:
+    #     logger.info(h.find_and_replace_except_model_name(item))
 
 
     # for item in models:
     #     res = mvideo_parse_model_name(item)
     #     print('{},{},{}'.format(res[0], res[1], res[2]))
-    # parser = MVideoParse()
-    # result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    parser = MVideoParse()
+    result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
     # check = checker.Checker(result_list)
     # check.run()
 
-    print(f"Время выполнения: {time.time() - time_start} сек")
+    logger.info(f"Время выполнения: {time.time() - time_start} сек")

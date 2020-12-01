@@ -2,8 +2,10 @@ import collections
 import logging
 import re
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(handlers=[logging.FileHandler(filename="log.txt", encoding='utf-8', mode='w')],
+                    level=logging.INFO)
 logger = logging.getLogger('header')
+
 
 # Добавить запись в словарь
 def add_entry_to_dictionary(path, entry):
@@ -58,6 +60,7 @@ def find_and_replace_except_model_name(model_name):
         model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_DICT.get(res))
 
     return model_name
+
 
 # ----------------------------- НАСТРОЙКИ -----------------------------
 
