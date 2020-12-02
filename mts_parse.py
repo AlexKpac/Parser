@@ -55,7 +55,7 @@ def mts_parse_model_name(name):
     name = h.find_and_replace_except_model_name(name)
     # Понижение регистра
     name = str.lower(name)
-    name = name.replace('dual sim', '').replace('lte', '')
+    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', '').replace(' 5g ', ' ')
     # Удалить все скобки
     brackets = re.findall(r"\(.+?\)", name)
     for item in brackets:
