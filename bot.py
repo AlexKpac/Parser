@@ -139,7 +139,7 @@ class Bot:
         else:
             star = 6
 
-        logger.info("{} ЗВЕЗД".format(star))
+        logger.info("{} ЗВЕЗД(Ы)".format(star))
         text += '🔥' * star
         text += '\n'
 
