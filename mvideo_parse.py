@@ -178,7 +178,7 @@ class MVideoParse:
             time.sleep(1.5)
 
             # Выбор города из сгенерированного списка городов
-            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//li[@class='location-select__location']")
+            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//li[@data-index='0']")
             if not input_city_item:
                 logger.error("Не найдено элементов при вводе города")
                 return False
