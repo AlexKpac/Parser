@@ -116,10 +116,11 @@ class Checker:
         self.db = bd.DataBase()
         self.config = configparser.ConfigParser()
         self.config.read('conf.ini', encoding="utf-8")
-        self.min_diff_price_per = int(self.config.defaults()['min_diff_price_per'])
+        self.min_diff_price_per = float(self.config.defaults()['min_diff_price_per'])
         self.pr_product_list = parse_result_list
         self.pr_price_change_list = []
         self.pc_result_list = []
+        print(self.min_diff_price_per)
 
     # Добавление продукта в таблицу products_table
     def __insert_product_in_products_table(self, id_category_name, brand_name, model_name, total_rating):
@@ -213,7 +214,7 @@ class Checker:
             # parse_result_list, url, price
             if price[0] < avg_price and find_in_stock_in_parse_result_list(self.pr_product_list, price[pos_url],
                                                                            price[pos_price]):
-                diff_per = 100 - (cur_price / avg_price * 100)
+                diff_per = float(100 - (cur_price / avg_price * 100))
                 if diff_per >= self.min_diff_price_per:
                     result_list.append(price)
 

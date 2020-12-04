@@ -107,11 +107,11 @@ class Bot:
         self.chat_id = self.config['bot']['chat_id']
         self.ignore_brands = self.config['bot-ignore']['brands'].lower().split('\n')
         self.bot = telebot.TeleBot(self.config['bot']['token'])
-        self.one_star_per = int(self.config['bot-stars']['one_star_per'])
-        self.two_star_per = int(self.config['bot-stars']['two_star_per'])
-        self.three_star_per = int(self.config['bot-stars']['three_star_per'])
-        self.four_star_per = int(self.config['bot-stars']['four_star_per'])
-        self.five_star_per = int(self.config['bot-stars']['five_star_per'])
+        self.one_star_per = float(self.config['bot-stars']['one_star_per'])
+        self.two_star_per = float(self.config['bot-stars']['two_star_per'])
+        self.three_star_per = float(self.config['bot-stars']['three_star_per'])
+        self.four_star_per = float(self.config['bot-stars']['four_star_per'])
+        self.five_star_per = float(self.config['bot-stars']['five_star_per'])
         self.pc_product_list = []
 
     # Подготовка текста для поста
@@ -125,19 +125,18 @@ class Bot:
         text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom)
 
         # ОГОНЬКИ
-        per = 100 - product.cur_price / product.avg_actual_price * 100
-        if per <= self.one_star_per:
+        per = float(100 - product.cur_price / product.avg_actual_price * 100)
+
+        if self.one_star_per <= per < self.two_star_per:
             star = 1
-        elif per <= self.two_star_per:
+        if self.two_star_per <= per < self.three_star_per:
             star = 2
-        elif per <= self.three_star_per:
+        if self.three_star_per <= per < self.four_star_per:
             star = 3
-        elif per <= self.four_star_per:
+        if self.four_star_per <= per < self.five_star_per:
             star = 4
-        elif per <= self.five_star_per:
+        if self.five_star_per < per:
             star = 5
-        else:
-            star = 6
 
         logger.info("{} ЗВЕЗД(Ы)".format(star))
         text += '🔥' * star
