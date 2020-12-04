@@ -51,7 +51,6 @@ def find_color_in_model_name(model_name):
 
 # Поиск в строке названия фраз из списка исключения и их замена
 def find_and_replace_except_model_name(model_name):
-    model_name = model_name.lower()
     # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
     res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_DICT.keys()), model_name)
     # Если есть - подменяем
@@ -76,6 +75,7 @@ CSV_PATH = "cache/goods.csv"
 CSV_PATH_RAW = "cache/"
 COLORS_DICTIONARY_PATH = "dictionaries/colors.dic"
 EXCEPT_MODEL_NAMES_PATH = "dictionaries/except_model_names.dic"
+EXCEPT_MODEL_NAMES_TELEGRAM_PATH = "dictionaries/except_model_names_telegram.dic"
 
 # ----------------------------- КОЛЛЕКЦИЯ -----------------------------
 

@@ -34,8 +34,8 @@ def load_exceptions_model_names():
             if len(res) != 2:
                 continue
             # Добавить в словарь
-            h.EXCEPT_MODEL_NAMES_DICT[res[0].replace('[', '').replace(']', '').lower()] = \
-                res[1].replace('[', '').replace(']', '').lower()
+            h.EXCEPT_MODEL_NAMES_DICT[res[0].replace('[', '').replace(']', '')] = \
+                res[1].replace('[', '').replace(']', '')
 
     # for key, value in h.EXCEPT_MODEL_NAMES_DICT.items():
     #     print("{0}: {1}".format(key, value))

@@ -27,7 +27,7 @@ def mvideo_parse_model_name(name):
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
-    rebuilt = h.REBUILT_IPHONE_NAME if (MVIDEO_REBUILT_IPHONE in name) else ''
+    rebuilt = h.REBUILT_IPHONE_NAME if (MVIDEO_REBUILT_IPHONE in name.lower()) else ''
     name = name.replace(rebuilt, '')
     # Оборачивание скобками названия модели, если их не было
     last_word = name.split()[-1]
@@ -1139,7 +1139,7 @@ models = (
     'Смартфон Samsung Galaxy Fold Silver (SM-F900F)',
     'Смартфон Samsung Galaxy Fold Black (SM-F900F)',
     'Смартфон Samsung Galaxy Z Fold 2 256GB Black (SM-F916B)',
-    'Смартфон Samsung Galaxy Z Fold 2 256GB Bronze (SM-F916B)',
+    'Смартфон Samsung Galaxy Z Fold2 256GB Bronze (SM-F916B)',
     'Смартфон Prestigio Muze B3 Duo Wine (PSP3512)',
     'Смартфон Digma Linx A452 3G Graphite',
     'Смартфон Sony Xperia XA1 Plus Black (G3412)',
@@ -1151,7 +1151,7 @@ models = (
     'Смартфон OPPO Reno Azure Ocean (CPH1917)',
     'Смартфон OPPO Reno Black Graphite (CPH1917)',
     'Смартфон ZTE Blade A5 Black',
-    'Смартфон Samsung Galaxy J2 Prime Silver (SM-G532F)',
+    'Смартфон Samsung Galaxy J2 Prime Silver SM-G532F',
 )
 
 models1 = ('Смартфон Samsung Galaxy S10 Оникс',
@@ -1179,16 +1179,16 @@ if __name__ == '__main__':
 
     import main
     main.load_exceptions_model_names()
+    main.read_config()
 
     # for item in models:
     #     logger.info(h.find_and_replace_except_model_name(item))
 
-
-    # for item in models:
-    #     res = mvideo_parse_model_name(item)
-    #     print('{},{},{}'.format(res[0], res[1], res[2]))
-    parser = MVideoParse()
-    result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    for item in models1:
+        res = mvideo_parse_model_name(item)
+        print('{},{},{}'.format(res[0], res[1], res[2]))
+    # parser = MVideoParse()
+    # result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
     # check = checker.Checker(result_list)
     # check.run()
 

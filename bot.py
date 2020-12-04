@@ -8,6 +8,7 @@ import datetime
 import requests
 import time
 from PIL import Image, ImageDraw
+import re
 
 logger = h.logging.getLogger('bot')
 
@@ -34,6 +35,33 @@ SHOP_NAMES = [
     'Sony Store',
     'Tmall',
 ]
+
+EXCEPT_MODEL_NAMES_TELEGRAM_DICT = {}
+
+
+# Чтение словаря исключений названий моделей
+def load_exceptions_model_names_telegram():
+    with open(h.EXCEPT_MODEL_NAMES_TELEGRAM_PATH, 'r', encoding='UTF-8') as f:
+        for line in f:
+            res = re.findall(r"\[.+?]", line)
+            # Отсечь кривые записи
+            if len(res) != 2:
+                continue
+            # Добавить в словарь
+            EXCEPT_MODEL_NAMES_TELEGRAM_DICT[res[0].replace('[', '').replace(']', '')] = \
+                res[1].replace('[', '').replace(']', '')
+
+
+# Поиск в строке названия фраз из списка исключения и их замена
+def find_and_replace_except_model_name(model_name):
+    # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
+    res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_TELEGRAM_DICT.keys()), model_name)
+    # Если есть - подменяем
+    if res:
+        res = res[0]
+        model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_TELEGRAM_DICT.get(res))
+
+    return model_name
 
 
 def image_change(url):
@@ -63,11 +91,7 @@ def image_change(url):
     im.paste(img, (int((W - img.width) / 2), 0), 0)
 
     return im
-    #img.save('sid.jpg', 'jpeg')
-
-
-def wrap_in_tag(tag, text):
-    return '<{}>{}</{}>'.format(tag, text, tag)
+    # img.save('sid.jpg', 'jpeg')
 
 
 def del_duplicates_in_pc_prod_list(elements):
@@ -113,20 +137,22 @@ class Bot:
         self.four_star_per = float(self.config['bot-stars']['four_star_per'])
         self.five_star_per = float(self.config['bot-stars']['five_star_per'])
         self.pc_product_list = []
+        # Загрузка словаря исключений названий моделей для постов
+        load_exceptions_model_names_telegram()
 
     # Подготовка текста для поста
     def __format_text(self, version_list):
         product = version_list[0]
-        # НАЗВАНИЕ МОДЕЛИ
-        text = '<b>{} {} {}</b>\n'.format(
-            product.category[0:-1].title(), product.brand_name.title(), product.model_name.title())
+        # НАЗВАНИЕ МОДЕЛИ с учетом словаря с исключениями названий
+        text = find_and_replace_except_model_name('<b>{} {} {}</b>\n'.format(
+            product.category[0:-1].title(), product.brand_name.title(), product.model_name.title()))
 
         # КОМПЛЕКТАЦИЯ
         text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom)
 
         # ОГОНЬКИ
         per = float(100 - product.cur_price / product.avg_actual_price * 100)
-
+        star = 0
         if self.one_star_per <= per < self.two_star_per:
             star = 1
         if self.two_star_per <= per < self.three_star_per:
@@ -160,7 +186,8 @@ class Bot:
         if product.cur_price <= product.hist_min_price:
             text += '<i>Данная цена является самой низкой за всё время</i>\n'
         else:
-            date_time = datetime.datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime('%d.%m.%Y')
+            date_time = datetime.datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime(
+                '%d.%m.%Y')
             s_price = '{0:,}'.format(product.hist_min_price).replace(',', ' ')
             text += '<i>Минимальная цена {}</i> ₽ <i>была {} в {}</i>\n'.format(
                 s_price, SHOP_NAMES[product.hist_min_shop - 1], date_time)
@@ -223,6 +250,7 @@ class Bot:
 
         logger.info(self.pc_product_list)
         logger.info('-' * 100)
+        # return self.pc_product_list
 
     # Фильтрация входных данных - удаление дубликатов и применение игнор-листа
     def filtering_data(self):
@@ -275,6 +303,7 @@ class Bot:
         self.pc_product_list = pc_product_list
         self.filtering_data()
         self.post_all()
+
 
 # @bot.message_handler(commands=['start'])
 # def start_handler(message):
@@ -343,3 +372,18 @@ class Bot:
 
 # image_change('https://img.mvideo.ru/pdb/small_pic/480/30045359b.jpg')
 # image_change('https://c.dns-shop.ru/thumb/st1/fit/200/200/6894029a9c81f3cf3257d2d2483935ec/5301b91d8e758695b85d0ee1a20f7b46cd56cbecc7dd1628b76f45630190b242.jpg')
+
+# bot = Bot()
+# data = bot.get_data()
+#
+#
+# def format_text(version_list):
+#     product = version_list[1]
+#     # НАЗВАНИЕ МОДЕЛИ с учетом словаря с исключениями названий
+#     text = find_and_replace_except_model_name('<b>{} {} {}</b>\n'.format(
+#         product.category[0:-1].title(), product.brand_name.title(), product.model_name.title()))
+#
+#     return text
+#
+#
+# print(format_text(data))
