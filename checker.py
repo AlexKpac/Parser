@@ -120,7 +120,6 @@ class Checker:
         self.pr_product_list = parse_result_list
         self.pr_price_change_list = []
         self.pc_result_list = []
-        print(self.min_diff_price_per)
 
     # Добавление продукта в таблицу products_table
     def __insert_product_in_products_table(self, id_category_name, brand_name, model_name, total_rating):
