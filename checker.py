@@ -21,62 +21,99 @@ def check_item_on_errors(item):
             not item.img_url or \
             not item.product_code or \
             item.rom == 0 or \
-            item.price == 0:
+            item.cur_price == 0:
         return False
     else:
         return True
 
 
-# Проверить все элементы на равенство
+# Поиск элемента по любым параметрам в любом namedtuple
+def find_in_namedtuple_list(namedtuple_list, brand_name=None, model_name=None, shop=None, category=None, color=None,
+                            ram=None, rom=None, cur_price=None, img_url=None, url=None, rating=None, num_rating=None,
+                            product_code=None, date_time=None, avg_actual_price=None,
+                            hist_min_price=None, hist_min_shop=None, hist_min_date=None, diff_cur_avg=None,
+                            limit_one=False):
+    if not namedtuple_list:
+        return []
+
+    result_list = []
+    for item in namedtuple_list:
+        if brand_name:
+            if getattr(item, 'brand_name', None) != brand_name:
+                continue
+        if model_name:
+            if getattr(item, 'model_name', None) != model_name:
+                continue
+        if shop:
+            if getattr(item, 'shop', None) != shop:
+                continue
+        if category:
+            if getattr(item, 'category', None) != category:
+                continue
+        if color:
+            if getattr(item, 'color', None) != color:
+                continue
+        if ram:
+            if getattr(item, 'ram', None) != ram:
+                continue
+        if rom:
+            if getattr(item, 'rom', None) != rom:
+                continue
+        if img_url:
+            if getattr(item, 'img_url', None) != img_url:
+                continue
+        if url:
+            if getattr(item, 'url', None) != url:
+                continue
+        if rating:
+            if getattr(item, 'rating', None) != rating:
+                continue
+        if num_rating:
+            if getattr(item, 'num_rating', None) != num_rating:
+                continue
+        if product_code:
+            if getattr(item, 'product_code', None) != product_code:
+                continue
+        if date_time:
+            if getattr(item, 'date_time', None) != date_time:
+                continue
+        if cur_price:
+            if getattr(item, 'cur_price', None) != cur_price:
+                continue
+        if avg_actual_price:
+            if getattr(item, 'avg_actual_price', None) != avg_actual_price:
+                continue
+        if hist_min_price:
+            if getattr(item, 'hist_min_price', None) != hist_min_price:
+                continue
+        if hist_min_shop:
+            if getattr(item, 'hist_min_shop', None) != hist_min_shop:
+                continue
+        if hist_min_date:
+            if getattr(item, 'hist_min_date', None) != hist_min_date:
+                continue
+        if diff_cur_avg:
+            if getattr(item, 'diff_cur_avg', None) != diff_cur_avg:
+                continue
+
+        result_list.append(item)
+        if limit_one:
+            break
+
+    return result_list
+
+
+# Проверить все элементы на равенство по заданной позиции
 def all_elem_equal_in_tuple_list(elements, indx):
     if not elements or len(elements) == 1:
         return True
 
-    price = elements[0][indx]
+    data = elements[0][indx]
     for item in elements:
-        if item[indx] != price:
+        if item[indx] != data:
             return False
 
     return True
-
-
-# Поиск элемента по заданным параметрам в nametuple ParseResult
-def find_in_pr_price_change_list(nametuple, brand_name, model_name, ram, rom, price):
-    if not nametuple:
-        return False
-
-    for item in nametuple:
-        if item.brand_name == brand_name and \
-                item.model_name == model_name and \
-                item.ram == ram and \
-                item.rom == rom and \
-                item.price == price:
-            return True
-
-    return False
-
-
-# Поиск элемента по заданным параметрам в nametuple PriceChanges
-def find_in_pc_result_list(namedtuple, brand_name, model_name, ram, rom, price, shop, color):
-    logger.info('--nametuple={}'.format(namedtuple))
-    logger.info('--brand={}, model={}, ram={}, rom={}, price={}, shop={}, color={}'.format(brand_name, model_name, ram,
-                                                                                           rom, price, shop, color))
-    if not namedtuple:
-        return False
-
-    for item in namedtuple:
-        if item.brand_name == brand_name and \
-                item.model_name == model_name and \
-                item.ram == ram and \
-                item.rom == rom and \
-                item.cur_price == price and \
-                item.shop == shop and \
-                item.color == color:
-            logger.info('--TRUE')
-            return True
-
-    logger.info('--FALSE')
-    return False
 
 
 # Вернет список с одним или несколькими магазинами и разными цветами, но с самыми низкими ценами
@@ -97,19 +134,8 @@ def find_min_price_in_prices_list(price_list):
     return result
 
 
-# Поиск товара в буфере (определить наличие)
-def find_in_stock_in_parse_result_list(parse_result_list, url, price):
-    logger.info('==url = {}, price={}'.format(url, price))
-    for item in parse_result_list:
-        if item.url == url and \
-                item.price == price:
-            logger.info('==TRUE')
-            return True
-
-    logger.info('==FALSE')
-    return False
-
-
+# Класс, отвечающий за распределение данных с парсеров - добавляет в базу, находит выгодные цены, подготавливает список
+# выгодных товаров для отправки в телеграм бот
 class Checker:
 
     def __init__(self, parse_result_list):
@@ -117,6 +143,7 @@ class Checker:
         self.config = configparser.ConfigParser()
         self.config.read('conf.ini', encoding="utf-8")
         self.min_diff_price_per = float(self.config.defaults()['min_diff_price_per'])
+        self.best_shop_for_img_url = (self.config.defaults()['best_shops_for_img_url']).lower().split(', ')
         self.pr_product_list = parse_result_list
         self.pr_price_change_list = []
         self.pc_result_list = []
@@ -159,67 +186,63 @@ class Checker:
     # Проверка списка товаров с измененной ценой на выгодное предложение
     def __check_price_for_benefit(self, cur_price, brand_name, model_name, ram, rom):
         pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
-
         null_result = (None, None, None)
 
-        # Получить список всех актуальных цен на данную комплектацию
-        prices_list = self.db.execute_read_query(sr.search_actual_prices_by_version_query,
-                                                 (brand_name, model_name, ram, rom))
-        if not prices_list:
+        # Получить список всех актуальных цен на данную комплектацию: price, id_shop_name, datetime, color, url_product
+        act_price_data_list = self.db.execute_read_query(sr.search_actual_prices_by_version_query,
+                                                         (brand_name, model_name, ram, rom))
+        if not act_price_data_list:
             return null_result
 
         # Определить, данный товар продается только в одном магазине или нет
-        is_one_shop = all_elem_equal_in_tuple_list(prices_list, pos_shop)
+        is_one_shop = all_elem_equal_in_tuple_list(act_price_data_list, pos_shop)
         # Поиск исторического минимума цены
-        hist_min_price = self.db.execute_read_query(sr.search_all_prices_by_version_query,
-                                                    (brand_name, model_name, ram, rom))
-        if not hist_min_price:
+        all_price_data_list = self.db.execute_read_query(sr.search_all_prices_by_version_query,
+                                                         (brand_name, model_name, ram, rom))
+        if not all_price_data_list:
             return null_result
 
-        logger.info('-' * 50)
-        logger.info("hist origin: {}".format(hist_min_price))
+        logger.info(("-" * 50) + "\n" + "hist origin: {}".format(all_price_data_list))
 
-        # Если магазин один, то удалить последние добавленные актуальные цены
+        # Если магазин один, то удалить последние добавленные актуальные цены для нормального расчета средней цены
         indx = 0
         if is_one_shop:
-            last_datetime = hist_min_price[0][pos_datetime]
-            for item in hist_min_price:
-                # if item[pos_price] == cur_price:
+            last_datetime = all_price_data_list[0][pos_datetime]
+            for item in all_price_data_list:
                 if (last_datetime - item[pos_datetime]).total_seconds() < 1:
-                    logger.info('dif_time = {}'.format((last_datetime - item[pos_datetime]).total_seconds()))
                     indx += 1
                 else:
                     break
-            logger.info('indx = {}, new hist: {}'.format(indx, hist_min_price[indx:]))
-            hist_min_price = min(hist_min_price[indx:])
+            logger.info('One shop: indx = {}, new hist: {}'.format(indx, all_price_data_list[indx:]))
+            hist_min_price = min(all_price_data_list[indx:])
         else:
-            hist_min_price = min(hist_min_price)
+            hist_min_price = min(all_price_data_list)
 
-        logger.info('hist_min = {}'.format(hist_min_price))
-        # Поиск средней цены
+        # Поиск средней цены для одного магазина или нескольких
         avg_price = ((cur_price + hist_min_price[pos_price]) / 2) if is_one_shop \
-            else sum(item[pos_price] for item in prices_list) / len(prices_list)
+            else sum(item[pos_price] for item in act_price_data_list) / len(act_price_data_list)
 
-        logger.info('hist_min_price = {}'.format(hist_min_price[pos_price]))
-        logger.info('cur_price = {}, hist_min_price = {}'.format(cur_price, hist_min_price[0]))
+        logger.info('cur_price = {}, hist_min_price = {}'.format(cur_price, hist_min_price[pos_price]))
         logger.info('is_one_shop: {}'.format(is_one_shop))
-        logger.info("check_price: len = {}, prices_list = {}".format(len(prices_list), prices_list))
+        logger.info("check_price: len = {}, prices_list = {}".format(len(act_price_data_list), act_price_data_list))
         logger.info("avg_price = {}".format(avg_price))
         logger.info("hist_min_price res = {}".format(hist_min_price))
 
-        # Составление списка товаров, у которых цена ниже средней на self.min_diff_price_per%
-        result_list = []
-        for price in prices_list:
-            # parse_result_list, url, price
-            if price[0] < avg_price and find_in_stock_in_parse_result_list(self.pr_product_list, price[pos_url],
-                                                                           price[pos_price]):
-                diff_per = float(100 - (cur_price / avg_price * 100))
-                if diff_per >= self.min_diff_price_per:
-                    result_list.append(price)
+        # Оставить в списке только товары в наличии (которые есть в списке с результатами всех парсеров)
+        act_price_in_stock_data_list = []
+        for item in act_price_data_list:
+            if find_in_namedtuple_list(self.pr_product_list, url=item[pos_url], limit_one=True):
+                act_price_in_stock_data_list.append(item)
 
-        logger.info('YES' if result_list else 'NO')
+        # Оставить только самые минимальные цены из товаров в наличии
+        min_act_price_in_stock_data_list = find_min_price_in_prices_list(act_price_in_stock_data_list)
 
-        return find_min_price_in_prices_list(result_list), avg_price, hist_min_price
+        # Сравнение минимальной цены (любой, они равны) со средней. Если цена не выгодная - очистить список
+        if h.per_num_of_num(min_act_price_in_stock_data_list[0][pos_price], avg_price) < self.min_diff_price_per:
+            min_act_price_in_stock_data_list.clear()
+
+        logger.info('YES' if min_act_price_in_stock_data_list else 'NO')
+        return min_act_price_in_stock_data_list, avg_price, hist_min_price
 
     # Сохранение результата
     def __save_result(self):
@@ -295,13 +318,15 @@ class Checker:
 
             # -- Комплектация отсутствует в #version_phones_table
             else:
-                logger.info("Данная комплектация отсутствует в списке комплектаций, добавляю комплектацию, магазин, цену")
+                logger.info(
+                    "Данная комплектация отсутствует в списке комплектаций, добавляю комплектацию, магазин, цену")
                 id_ver_phone = self.__insert_version_in_versions_phones_table(id_product, var_ram, var_rom, img_url)
                 id_shop_phone = self.__insert_shop_in_shops_phones_table(id_shop_name, id_product, id_ver_phone,
                                                                          url, product_code, var_color, local_rating,
                                                                          num_rating, bonus_rubles)
                 self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
-                logger.info("id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+                logger.info(
+                    "id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
                 return 'shop'
 
         # - Продукт отсутствует в #products_table
@@ -313,7 +338,8 @@ class Checker:
                                                                      product_code, var_color, local_rating, num_rating,
                                                                      bonus_rubles)
             self.__insert_price_in_prices_phones_table(id_shop_name, id_product, id_shop_phone, price)
-            logger.info("new id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
+            logger.info(
+                "new id_prod = {}, new id_ver = {}, new id_shop = {}".format(id_product, id_ver_phone, id_shop_phone))
             return 'product'
 
         return 'error'
@@ -326,14 +352,10 @@ class Checker:
             pr_price_change_list = self.pr_price_change_list
 
         for item in pr_price_change_list:
-            logger.info(item)
-
-        for item in pr_price_change_list:
-            result_list, avg_price, hist_min_price = self.__check_price_for_benefit(item.price,
+            result_list, avg_price, hist_min_price = self.__check_price_for_benefit(item.cur_price,
                                                                                     item.brand_name,
                                                                                     item.model_name,
                                                                                     item.ram, item.rom)
-
             for item11 in result_list:
                 logger.info('==item11={}'.format(item11))
 
@@ -341,9 +363,18 @@ class Checker:
             if result_list and avg_price and hist_min_price:
                 for item_result in result_list:
                     # Для исключительных ситуаций: проверка, что такого элемента с такой ценой и цветом еще нет в списке
-                    if not find_in_pc_result_list(self.pc_result_list, item.brand_name, item.model_name, item.ram,
-                                                  item.rom, item_result[pos_price], item_result[pos_shop],
-                                                  item_result[pos_color]):
+                    if not find_in_namedtuple_list(self.pc_result_list, url=item_result[pos_url], limit_one=True):
+
+                        # Ссылу на изображение необходимо вытянуть из предпочтительных магазинов
+                        img_url = None
+                        for best_shop_item in self.best_shop_for_img_url:
+                            img_url = find_in_namedtuple_list(self.pr_product_list, brand_name=item.brand_name,
+                                                              model_name=item.model_name, shop=best_shop_item,
+                                                              limit_one=True)
+                            if img_url:
+                                img_url = img_url[0].img_url
+                                break
+
                         self.pc_result_list.append(h.PriceChanges(
                             shop=item_result[pos_shop],
                             category=item.category,
@@ -352,7 +383,7 @@ class Checker:
                             color=item_result[pos_color],
                             ram=item.ram,
                             rom=item.rom,
-                            img_url=item.img_url,
+                            img_url=img_url if img_url else item.img_url,
                             url=item_result[pos_url],
                             date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
                             cur_price=item_result[pos_price],
@@ -389,7 +420,7 @@ class Checker:
                 var_color=item.color,
                 var_ram=item.ram,
                 var_rom=item.rom,
-                price=item.price,
+                price=item.cur_price,
                 img_url=item.img_url,
                 url=item.url,
                 product_code=item.product_code,
@@ -398,9 +429,9 @@ class Checker:
 
             # Если при добавлении товара в базу была изменена только цена -
             # добавляем в очередь на проверку выгоды
-            if resp == 'price' and not find_in_pr_price_change_list(self.pr_price_change_list, item.brand_name,
-                                                                    item.model_name,
-                                                                    item.ram, item.rom, item.price):
+            if resp == 'price' and not find_in_namedtuple_list(self.pr_price_change_list, brand_name=item.brand_name,
+                                                               model_name=item.model_name, ram=item.ram, rom=item.rom,
+                                                               cur_price=item.cur_price, limit_one=True):
                 logger.info(item)
                 self.pr_price_change_list.append(item)
 
@@ -414,3 +445,62 @@ class Checker:
         self.db.disconnect()
         self.__save_result()
         return self.pc_result_list
+
+
+# Загрузить данные с csv, чтобы не парсить сайт
+def load_result_from_csv(name):
+    pr_result_list = []
+    with open(h.CSV_PATH_RAW + name, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            pr_result_list.append(h.ParseResult(
+                shop=row['Магазин'],
+                category=row['Категория'],
+                brand_name=row['Бренд'],
+                model_name=row['Модель'],
+                color=row['Цвет'],
+                cur_price=int(row['Цена']),
+                ram=int(row['RAM']),
+                rom=int(row['ROM']),
+                img_url=row['Ссылка на изображение'],
+                url=row['Ссылка'],
+                rating=float(row['Рейтинг']),
+                num_rating=int(row['Кол-во отзывов']),
+                product_code=row['Код продукта'],
+            ))
+
+    return pr_result_list
+
+
+def get_data():
+    pc_product_list = []
+    with open(h.PRICE_CHANGES_PATH, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            pc_product_list.append(h.PriceChanges(
+                shop=int(row['Магазин']),
+                category=row['Категория'],
+                brand_name=row['Бренд'],
+                model_name=row['Модель'],
+                color=row['Цвет'],
+                ram=int(row['RAM']),
+                rom=int(row['ROM']),
+                img_url=row['Ссылка на изображение'],
+                url=row['Ссылка'],
+                date_time=row['Дата и время'],
+                cur_price=int(row['Текущая цена']),
+                avg_actual_price=float(row['Средняя цена']),
+                hist_min_price=int(row['Историческая мин. цена']),
+                hist_min_shop=int(row['Исторический мин. магазин']),
+                hist_min_date=row['Исторический мин. дата'],
+                diff_cur_avg=int(row['Разница цены от средней']),
+            ))
+
+    return pc_product_list
+
+# ch = Checker([])
+# res = get_data()  # load_result_from_csv("dif_price.csv")
+# res12 = find_in_namedtuple_list(res, brand_name='honor', model_name='', date_time='', hist_min_price=13519,
+#                                 cur_price=13519, color='белый')
+# for item1 in res12:
+#     print(item1)

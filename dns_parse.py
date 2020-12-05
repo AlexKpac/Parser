@@ -10,13 +10,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.expected_conditions import presence_of_element_located
-
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
-import bot
 import header as h
-import checker
 
 logger = h.logging.getLogger('dnsparse')
 DNS_REBUILT_IPHONE = ' "как новый"'
@@ -390,12 +387,12 @@ class DNSParse:
             product_code = product_code.text
 
         # Текущая цена
-        cur_price = product_block.select_one("span.product-card-price__current")
-        if not cur_price:
+        price = product_block.select_one("span.product-card-price__current")
+        if not price:
             logger.error("No cur price")
-            cur_price = 0
+            price = 0
         else:
-            cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
+            price = int(re.findall(r'\d+', price.text.replace(' ', ''))[0])
 
         # Парсинг полученных данных
         model_name, color, rom = dns_parse_model_name(brand_name, model_name) \
@@ -411,7 +408,7 @@ class DNSParse:
             brand_name=brand_name.lower(),
             model_name=model_name.lower(),
             color=color.lower(),
-            price=cur_price,
+            price=price,
             ram=ram,
             rom=rom,
             img_url=img_url.lower(),
@@ -498,19 +495,19 @@ class DNSParse:
             product_code = product_code.text
 
         # Цена, ветвление: 2 вида акций, поиск по тегам
-        cur_price = block.select_one('div.product-min-price__min')
+        price = block.select_one('div.product-min-price__min')
 
         # Если есть "акция"
-        if cur_price and not ('скидка' in cur_price.text):
-            cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
+        if price and not ('скидка' in price.text):
+            price = int(re.findall(r'\d+', price.text.replace(' ', ''))[0])
         # Если есть "выгода"
         else:
-            cur_price = block.select_one('div.product-min-price__current')
-            if not cur_price:
+            price = block.select_one('div.product-min-price__current')
+            if not price:
                 logger.warning("No current price")
                 return
             else:
-                cur_price = int(cur_price.text.replace('₽', '').replace(' ', ''))
+                price = int(price.text.replace('₽', '').replace(' ', ''))
 
         # Парсинг полученных данных
         model_name, color, rom = dns_parse_model_name(brand_name, model_name)
@@ -530,7 +527,7 @@ class DNSParse:
             brand_name=brand_name.lower(),
             model_name=model_name.lower(),
             color=color.lower(),
-            price=cur_price,
+            price=price,
             ram=ram,
             rom=rom,
             img_url=img_url,

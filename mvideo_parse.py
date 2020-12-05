@@ -591,6 +591,8 @@ class MVideoParse:
             return
         else:
             img_url = img_url.get('src')
+            if img_url.startswith("//"):
+                img_url = "https:" + img_url
 
         # Рейтинг товара
         rating = block.select_one('span.stars-container')

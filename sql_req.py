@@ -141,6 +141,18 @@ select_price_in_price_phone_query = """
         id_shop_phone = %s
 """
 
+select_img_url_query = """
+    SELECT img_url 
+    FROM general_table
+    WHERE 
+        id_shop_name=%s AND 
+        brand_name=%s   AND 
+        model_name=%s   AND 
+        ram=%s          AND 
+        rom=%s 
+    LIMIT 1
+"""
+
 # --------------------------- ЗАПИСЬ В БД ----------------------------
 
 # Заполнить таблицу названий магазинов

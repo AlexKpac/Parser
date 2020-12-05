@@ -61,6 +61,11 @@ def find_and_replace_except_model_name(model_name):
     return model_name
 
 
+# Процент числа от числа
+def per_num_of_num(a, b):
+    return float(100 - (a / b * 100))
+
+
 # ----------------------------- НАСТРОЙКИ -----------------------------
 
 # Путь к webdriver
@@ -100,7 +105,7 @@ ParseResult = collections.namedtuple(
         'color',
         'ram',
         'rom',
-        'price',
+        'cur_price',
         'img_url',
         'url',
         'rating',

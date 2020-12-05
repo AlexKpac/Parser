@@ -70,7 +70,7 @@ def image_change(url):
     try:
         resp = requests.get(url, stream=True).raw
     except requests.exceptions.RequestException as e:
-        logger.error("Can't get img from url :(")
+        logger.error("Can't get img from url :(, url={}".format(url))
         return None
 
     # Попытка открыть изображение средствами PIL
@@ -181,7 +181,7 @@ class Bot:
         s_price = '{0:,}'.format(product.cur_price).replace(',', ' ')
         text += 'Выгодная цена: <b><i>{}</i></b> ₽\n'.format(s_price)
         s_price = '{0:,}'.format(int(product.avg_actual_price - product.cur_price))
-        text += '<i>(Дешевле на {}</i> ₽<i>)</i>\n\n'.format(s_price).replace(',', ' ')
+        text += '<i>(Дешевле на {}</i> ₽<i> от средней)</i>\n\n'.format(s_price).replace(',', ' ')
 
         # ИСТОРИЧЕСКИЙ МИНИМУМ
         if product.cur_price <= product.hist_min_price:
@@ -207,7 +207,7 @@ class Bot:
             urls = ''
             for product in version_list:
                 if product.shop == shop:
-                    urls += '<a href="{}">› {}</a>\n'.format(product.url, product.color.title())  # → ► ● ○ • ›
+                    urls += '<a href="{}">► {}</a>\n'.format(product.url, product.color.title())  # → ► ● ○ • ›
             links_shop_list.append(urls)
 
         # Генерация ссылок
@@ -286,14 +286,18 @@ class Bot:
         item = version_list[0]
         text = self.__format_text(version_list)
         img = image_change(item.img_url)
+        if not img:
+            logger.error("No IMG in send post")
+            return
+
         # Отправка поста в обертке
         for i in range(3):
             try:
                 self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html')
                 break
             except telebot.apihelper.ApiException:
-                logger.warning("Слишком много постов в телеграм, ожидаем 40 сек, ({})".format(i + 1))
-                time.sleep(20)
+                logger.warning("Слишком много постов в телеграм, ожидаем 30 сек, ({})".format(i + 1))
+                time.sleep(30)
 
     # Запуск бота
     def run(self, pc_product_list):

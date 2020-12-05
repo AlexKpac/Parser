@@ -53,7 +53,7 @@ def load_result_from_csv(name):
                 brand_name=row['Бренд'],
                 model_name=row['Модель'],
                 color=row['Цвет'],
-                price=int(row['Цена']),
+                cur_price=int(row['Цена']),
                 ram=int(row['RAM']),
                 rom=int(row['ROM']),
                 img_url=row['Ссылка на изображение'],
@@ -85,28 +85,29 @@ def read_config():
 
 if __name__ == '__main__':
     time_start = time()
-    result_list = []
+    # result_list = []
+    #
+    # load_exceptions_model_names()
+    # read_config()
+    #
+    # parser = MVideoParse()
+    # result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # # result = load_result_from_csv("mvideo.csv")
+    # result_list.extend(result)
+    #
+    # parser = MTSParse()
+    # result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/?id=62427_233815 ")
+    # # result = load_result_from_csv("mts.csv")
+    # result_list.extend(result)
+    #
+    # parser = DNSParse()
+    # result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    # # result = load_result_from_csv("dns.csv")
+    # result_list.extend(result)
+    #
+    # save_result_list(result_list)
 
-    load_exceptions_model_names()
-    read_config()
-
-    parser = MVideoParse()
-    result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
-    # result = load_result_from_csv("mvideo.csv")
-    result_list.extend(result)
-
-    parser = MTSParse()
-    result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/?id=62427_233815 ")
-    # result = load_result_from_csv("mts.csv")
-    result_list.extend(result)
-
-    parser = DNSParse()
-    result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
-    # result = load_result_from_csv("dns.csv")
-    result_list.extend(result)
-
-    save_result_list(result_list)
-
+    result_list = load_result_from_csv("goods.csv")
     check = Checker(result_list)
     benefit_price_list = check.run()
 
