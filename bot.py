@@ -148,7 +148,8 @@ class Bot:
             product.category[0:-1].title(), product.brand_name.title(), product.model_name.title()))
 
         # КОМПЛЕКТАЦИЯ
-        text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom)
+        text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom) if product.ram \
+            else '<b>{} GB</b>'.format(product.rom)
 
         # ОГОНЬКИ
         per = float(100 - product.cur_price / product.avg_actual_price * 100)
