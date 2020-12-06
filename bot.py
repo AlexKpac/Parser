@@ -275,14 +275,13 @@ class Bot:
             version_list = find_all_versions_in_pc_prod_list(self.pc_product_list, item.brand_name, item.model_name,
                                                              item.ram, item.rom, item.cur_price)
 
-            self.send_post(version_list)
-            time.sleep(1)
+            self.send_post(version_list, False)
 
             # Удаление из основного списка взятой группы version_list
             for item in version_list:
                 self.pc_product_list.remove(item)
 
-    def send_post(self, version_list):
+    def send_post(self, version_list, dis_notify):
         item = version_list[0]
         text = self.__format_text(version_list)
         img = image_change(item.img_url)
@@ -293,7 +292,8 @@ class Bot:
         # Отправка поста в обертке
         for i in range(3):
             try:
-                self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html')
+                self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html',
+                                    disable_notification=dis_notify)
                 break
             except telebot.apihelper.ApiException:
                 logger.warning("Слишком много постов в телеграм, ожидаем 30 сек, ({})".format(i + 1))
