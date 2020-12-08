@@ -129,6 +129,7 @@ EXCEPT_MODEL_NAMES_PATH = "dictionaries/except_model_names.dic"
 EXCEPT_MODEL_NAMES_TELEGRAM_PATH = "dictionaries/except_model_names_telegram.dic"
 STATS_PRODS_DICTIONARY_PATH = "dictionaries/stats_prods_from_telegram.dic"
 STATS_SHOPS_DICTIONARY_PATH = "dictionaries/stats_shops_from_telegram.dic"
+MESSAGES_IN_TELEGRAM_LIST_PATH = "dictionaries/msg_in_telegram.csv"
 
 # ----------------------------- КОЛЛЕКЦИЯ -----------------------------
 
@@ -215,6 +216,36 @@ HEADERS_PRICE_CHANGES = (
     'Исторический мин. магазин',
     'Исторический мин. дата',
     'Разница цены от средней',
+)
+
+# -------------------- СПИСОК СООБЩЕНИЙ ТЕЛЕГРАМ ---------------------- #
+
+# Коллекция для хранения результатов парсинга одного товара (смартфоны)
+MessagesInTelegram = collections.namedtuple(
+    'MessagesInTelegram',
+    (
+        'message_id',
+        'brand_name',
+        'model_name',
+        'ram',
+        'rom',
+        'cur_price',
+        'shop',
+        'url',
+        'datetime',
+    ),
+)
+
+HEADERS_MSG_IN_TELEGRAM = (
+    'Message ID',
+    'Бренд',
+    'Модель',
+    'RAM',
+    'ROM',
+    'Цена',
+    'Магазин',
+    'URL',
+    'Дата и Время',
 )
 
 # -------------------- НАЗВАНИЯ МАГАЗИНОВ ДЛЯ ТЕЛЕГРАМ ---------------------- #

@@ -17,7 +17,6 @@ STATS_SHOPS_DICT = {}
 
 # Чтение словаря с подсчетом кол-ва моделей
 def load_stats_prods_dictionary():
-    # Словарь цветов
     with open(h.STATS_PRODS_DICTIONARY_PATH, 'r', encoding='UTF-8') as f:
         for line in f:
             res = re.findall(r"\[.+?]", line)
@@ -31,7 +30,6 @@ def load_stats_prods_dictionary():
 
 # Чтение словаря с подсчетом кол-ва моделей
 def load_stats_shops_dictionary():
-    # Словарь цветов
     with open(h.STATS_SHOPS_DICTIONARY_PATH, 'r', encoding='UTF-8') as f:
         for line in f:
             res = re.findall(r"\[.+?]", line)
@@ -159,10 +157,41 @@ class Bot:
         self.four_star_per = float(self.config['bot-stars']['four_star_per'])
         self.five_star_per = float(self.config['bot-stars']['five_star_per'])
         self.pc_product_list = []
+        self.messages_in_telegram_list = []
         # Загрузка словаря исключений названий моделей для постов
         load_exceptions_model_names_telegram()
         load_stats_prods_dictionary()
         load_stats_shops_dictionary()
+        # self.__load_msg_in_telegram_list()
+
+    # Сохранение всего результата в csv файл
+    def __save_msg_in_telegram_list(self):
+        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'w', newline='', encoding='UTF-8') as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(h.HEADERS_MSG_IN_TELEGRAM)
+            for item in self.messages_in_telegram_list:
+                writer.writerow(item)
+
+    # Загрузить данные с csv, чтобы не парсить сайт
+    def __load_msg_in_telegram_list(self):
+        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r', encoding='UTF-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                self.messages_in_telegram_list.append(h.ParseResult(
+                    shop=row['Магазин'],
+                    category=row['Категория'],
+                    brand_name=row['Бренд'],
+                    model_name=row['Модель'],
+                    color=row['Цвет'],
+                    cur_price=int(row['Цена']),
+                    ram=int(row['RAM']),
+                    rom=int(row['ROM']),
+                    img_url=row['Ссылка на изображение'],
+                    url=row['Ссылка'],
+                    rating=float(row['Рейтинг']),
+                    num_rating=int(row['Кол-во отзывов']),
+                    product_code=row['Код продукта'],
+                ))
 
     # Подготовка текста для поста
     def __format_text(self, version_list):
@@ -308,8 +337,21 @@ class Bot:
         # Отправка поста в обертке
         for i in range(3):
             try:
-                self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html',
-                                    disable_notification=dis_notify)
+                resp = self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html',
+                                           disable_notification=dis_notify)
+
+                print(resp.message_id)
+                self.messages_in_telegram_list.append(h.MessagesInTelegram(
+                    message_id=resp.message_id,
+                    brand_name=item.brand_name,
+                    model_name=item.model_name,
+                    ram=item.ram,
+                    rom=item.rom,
+                    cur_price=item.cur_price,
+                    shop=item.shop,
+                    url=item.url,
+                    datetime=datetime.datetime.now(),
+                ))
                 break
             except telebot.apihelper.ApiException:
                 logger.warning("Слишком много постов в телеграм, ожидаем 30 сек, ({})".format(i + 1))
@@ -326,6 +368,8 @@ class Bot:
         self.__prepare_posts_and_send()
         save_stats_prods_dictionary()
         save_stats_shops_dictionary()
+        self.__save_msg_in_telegram_list()
+
 
 # bot = Bot()
 # bot.run([])

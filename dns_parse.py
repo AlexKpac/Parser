@@ -22,7 +22,7 @@ DNS_REBUILT_IPHONE = ' "как новый"'
 # Загрузить данные с csv, чтобы не парсить сайт
 def load_result_from_csv():
     pr_result_list = []
-    with open(h.CSV_PATH, 'r') as f:
+    with open(h.CSV_PATH, 'r', encoding='UTF-8') as f:
         reader = csv.DictReader(f)
 
         for row in reader:
@@ -540,7 +540,7 @@ class DNSParse:
 
     # Сохранение всего результата в csv файл
     def __save_result(self):
-        with open(h.CSV_PATH_RAW + "dns.csv", 'w', newline='') as f:
+        with open(h.CSV_PATH_RAW + "dns.csv", 'w', newline='', encoding='UTF-8') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
             for item in self.pr_result_list:
@@ -548,7 +548,7 @@ class DNSParse:
 
     # Загрузить данные с csv, чтобы не парсить сайт
     def __load_result_in_csv(self):
-        with open(h.CSV_PATH_RAW + "dns.csv", 'r') as f:
+        with open(h.CSV_PATH_RAW + "dns.csv", 'r', encoding='UTF-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 self.pr_result_list.append(h.ParseResult(

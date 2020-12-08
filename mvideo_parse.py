@@ -669,7 +669,7 @@ class MVideoParse:
 
     # Сохранение всего результата в csv файл
     def __save_result(self):
-        with open(h.CSV_PATH_RAW + "mvideo.csv", 'w', newline='') as f:
+        with open(h.CSV_PATH_RAW + "mvideo.csv", 'w', newline='', encoding='UTF-8') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
             for item in self.pr_result_list:
