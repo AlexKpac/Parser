@@ -317,7 +317,7 @@ class Bot:
 
     # Запуск бота
     def run(self, pc_product_list):
-        pc_product_list = get_data()
+        # pc_product_list = get_data()
         if not pc_product_list:
             logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
             return
