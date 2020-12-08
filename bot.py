@@ -166,7 +166,7 @@ class Bot:
 
     # Сохранение всего результата в csv файл
     def __save_msg_in_telegram_list(self):
-        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'w', newline='', encoding='UTF-8') as f:
+        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS_MSG_IN_TELEGRAM)
             for item in self.messages_in_telegram_list:
@@ -174,23 +174,19 @@ class Bot:
 
     # Загрузить данные с csv, чтобы не парсить сайт
     def __load_msg_in_telegram_list(self):
-        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r', encoding='UTF-8') as f:
+        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                self.messages_in_telegram_list.append(h.ParseResult(
-                    shop=row['Магазин'],
-                    category=row['Категория'],
+                self.messages_in_telegram_list.append(h.MessagesInTelegram(
+                    message_id=row['Message ID'],
                     brand_name=row['Бренд'],
                     model_name=row['Модель'],
-                    color=row['Цвет'],
-                    cur_price=int(row['Цена']),
-                    ram=int(row['RAM']),
-                    rom=int(row['ROM']),
-                    img_url=row['Ссылка на изображение'],
-                    url=row['Ссылка'],
-                    rating=float(row['Рейтинг']),
-                    num_rating=int(row['Кол-во отзывов']),
-                    product_code=row['Код продукта'],
+                    ram=row['RAM'],
+                    rom=row['ROM'],
+                    cur_price=row['Цена'],
+                    shop=row['Магазин'],
+                    url=row['URL'],
+                    datetime=row['Дата и Время'],
                 ))
 
     # Подготовка текста для поста

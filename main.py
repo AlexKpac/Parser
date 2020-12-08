@@ -53,7 +53,7 @@ def load_result_from_csv(name):
 
 # Сохранение всего результата в csv файл
 def save_result_list(elements):
-    with open(h.CSV_PATH, 'w', newline='', encoding='UTF-8') as f:
+    with open(h.CSV_PATH, 'w', newline='') as f:
         writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
         writer.writerow(h.HEADERS)
         for item in elements:
