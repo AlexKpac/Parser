@@ -13,18 +13,6 @@ import header as h
 logger = h.logging.getLogger('main')
 
 
-# ЗАМОРОЖЕННАЯ Ф-ЦИЯ. Чтение словаря цветов с файла
-def load_color_dictionary_list():
-    # Словарь цветов
-    with open(h.COLORS_DICTIONARY_PATH, 'r', encoding='UTF-8') as f:
-        lines = f.readlines()
-        for line in lines:
-            # удалим заключительный символ перехода строки
-            current_place = line[:-1]
-            # добавим элемент в конец списка
-            h.COLOR_DICTIONARY_LIST.append(current_place)
-
-
 # Чтение словаря исключений названий моделей
 def load_exceptions_model_names():
     with open(h.EXCEPT_MODEL_NAMES_PATH, 'r', encoding='UTF-8') as f:
@@ -36,9 +24,6 @@ def load_exceptions_model_names():
             # Добавить в словарь
             h.EXCEPT_MODEL_NAMES_DICT[res[0].replace('[', '').replace(']', '')] = \
                 res[1].replace('[', '').replace(']', '')
-
-    # for key, value in h.EXCEPT_MODEL_NAMES_DICT.items():
-    #     print("{0}: {1}".format(key, value))
 
 
 # Загрузить данные с csv, чтобы не парсить сайт
@@ -85,6 +70,7 @@ def read_config():
 
 if __name__ == '__main__':
     time_start = time()
+    h.del_old_logs()
     result_list = []
 
     load_exceptions_model_names()
@@ -113,4 +99,5 @@ if __name__ == '__main__':
 
     bot = Bot()
     bot.run(benefit_price_list)
+
     logger.info(f"Время выполнения: {time() - time_start} сек")

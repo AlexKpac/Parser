@@ -24,6 +24,7 @@ def load_result_from_csv():
     pr_result_list = []
     with open(h.CSV_PATH, 'r') as f:
         reader = csv.DictReader(f)
+
         for row in reader:
             pr_result_list.append(h.ParseResult(
                 shop=row['Магазин'],

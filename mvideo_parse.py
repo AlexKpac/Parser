@@ -573,7 +573,7 @@ class MVideoParse:
         # Название модели и URL
         model_name_url_block = block.select_one('a.product-title__text')
 
-        if 'pda' in model_name_url_block.text.lower():
+        if model_name_url_block and ('pda' in model_name_url_block.text.lower()):
             logger.warning("PDA detected")
             return
 

@@ -27,82 +27,6 @@ def check_item_on_errors(item):
         return True
 
 
-# Поиск элемента по любым параметрам в любом namedtuple
-def find_in_namedtuple_list(namedtuple_list, brand_name=None, model_name=None, shop=None, category=None, color=None,
-                            ram=None, rom=None, cur_price=None, img_url=None, url=None, rating=None, num_rating=None,
-                            product_code=None, date_time=None, avg_actual_price=None,
-                            hist_min_price=None, hist_min_shop=None, hist_min_date=None, diff_cur_avg=None,
-                            limit_one=False):
-    if not namedtuple_list:
-        return []
-
-    result_list = []
-    for item in namedtuple_list:
-        if brand_name:
-            if getattr(item, 'brand_name', None) != brand_name:
-                continue
-        if model_name:
-            if getattr(item, 'model_name', None) != model_name:
-                continue
-        if shop:
-            if getattr(item, 'shop', None) != shop:
-                continue
-        if category:
-            if getattr(item, 'category', None) != category:
-                continue
-        if color:
-            if getattr(item, 'color', None) != color:
-                continue
-        if ram:
-            if getattr(item, 'ram', None) != ram:
-                continue
-        if rom:
-            if getattr(item, 'rom', None) != rom:
-                continue
-        if img_url:
-            if getattr(item, 'img_url', None) != img_url:
-                continue
-        if url:
-            if getattr(item, 'url', None) != url:
-                continue
-        if rating:
-            if getattr(item, 'rating', None) != rating:
-                continue
-        if num_rating:
-            if getattr(item, 'num_rating', None) != num_rating:
-                continue
-        if product_code:
-            if getattr(item, 'product_code', None) != product_code:
-                continue
-        if date_time:
-            if getattr(item, 'date_time', None) != date_time:
-                continue
-        if cur_price:
-            if getattr(item, 'cur_price', None) != cur_price:
-                continue
-        if avg_actual_price:
-            if getattr(item, 'avg_actual_price', None) != avg_actual_price:
-                continue
-        if hist_min_price:
-            if getattr(item, 'hist_min_price', None) != hist_min_price:
-                continue
-        if hist_min_shop:
-            if getattr(item, 'hist_min_shop', None) != hist_min_shop:
-                continue
-        if hist_min_date:
-            if getattr(item, 'hist_min_date', None) != hist_min_date:
-                continue
-        if diff_cur_avg:
-            if getattr(item, 'diff_cur_avg', None) != diff_cur_avg:
-                continue
-
-        result_list.append(item)
-        if limit_one:
-            break
-
-    return result_list
-
-
 # Проверить все элементы на равенство по заданной позиции
 def all_elem_equal_in_tuple_list(elements, indx):
     if not elements or len(elements) == 1:
@@ -231,7 +155,7 @@ class Checker:
         # Оставить в списке только товары в наличии (которые есть в списке с результатами всех парсеров)
         act_price_in_stock_data_list = []
         for item in act_price_data_list:
-            if find_in_namedtuple_list(self.pr_product_list, url=item[pos_url], limit_one=True):
+            if h.find_in_namedtuple_list(self.pr_product_list, url=item[pos_url], limit_one=True):
                 act_price_in_stock_data_list.append(item)
 
         # Оставить только самые минимальные цены из товаров в наличии
@@ -363,14 +287,14 @@ class Checker:
             if result_list and avg_price and hist_min_price:
                 for item_result in result_list:
                     # Для исключительных ситуаций: проверка, что такого элемента с такой ценой и цветом еще нет в списке
-                    if not find_in_namedtuple_list(self.pc_result_list, url=item_result[pos_url], limit_one=True):
+                    if not h.find_in_namedtuple_list(self.pc_result_list, url=item_result[pos_url], limit_one=True):
 
                         # Ссылу на изображение необходимо вытянуть из предпочтительных магазинов
                         img_url = None
                         for best_shop_item in self.best_shop_for_img_url:
-                            img_url = find_in_namedtuple_list(self.pr_product_list, brand_name=item.brand_name,
-                                                              model_name=item.model_name, shop=best_shop_item,
-                                                              limit_one=True)
+                            img_url = h.find_in_namedtuple_list(self.pr_product_list, brand_name=item.brand_name,
+                                                                model_name=item.model_name, shop=best_shop_item,
+                                                                limit_one=True)
                             if img_url:
                                 img_url = img_url[0].img_url
                                 break
@@ -429,9 +353,9 @@ class Checker:
 
             # Если при добавлении товара в базу была изменена только цена -
             # добавляем в очередь на проверку выгоды
-            if resp == 'price' and not find_in_namedtuple_list(self.pr_price_change_list, brand_name=item.brand_name,
-                                                               model_name=item.model_name, ram=item.ram, rom=item.rom,
-                                                               cur_price=item.cur_price, limit_one=True):
+            if resp == 'price' and not h.find_in_namedtuple_list(self.pr_price_change_list, brand_name=item.brand_name,
+                                                                 model_name=item.model_name, ram=item.ram, rom=item.rom,
+                                                                 cur_price=item.cur_price, limit_one=True):
                 logger.info(item)
                 self.pr_price_change_list.append(item)
 
@@ -500,7 +424,7 @@ def get_data():
 
 # ch = Checker([])
 # res = get_data()  # load_result_from_csv("dif_price.csv")
-# res12 = find_in_namedtuple_list(res, brand_name='honor', model_name='', date_time='', hist_min_price=13519,
+# res12 = h.find_in_namedtuple_list(res, brand_name='honor', model_name='', date_time='', hist_min_price=13519,
 #                                 cur_price=13519, color='белый')
 # for item1 in res12:
 #     print(item1)
