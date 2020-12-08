@@ -21,6 +21,9 @@ def del_old_logs():
 
 # Поиск в строке названия фраз из списка исключения и их замена
 def find_and_replace_except_model_name(model_name):
+    if not EXCEPT_MODEL_NAMES_DICT:
+        return model_name
+
     # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
     res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_DICT.keys()), model_name)
     # Если есть - подменяем

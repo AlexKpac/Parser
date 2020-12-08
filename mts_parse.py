@@ -244,7 +244,7 @@ class MTSParse:
 
     # Скролл вниз для прогрузки товаров на странице
     def __wd_mts_scroll_down(self):
-        for i in range(14):
+        for i in range(10):
             ActionChains(self.driver).send_keys(Keys.PAGE_DOWN).perform()
             time.sleep(0.3)
 
@@ -287,9 +287,15 @@ class MTSParse:
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
             return False
 
-        # Ждем, пока не прогрузится страница
+        # Скролл страницы
         if not self.__wd_mts_scroll_down():
             logger.error("Не удалось прогрузить страницу после скролла в __wd_open_browser (3)")
+            return False
+
+        time.sleep(4)
+
+        if not self.__wd_mts_scroll_down():
+            logger.error("Не удалось прогрузить страницу после скролла в __wd_open_browser (4)")
             return False
 
         time.sleep(2)
@@ -329,14 +335,6 @@ class MTSParse:
 
         # Специальная задержка между переключениями страниц для имитации юзера
         time.sleep(self.wait_between_pages_sec)
-
-        # Особенность ДНС - при переключении страницы иногда не меняется контент. Если так - обновляем страницу
-        # try:
-        #     self.wait.until_not(ec.presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
-        #         self.pr_result_list[-5].url.replace(self.domain, '')))))
-        # except se.TimeoutException:
-        #     logger.error("TimeoutException в __wd_next_page, обновляю страницу")
-        #     self.driver.refresh()
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -547,6 +545,9 @@ models = ('Apple iPhone 7 32 GB Black (MN8X2RU/A)',
 
 if __name__ == '__main__':
     time_start = time.time()
+
+    import main
+    main.load_exceptions_model_names()
 
     parser = MTSParse()
     result_list = parser.run_catalog(

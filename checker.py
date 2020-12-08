@@ -295,7 +295,7 @@ class Checker:
                             img_url = h.find_in_namedtuple_list(self.pr_product_list, brand_name=item.brand_name,
                                                                 model_name=item.model_name, shop=best_shop_item,
                                                                 limit_one=True)
-                            if img_url:
+                            if img_url and ("http" in img_url):
                                 img_url = img_url[0].img_url
                                 break
 
