@@ -79,16 +79,22 @@ if __name__ == '__main__':
     parser = MVideoParse()
     result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
     # result = load_result_from_csv("mvideo.csv")
+    if not result:
+        raise SystemExit(5)
     result_list.extend(result)
 
     parser = MTSParse()
     result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/?id=62427_233815 ")
     # result = load_result_from_csv("mts.csv")
+    if not result:
+        raise SystemExit(5)
     result_list.extend(result)
 
     parser = DNSParse()
     result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
     # result = load_result_from_csv("dns.csv")
+    if not result:
+        raise SystemExit(5)
     result_list.extend(result)
 
     save_result_list(result_list)
