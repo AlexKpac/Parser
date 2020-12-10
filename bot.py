@@ -430,7 +430,7 @@ class Bot:
                     self.bot.edit_message_media(
                         media=types.InputMediaPhoto(caption=item.text, media=img, parse_mode='html'), chat_id=self.chat_id,
                         message_id=item.message_id)
-                except Exception as e:
+                except telebot.apihelper.ApiException as e:
                     logger.error("Не удалось отредактировать пост: {}".format(e))
 
                 # Декремент кол-ва актуальных постов
