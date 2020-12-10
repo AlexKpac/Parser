@@ -400,23 +400,8 @@ class Bot:
                 logger.warning("Слишком много постов в телеграм, ожидаем 30 сек, ({})".format(i + 1))
                 time.sleep(30)
 
-    # Запуск бота
-    def run(self, pc_product_list):
-        # pc_product_list = get_data()
-        if not pc_product_list:
-            logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
-            return
-        self.pc_product_list = pc_product_list
-        self.__filtering_data()
-        self.__prepare_posts_and_send()
-        self.checking_irrelevant_posts()
-        save_stats_prods_dictionary()
-        save_stats_shops_dictionary()
-        self.__save_msg_in_telegram_list()
-        self.__save_num_posts()
-
     # Проверка неактуальных постов
-    def checking_irrelevant_posts(self):
+    def __checking_irrelevant_posts(self):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
         # Проход по всем актуальным постам, подгрузка актуальных данных с базы и сверка со списком
@@ -450,3 +435,19 @@ class Bot:
 
         self.actual_posts_in_telegram_list = new_actual_posts_in_telegram_list
         self.db.disconnect()
+
+    # Запуск бота
+    def run(self, pc_product_list):
+        # pc_product_list = get_data()
+        if pc_product_list:
+            self.pc_product_list = pc_product_list
+            self.__filtering_data()
+            self.__prepare_posts_and_send()
+            self.__save_msg_in_telegram_list()
+            save_stats_prods_dictionary()
+            save_stats_shops_dictionary()
+        else:
+            logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
+
+        self.__checking_irrelevant_posts()
+        self.__save_num_posts()
