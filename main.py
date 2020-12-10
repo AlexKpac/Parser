@@ -1,7 +1,7 @@
-import csv
-from time import time
 import re
+import csv
 import configparser
+from time import time
 
 from dns_parse import DNSParse
 from mvideo_parse import MVideoParse
@@ -9,6 +9,7 @@ from mts_parse import MTSParse
 from checker import Checker
 from bot import Bot
 import header as h
+
 
 logger = h.logging.getLogger('main')
 

@@ -212,19 +212,37 @@ search_min_historical_price_by_version_query = """
 
 # Поиск только актуальных (с самой свежей датой) цен всех магазинов и цветов
 search_actual_prices_by_version_query = """
-    SELECT price, id_shop_name, datetime, color, url_product
+    SELECT price, id_shop_name, datetime, color, general_table.url_product
     FROM general_table
     JOIN (
-        SELECT product_code, MAX(datetime) as MaxDate 
+        SELECT url_product, MAX(datetime) as MaxDate 
         FROM general_table
         WHERE brand_name = %s       AND 
               model_name = %s       AND 
               (ram = %s OR ram = 0) AND 
               rom = %s
-        GROUP BY product_code
+        GROUP BY url_product
     ) AS group_table
     ON general_table.datetime = group_table.MaxDate AND 
-       general_table.product_code = group_table.product_code
+       general_table.url_product = group_table.url_product
+"""
+
+# Поиск только актуальных (с самой свежей датой) цен всех магазинов и цветов
+search_actual_prices_by_version_and_shop_query = """
+    SELECT price
+    FROM general_table
+    JOIN (
+        SELECT url_product, MAX(datetime) as MaxDate 
+        FROM general_table
+        WHERE brand_name = %s       AND 
+              model_name = %s       AND 
+              (ram = %s OR ram = 0) AND 
+              rom = %s              AND
+              id_shop_name = %s
+        GROUP BY url_product
+    ) AS group_table
+    ON general_table.datetime = group_table.MaxDate AND 
+       general_table.url_product = group_table.url_product
 """
 
 # ----------------------- ОБНОВЛЕНИЕ ДАННЫХ ---------------------------

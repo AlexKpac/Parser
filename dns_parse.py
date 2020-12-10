@@ -22,7 +22,7 @@ DNS_REBUILT_IPHONE = ' "как новый"'
 # Загрузить данные с csv, чтобы не парсить сайт
 def load_result_from_csv():
     pr_result_list = []
-    with open(h.CSV_PATH, 'r') as f:
+    with open(h.CSV_PATH, 'r', encoding='UTF-8') as f:
         reader = csv.DictReader(f)
 
         for row in reader:
@@ -546,28 +546,6 @@ class DNSParse:
             for item in self.pr_result_list:
                 writer.writerow(item)
 
-    # Загрузить данные с csv, чтобы не парсить сайт
-    def __load_result_in_csv(self):
-        with open(h.CSV_PATH_RAW + "dns.csv", 'r') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                self.pr_result_list.append(h.ParseResult(
-                    shop=row['Магазин'],
-                    category=row['Категория'],
-                    brand_name=row['Бренд'],
-                    model_name=row['Модель'],
-                    color=row['Цвет'],
-                    cur_price=int(row['Цена']),
-                    ram=int(row['RAM']),
-                    rom=int(row['ROM']),
-                    img_url=row['Ссылка на изображение'],
-                    url=row['Ссылка'],
-                    rating=float(row['Рейтинг']),
-                    num_rating=int(row['Кол-во отзывов']),
-                    product_code=row['Код продукта'],
-                ))
-        return self.pr_result_list
-
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
         if not self.__wd_open_browser_catalog(url):
@@ -586,7 +564,6 @@ class DNSParse:
 
         self.__wd_close_browser()
         self.__save_result()
-        # self.__load_result_in_csv()
         return self.pr_result_list
 
     # Запуск работы парсера для продукта

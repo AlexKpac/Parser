@@ -1,13 +1,18 @@
+import re
+import time
+import csv
+import requests
+import configparser
+from datetime import datetime
+
 import telebot
 from telebot import types
-import configparser
+from PIL import Image
+
+import bd
 import header as h
-import csv
-import datetime
-import requests
-import time
-from PIL import Image, ImageDraw
-import re
+import sql_req as sr
+
 
 logger = h.logging.getLogger('bot')
 EXCEPT_MODEL_NAMES_TELEGRAM_DICT = {}
@@ -17,7 +22,6 @@ STATS_SHOPS_DICT = {}
 
 # Чтение словаря с подсчетом кол-ва моделей
 def load_stats_prods_dictionary():
-    # Словарь цветов
     with open(h.STATS_PRODS_DICTIONARY_PATH, 'r', encoding='UTF-8') as f:
         for line in f:
             res = re.findall(r"\[.+?]", line)
@@ -31,7 +35,6 @@ def load_stats_prods_dictionary():
 
 # Чтение словаря с подсчетом кол-ва моделей
 def load_stats_shops_dictionary():
-    # Словарь цветов
     with open(h.STATS_SHOPS_DICTIONARY_PATH, 'r', encoding='UTF-8') as f:
         for line in f:
             res = re.findall(r"\[.+?]", line)
@@ -83,7 +86,7 @@ def find_and_replace_except_model_name(model_name):
 
 
 # Увеличение полотна изображения и вставка в середину картинки для поста
-def image_change(url):
+def image_change(url, stamp_irrelevant=False):
     W, H = 640, 480
 
     # Проверка URL
@@ -114,6 +117,11 @@ def image_change(url):
 
     im = Image.new('RGB', (W, H), color='#FFFFFF')
     im.paste(img, (int((W - img.width) / 2), 0), 0)
+
+    # Поставить штамп "Не актуально"
+    if stamp_irrelevant:
+        stamp = Image.open('img/stamp.png').convert("RGBA")
+        im.paste(stamp, (int((W - stamp.width) / 2), int((H - stamp.height) / 2)), stamp)
 
     return im
 
@@ -159,10 +167,58 @@ class Bot:
         self.four_star_per = float(self.config['bot-stars']['four_star_per'])
         self.five_star_per = float(self.config['bot-stars']['five_star_per'])
         self.pc_product_list = []
+        self.actual_posts_in_telegram_list = []
+        self.num_all_post = 0
+        self.num_actual_post = 0
+        self.db = bd.DataBase()
         # Загрузка словаря исключений названий моделей для постов
         load_exceptions_model_names_telegram()
         load_stats_prods_dictionary()
         load_stats_shops_dictionary()
+        self.__load_num_posts()
+        self.__load_msg_in_telegram_list()
+
+    # Чтение кол-ва всех и актуальных постов
+    def __load_num_posts(self):
+        with open(h.NUM_POSTS_IN_TELEGRAM_PATH, 'r', encoding='UTF-8') as f:
+            self.num_all_post = int(f.readline().replace('\n', ''))
+            self.num_actual_post = int(f.readline().replace('\n', ''))
+
+            logger.info("Num All Posts in Telegram = {}".format(self.num_all_post))
+            logger.info("Num Actual Posts in Telegram = {}".format(self.num_actual_post))
+
+    # Сохранить на диск кол-во всех и актуальных постов
+    def __save_num_posts(self):
+        with open(h.NUM_POSTS_IN_TELEGRAM_PATH, 'w', encoding='UTF-8') as f:
+            f.write(str(self.num_all_post))
+            f.write('\n')
+            f.write(str(self.num_actual_post))
+
+    # Сохранение всего результата в csv файл
+    def __save_msg_in_telegram_list(self):
+        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'w', newline='', encoding='UTF-8') as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(h.HEADERS_MSG_IN_TELEGRAM)
+            for item in self.actual_posts_in_telegram_list:
+                writer.writerow(item)
+
+    # Загрузить данные с csv, чтобы не парсить сайт
+    def __load_msg_in_telegram_list(self):
+        with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r', encoding='UTF-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                self.actual_posts_in_telegram_list.append(h.MessagesInTelegram(
+                    message_id=int(row['Message ID']),
+                    text=row['Текст'],
+                    brand_name=row['Бренд'],
+                    model_name=row['Модель'],
+                    ram=int(row['RAM']),
+                    rom=int(row['ROM']),
+                    cur_price=int(row['Цена']),
+                    shop=int(row['Магазин']),
+                    img_url=row['Img URL'],
+                    datetime=datetime.strptime(str(row['Дата и Время']), '%Y-%m-%d %H:%M:%S.%f'),
+                ))
 
     # Подготовка текста для поста
     def __format_text(self, version_list):
@@ -211,7 +267,7 @@ class Bot:
         if product.cur_price <= product.hist_min_price:
             text += '<i>Данная цена является самой низкой за всё время</i>\n'
         else:
-            date_time = datetime.datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime(
+            date_time = datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime(
                 '%d.%m.%Y')
             s_price = '{0:,}'.format(product.hist_min_price).replace(',', ' ')
             text += '<i>Минимальная цена {}</i> ₽ <i>была {} в {}</i>\n'.format(
@@ -285,11 +341,17 @@ class Bot:
     # Отправка поста в телеграм
     def __send_post(self, version_list, dis_notify):
         item = version_list[0]
-        text = self.__format_text(version_list)
-        img = image_change(item.img_url)
-        if not img:
-            logger.error("No IMG in send post")
+
+        # Проверка на наличие такого же поста в списке актуальных сообщений
+        if h.find_in_namedtuple_list(self.actual_posts_in_telegram_list, brand_name=item.brand_name,
+                                     model_name=item.model_name, cur_price=item.cur_price, ram=item.ram,
+                                     rom=item.rom, shop=item.shop, limit_one=True):
+            logger.info("Duplicate post, SKIP\n{}".format(item))
             return
+
+        # Обновление счетчика постов
+        self.num_all_post += 1
+        self.num_actual_post += 1
 
         # Обновление словаря статистики товаров
         full_name = "{} {}".format(item.brand_name, item.model_name)
@@ -298,18 +360,41 @@ class Bot:
         else:
             STATS_PRODS_DICT[full_name] = 1
 
-        shop_name = h.SHOPS_NAME_LIST[item.shop - 1][0]
         # Обновление словаря статистики магазинов
+        shop_name = h.SHOPS_NAME_LIST[item.shop - 1][0]
         if shop_name in STATS_SHOPS_DICT:
             STATS_SHOPS_DICT[shop_name] += 1
         else:
             STATS_SHOPS_DICT[shop_name] = 1
 
+        # Генерация поста
+        text = self.__format_text(version_list)
+        img = image_change(item.img_url)
+        if not img:
+            logger.error("No IMG in send post")
+            return
+
         # Отправка поста в обертке
         for i in range(3):
             try:
-                self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html',
-                                    disable_notification=dis_notify)
+                resp = self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html',
+                                           disable_notification=dis_notify)
+                print(resp.message_id)
+
+                # При успешной отправки добавляем данную позицию в список актуальных товаров
+                self.actual_posts_in_telegram_list.append(h.MessagesInTelegram(
+                    message_id=resp.message_id,
+                    text=text,
+                    brand_name=item.brand_name,
+                    model_name=item.model_name,
+                    ram=item.ram,
+                    rom=item.rom,
+                    cur_price=item.cur_price,
+                    shop=item.shop,
+                    img_url=item.img_url,
+                    datetime=datetime.now(),
+                ))
+
                 break
             except telebot.apihelper.ApiException:
                 logger.warning("Слишком много постов в телеграм, ожидаем 30 сек, ({})".format(i + 1))
@@ -317,15 +402,51 @@ class Bot:
 
     # Запуск бота
     def run(self, pc_product_list):
-        pc_product_list = get_data()
+        # pc_product_list = get_data()
         if not pc_product_list:
             logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
             return
         self.pc_product_list = pc_product_list
         self.__filtering_data()
         self.__prepare_posts_and_send()
+        self.checking_irrelevant_posts()
         save_stats_prods_dictionary()
         save_stats_shops_dictionary()
+        self.__save_msg_in_telegram_list()
+        self.__save_num_posts()
 
-# bot = Bot()
-# bot.run([])
+    # Проверка неактуальных постов
+    def checking_irrelevant_posts(self):
+        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
+
+        # Проход по всем актуальным постам, подгрузка актуальных данных с базы и сверка со списком
+        new_actual_posts_in_telegram_list = []
+        for item in self.actual_posts_in_telegram_list:
+            # Получить список всех актуальных цен на данную комплектацию: price, datetime, color, url_product
+            act_price_data_list = self.db.execute_read_query(sr.search_actual_prices_by_version_and_shop_query,
+                                                             (item.brand_name, item.model_name, item.ram,
+                                                              item.rom, item.shop))
+
+            # Если минимальная цена в списке актуальных цен этого магазина равна цене в посте - пост актуальный
+            if min(item[0] for item in act_price_data_list) == item.cur_price:
+                logger.info("Цены совпали, пост актуальный:\n{}".format(item))
+                new_actual_posts_in_telegram_list.append(item)
+            # Пост неактуальный
+            else:
+                logger.info("Цены не совпали, пост НЕ актуальный:\n{}".format(item))
+
+                img = image_change(item.img_url, True)
+                if not img:
+                    logger.error("No IMG in edit post")
+                    return
+
+                # Редактирование поста
+                self.bot.edit_message_media(
+                    media=types.InputMediaPhoto(caption=item.text, media=img, parse_mode='html'), chat_id=self.chat_id,
+                    message_id=item.message_id)
+
+                # Декремент кол-ва актуальных постов
+                self.num_actual_post -= 1
+
+        self.actual_posts_in_telegram_list = new_actual_posts_in_telegram_list
+        self.db.disconnect()
