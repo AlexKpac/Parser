@@ -426,9 +426,12 @@ class Bot:
                     return
 
                 # Редактирование поста
-                self.bot.edit_message_media(
-                    media=types.InputMediaPhoto(caption=item.text, media=img, parse_mode='html'), chat_id=self.chat_id,
-                    message_id=item.message_id)
+                try:
+                    self.bot.edit_message_media(
+                        media=types.InputMediaPhoto(caption=item.text, media=img, parse_mode='html'), chat_id=self.chat_id,
+                        message_id=item.message_id)
+                except Exception as e:
+                    logger.error("Не удалось отредактировать пост: {}".format(e))
 
                 # Декремент кол-ва актуальных постов
                 self.num_actual_post -= 1
