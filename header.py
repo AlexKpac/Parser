@@ -1,12 +1,14 @@
 import collections
 import logging
 import re
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
+
 
 log_name = "logs/log-" + datetime.now().strftime("%Y.%m.%d-%H.%M") + ".txt"
 logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
                     level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('header')
 
 
@@ -129,7 +131,8 @@ EXCEPT_MODEL_NAMES_PATH = "dictionaries/except_model_names.dic"
 EXCEPT_MODEL_NAMES_TELEGRAM_PATH = "dictionaries/except_model_names_telegram.dic"
 STATS_PRODS_DICTIONARY_PATH = "dictionaries/stats_prods_from_telegram.dic"
 STATS_SHOPS_DICTIONARY_PATH = "dictionaries/stats_shops_from_telegram.dic"
-MESSAGES_IN_TELEGRAM_LIST_PATH = "dictionaries/msg_in_telegram.csv"
+MESSAGES_IN_TELEGRAM_LIST_PATH = "data/msg_in_telegram.csv"
+NUM_POSTS_IN_TELEGRAM_PATH = "data/num_posts_in_telegram.data"
 
 # ----------------------------- КОЛЛЕКЦИЯ -----------------------------
 
@@ -225,26 +228,28 @@ MessagesInTelegram = collections.namedtuple(
     'MessagesInTelegram',
     (
         'message_id',
+        'text',
         'brand_name',
         'model_name',
         'ram',
         'rom',
         'cur_price',
         'shop',
-        'url',
+        'img_url',
         'datetime',
     ),
 )
 
 HEADERS_MSG_IN_TELEGRAM = (
     'Message ID',
+    'Текст',
     'Бренд',
     'Модель',
     'RAM',
     'ROM',
     'Цена',
     'Магазин',
-    'URL',
+    'Img URL',
     'Дата и Время',
 )
 

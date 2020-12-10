@@ -1,12 +1,11 @@
-import time
-import re
 import csv
 import datetime
 import configparser
 
-import sql_req as sr
 import bd
 import header as h
+import sql_req as sr
+
 
 logger = h.logging.getLogger('checker')
 
