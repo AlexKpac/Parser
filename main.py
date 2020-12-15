@@ -105,6 +105,7 @@ if __name__ == '__main__':
     benefit_price_list = check.run()
 
     bot = Bot()
-    bot.run(benefit_price_list)
+    bot.checking_irrelevant_posts(result_list)
+    bot.send_posts(benefit_price_list)
 
     logger.info(f"Время выполнения: {time() - time_start} сек")

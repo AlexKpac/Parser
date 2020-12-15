@@ -72,8 +72,8 @@ def dns_parse_model_name(brand, name):
     rom = re.findall(r'\d+', rom)
     rom = int(rom[0]) if rom else 0
     # Удалить из строки модели цвет, название бренда и слово "смартфон"
-    name = name.replace(color, '').replace(brand, '').replace('смартфон', '').replace(year, '').replace(' nfc ', '').\
-        replace(' 5g ', '')
+    name = name.replace(color, '').replace(brand, '').replace('смартфон', '').replace(year, '').replace(' nfc ', ' ').\
+        replace(' 5g ', ' ')
     # Удалить лишние пробелы
     name = ' '.join(name.split())
 
@@ -301,6 +301,9 @@ class DNSParse:
         except se.TimeoutException:
             logger.error("TimeoutException в __wd_next_page, обновляю страницу")
             self.driver.refresh()
+        except IndexError:
+            logger.error('По непонятной причине список pr_result_list[-5] оказался пуст, выход за границы списка')
+            return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():

@@ -229,7 +229,7 @@ search_actual_prices_by_version_query = """
 
 # Поиск только актуальных (с самой свежей датой) цен всех магазинов и цветов
 search_actual_prices_by_version_and_shop_query = """
-    SELECT price
+    SELECT price, id_shop_name, general_table.url_product
     FROM general_table
     JOIN (
         SELECT url_product, MAX(datetime) as MaxDate 
