@@ -141,8 +141,8 @@ def all_elem_equal_in_tuple_list(elements, indx):
     return True
 
 
-# Вернет список с одним или несколькими магазинами и разными цветами, но с самыми низкими ценами
-def find_min_price_in_prices_list(price_list):
+# Для неактуальных постов: вернет список с одним или несколькими магазинами и разными цветами,но с самыми низкими ценами
+def irr_post_find_all_min_price_data(price_list):
     pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
 
     # Если в списке все цены равны (не важно сколько магазинов) или список пуст - возвращаем список без изменений
@@ -158,6 +158,16 @@ def find_min_price_in_prices_list(price_list):
 
     return result
 
+
+# Поиск в списке кортежей (результат с БД) значения по его url
+def irr_post_find_price_data_by_url(price_data_list, url):
+    pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+
+    if not price_data_list or not url:
+        return []
+
+    indx = [i for i, v in enumerate(price_data_list) if v[pos_url] == url]
+    return price_data_list[indx[0]] if indx else []
 
 # Для неактуальных постов: проверка других магазинов, отличных от магазинов поста, в которых цена тоже выгодная
 def irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item_shop_list):
@@ -519,33 +529,50 @@ class Bot:
     def __checking_irrelevant_posts(self, pr_product_in_stock_list):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
+        from time import time
+        time_start = time()
+
         # Проход по всем актуальным постам, их проверка на полную, частичную актуальность и неактуальность
         new_actual_posts_in_telegram_list = []
         for item in self.actual_posts_in_telegram_list:
+            print(f"Время шага цикла: {time() - time_start} сек")
+            time_start = time()
+            time_start2 = time()
             # Получить список всех актуальных цен и данных на данную комплектацию:
             act_price_data_list = self.db.execute_read_query(sr.search_actual_prices_by_version_query,
                                                              (item.brand_name, item.model_name, item.ram, item.rom))
-
+            print(f"  время 1: {time() - time_start2} сек")
             # Фильтрация списка актуальных цен с учетом наличия в магазинах
             act_price_data_in_stock_list = irr_post_search_data_in_stock(act_price_data_list, pr_product_in_stock_list)
 
+            print(f"  время 1: {time() - time_start2} сек")
             # Список данных с минимальными актуальными ценами в наличии
-            min_act_price_data_in_stock_list = find_min_price_in_prices_list(act_price_data_in_stock_list)
+            min_act_price_data_in_stock_list = irr_post_find_all_min_price_data(act_price_data_in_stock_list)
+
+            print(f"  время 1: {time() - time_start2} сек")
+            # Если минимальная цена отличается от цены в посте - ПОСТ ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
+            if min_act_price_data_in_stock_list and min_act_price_data_in_stock_list[0][0] != item.cur_price:
+                logger.info("Пост полностью неактуальный - есть более выгодное(ые) предложение(ия)")
+                if not self.__edit_post_as_irrelevant(item):
+                    new_actual_posts_in_telegram_list.append(item)
+                continue
 
             print("item: {}".format(item))
             print("item.urls_list: {}".format(item.urls_list))
             print("item.shops_list: {}".format(item.shops_list))
-            print("act_price_data_lits: {}".format(act_price_data_list))
+            print("act_price_data_list: {}".format(act_price_data_list))
             print("act_price_data_in_stock_list: {}".format(act_price_data_in_stock_list))
             print("min_act_price_data_in_stock_list: {}".format(min_act_price_data_in_stock_list))
 
-            # Проверка других магазинов, в которых цена тоже выгодная. Если True - пост ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
+            print(f"  время 1: {time() - time_start2} сек")
+            # Проверка других магазинов, в которых цена такая же выгодная. Если True - пост ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
             if irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item.shops_list):
                 logger.info("Пост полностью неактуальный - есть другие магазины с такой же ценой")
                 if not self.__edit_post_as_irrelevant(item):
                     new_actual_posts_in_telegram_list.append(item)
                 continue
 
+            print(f"  время 2: {time() - time_start2} сек")
             # Получение неактуальных ссылок в посте
             irrelevant_url_list = irr_post_find_irr_url(act_price_data_in_stock_list, min_act_price_data_in_stock_list,
                                                         item.urls_list)
@@ -553,12 +580,14 @@ class Bot:
             print("irrelevant_url_list: {}".format(irrelevant_url_list))
             print("-" * 50)
 
+            print(f"  время 3: {time() - time_start2} сек")
             # Если список пустой - пост ПОЛНОСТЬЮ АКТУАЛЬНЫЙ
             if not irrelevant_url_list:
                 logger.info("Пост полностью актуальный:\n{}".format(item))
                 new_actual_posts_in_telegram_list.append(item)
                 continue
 
+            print(f"  время 4: {time() - time_start2} сек")
             # Если кол-во неактуальных ссылок равно кол-ву ссылок в посте - пост ПОЛНОСТЬЮ НЕ АКТУАЛЬНЫЙ
             if len(irrelevant_url_list) == len(item.urls_list):
                 logger.info("Пост полностью неактуальный - все ссылки неактуальны")
@@ -566,6 +595,7 @@ class Bot:
                     new_actual_posts_in_telegram_list.append(item)
                 continue
 
+            print(f"  время 5: {time() - time_start2} сек")
             logger.info("Пост частично актуальный")
             new_actual_posts_in_telegram_list.append(item)
 
@@ -579,7 +609,9 @@ class Bot:
                 else:
                     new_post_text += line
 
+            print(f"  время 6: {time() - time_start2} сек")
             self.__edit_post_as_irrelevant(item, new_post_text, False)
+            print(f"  время 7: {time() - time_start2} сек")
 
         self.actual_posts_in_telegram_list = new_actual_posts_in_telegram_list
         self.db.disconnect()
@@ -610,6 +642,20 @@ class Bot:
         self.__save_num_posts()
 
 
+listtu = [(1111, 3, datetime(2020, 12, 16, 15, 31, 59, 687886), 'белый', 'https://www.dns-shop.ru/product/854dc0c06e3b1b80/65-smartfon-realme-6i-128-gb-belyj/'),
+          (2222, 5, datetime(2020, 12, 16, 15, 31, 59, 690103), 'white', 'https://www.shop.mts.ru/product/smartfon-realme-6i-4-128gb-white'),
+          (3333, 3, datetime(2020, 12, 16, 15, 32, 45, 739955), 'зеленый', 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'),
+          (4444, 3, datetime(2020, 12, 16, 15, 31, 59, 691840), 'серый', 'https://www.dns-shop.ru/product/bf256b6f79643332/652-smartfon-realme-c3-64-gb-seryj/'),
+          (5555, 1, datetime(2020, 12, 16, 15, 31, 59, 694720), 'volcano grey', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-volcano-grey-rmx2020-30049951'),
+          (6666, 1, datetime(2020, 12, 16, 15, 31, 59, 695397), 'blazing red', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-blazing-red-rmx2020-30048602'),
+          (7777, 3, datetime(2020, 12, 16, 15, 32, 45, 746571), 'красный', 'https://www.dns-shop.ru/product/96e2c63b5d003332/652-smartfon-realme-c3-64-gb-krasnyj/'),
+          (8888, 3, datetime(2020, 12, 16, 15, 32, 45, 747695), 'синий', 'https://www.dns-shop.ru/product/848e429c5d003332/652-smartfon-realme-c3-64-gb-sinij/'),
+          (9999, 5, datetime(2020, 12, 16, 15, 32, 45, 748380), 'grey', 'https://www.shop.mts.ru/product/smartfon-realme-c3-3-64gb-grey'),
+          (1010, 1, datetime(2020, 12, 16, 15, 32, 45, 749052), 'frozen blue', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-frozen-blue-rmx2020-30048601')]
+
+url = 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'
+
+# print(irr_post_find_price_data_by_url(listtu, url))
 # bot = Bot()
 
 # bot.db.connect_or_create("parser2", "postgres", "1990", "127.0.0.1", "5432")
@@ -620,3 +666,4 @@ class Bot:
 # for item in act_price_data_list:
 #     print(item)
 #     print(item[1])
+
