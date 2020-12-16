@@ -120,10 +120,10 @@ def image_change(url, stamp_irrelevant=False):
 
     # Поставить штамп "Не актуально"
     if stamp_irrelevant:
-        blackout = Image.open('img/blackout.png').convert("RGBA")
+        # blackout = Image.open('img/blackout.png').convert("RGBA")
         stamp = Image.open('img/stamp.png').convert("RGBA")
         im.paste(stamp, (int((W - stamp.width) / 2), int((H - stamp.height) / 2)), stamp)
-        im.paste(blackout, (0, 0), blackout)
+        # im.paste(blackout, (0, 0), blackout)
 
     return im.convert("RGB")
 
@@ -163,10 +163,13 @@ def find_min_price_in_prices_list(price_list):
 def irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item_shop_list):
     pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
 
+    print("---In other shop:\nmin_act_price_data_in_stock_list - {}\nitem_shop_list - {}".format(min_act_price_data_in_stock_list, item_shop_list))
+
     # Если в минимальных актуальных цен есть цены из магазинов, отличных от магазинов в посте,
     # то пост автоматически становится ПОЛНОСТЬЮ НЕАКТУАЛЬНЫМ
     for min_price_data_item in min_act_price_data_in_stock_list:
         if not (min_price_data_item[pos_shop] in item_shop_list):
+            print("---In other shop: if not {} in item_shop_list - TRUE".format(str(min_price_data_item[pos_shop])))
             # Если нашлась низкая цена в другом магазине - пост неактуальный - переход к другому посту
             return True
 
@@ -258,8 +261,10 @@ class Bot:
     # Чтение кол-ва всех и актуальных постов
     def __load_num_posts(self):
         with open(h.NUM_POSTS_IN_TELEGRAM_PATH, 'r', encoding='UTF-8') as f:
-            self.num_all_post = int(f.readline().replace('\n', ''))
-            self.num_actual_post = int(f.readline().replace('\n', ''))
+            line1 = f.readline().replace('\n', '')
+            self.num_all_post = int(line1) if line1 else 0
+            line2 = f.readline().replace('\n', '')
+            self.num_actual_post = int(line2) if line2 else 0
 
             logger.info("Num All Posts in Telegram = {}".format(self.num_all_post))
             logger.info("Num Actual Posts in Telegram = {}".format(self.num_actual_post))
@@ -284,6 +289,9 @@ class Bot:
         with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r', encoding='UTF-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
+                row_urls_list = row['URLs'].replace("'", "").replace('(', '').replace(')', '').replace(' ', '')
+                row_shops_list = row['Магазины'].replace("'", "").replace('(', '').replace(')', '').replace(' ', '')
+
                 self.actual_posts_in_telegram_list.append(h.MessagesInTelegram(
                     message_id=int(row['Message ID']),
                     text=row['Текст'],
@@ -292,8 +300,8 @@ class Bot:
                     ram=int(row['RAM']),
                     rom=int(row['ROM']),
                     cur_price=int(row['Цена']),
-                    shops_list=row['Магазины'],
-                    urls_list=row['URLs'],
+                    shops_list=tuple(int(item) for item in row_shops_list.split(',') if item),
+                    urls_list=tuple(item for item in row_urls_list.split(',') if item),
                     img_url=row['Img URL'],
                     datetime=datetime.strptime(str(row['Дата и Время']), '%Y-%m-%d %H:%M:%S.%f'),
                 ))
@@ -524,6 +532,14 @@ class Bot:
             # Список данных с минимальными актуальными ценами в наличии
             min_act_price_data_in_stock_list = find_min_price_in_prices_list(act_price_data_in_stock_list)
 
+            print("item: {}".format(item))
+            print("item.urls_list: {}".format(item.urls_list))
+            print("item.shops_list: {}".format(item.shops_list))
+            print("act_price_data_lits: {}".format(act_price_data_list))
+            print("act_price_data_in_stock_list: {}".format(act_price_data_in_stock_list))
+            print("min_act_price_data_in_stock_list: {}".format(min_act_price_data_in_stock_list))
+
+
             # Проверка других магазинов, в которых цена тоже выгодная. Если True - пост ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
             if irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item.shops_list):
                 logger.info("Пост полностью неактуальный - есть другие магазины с такой же ценой")
@@ -534,6 +550,9 @@ class Bot:
             # Получение неактуальных ссылок в посте
             irrelevant_url_list = irr_post_find_irr_url(act_price_data_in_stock_list, min_act_price_data_in_stock_list,
                                                         item.urls_list)
+
+            print("irrelevant_url_list: {}".format(irrelevant_url_list))
+            print("-" * 50)
 
             # Если список пустой - пост ПОЛНОСТЬЮ АКТУАЛЬНЫЙ
             if not irrelevant_url_list:
@@ -568,7 +587,7 @@ class Bot:
 
     # Запуск отправки новых постов
     def send_posts(self, pc_product_list):
-        pc_product_list = get_data()
+        # pc_product_list = get_data()
         if not pc_product_list:
             logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
             return
@@ -590,3 +609,15 @@ class Bot:
         self.__checking_irrelevant_posts(pr_product_in_stock_list)
         self.__save_msg_in_telegram_list()
         self.__save_num_posts()
+
+
+# bot = Bot()
+
+# bot.db.connect_or_create("parser2", "postgres", "1990", "127.0.0.1", "5432")
+# act_price_data_list = bot.db.execute_read_query(sr.search_actual_prices_by_version_query,
+#                                                              ('samsung', 'galaxy s20', 8, 128))
+# bot.db.disconnect()
+#
+# for item in act_price_data_list:
+#     print(item)
+#     print(item[1])
