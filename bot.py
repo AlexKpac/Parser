@@ -539,7 +539,6 @@ class Bot:
             print("act_price_data_in_stock_list: {}".format(act_price_data_in_stock_list))
             print("min_act_price_data_in_stock_list: {}".format(min_act_price_data_in_stock_list))
 
-
             # Проверка других магазинов, в которых цена тоже выгодная. Если True - пост ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
             if irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item.shops_list):
                 logger.info("Пост полностью неактуальный - есть другие магазины с такой же ценой")
