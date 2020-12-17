@@ -1,4 +1,5 @@
 import re
+import io
 import time
 import csv
 import requests
@@ -12,7 +13,6 @@ from PIL import Image
 import bd
 import header as h
 import sql_req as sr
-
 
 logger = h.logging.getLogger('bot')
 EXCEPT_MODEL_NAMES_TELEGRAM_DICT = {}
@@ -120,10 +120,100 @@ def image_change(url, stamp_irrelevant=False):
 
     # Поставить штамп "Не актуально"
     if stamp_irrelevant:
+        # blackout = Image.open('img/blackout.png').convert("RGBA")
         stamp = Image.open('img/stamp.png').convert("RGBA")
         im.paste(stamp, (int((W - stamp.width) / 2), int((H - stamp.height) / 2)), stamp)
+        # im.paste(blackout, (0, 0), blackout)
 
-    return im
+    return im.convert("RGB")
+
+
+# Проверить все элементы на равенство по заданной позиции
+def all_elem_equal_in_tuple_list(elements, indx):
+    if not elements or len(elements) == 1:
+        return True
+
+    data = elements[0][indx]
+    for item in elements:
+        if item[indx] != data:
+            return False
+
+    return True
+
+
+# Для неактуальных постов: вернет список с одним или несколькими магазинами и разными цветами,но с самыми низкими ценами
+def irr_post_find_all_min_price_data(price_list):
+    pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+
+    # Если в списке все цены равны (не важно сколько магазинов) или список пуст - возвращаем список без изменений
+    if all_elem_equal_in_tuple_list(price_list, pos_price):
+        return price_list
+
+    # Если в списке цены разные, но магазин один или несколько - находим самые низкие цены не зависимо от магазина
+    result = []
+    min_price = min(price_list)[pos_price]
+    for item in price_list:
+        if item[pos_price] == min_price:
+            result.append(item)
+
+    return result
+
+
+# Поиск в списке кортежей (результат с БД) значения по его url
+def irr_post_find_price_data_by_url(price_data_list, url):
+    pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+
+    if not price_data_list or not url:
+        return []
+
+    indx = [i for i, v in enumerate(price_data_list) if v[pos_url] == url]
+    return price_data_list[indx[0]] if indx else []
+
+
+# Для неактуальных постов: проверка других магазинов, отличных от магазинов поста, в которых цена тоже выгодная
+def irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item_shop_list):
+    pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+
+    print("---In other shop:\nmin_act_price_data_in_stock_list - {}\nitem_shop_list - {}".format(min_act_price_data_in_stock_list, item_shop_list))
+
+    # Если в минимальных актуальных цен есть цены из магазинов, отличных от магазинов в посте,
+    # то пост автоматически становится ПОЛНОСТЬЮ НЕАКТУАЛЬНЫМ
+    for min_price_data_item in min_act_price_data_in_stock_list:
+        if not (min_price_data_item[pos_shop] in item_shop_list):
+            print("---In other shop: if not {} in item_shop_list - TRUE".format(str(min_price_data_item[pos_shop])))
+            # Если нашлась низкая цена в другом магазине - пост неактуальный - переход к другому посту
+            return True
+
+    return False
+
+
+# Для неактуальных постов: поиск неактуальных ссылок
+def irr_post_find_irr_url(act_price_data_in_stock_list, min_act_price_data_in_stock_list, item_urls_list):
+    pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+
+    # Проверка неактуальных ссылок
+    irrelevant_url_list = []
+    for item_url in item_urls_list:
+        # Если текущая ссылка отсутствует в списке всех актуальных цен в наличии (значит товара нет наличии) ИЛИ
+        # текущая ссылка отсутствует в списке всех минимальных актуальных цен в наличии (цена изменилась)
+        if not (item_url in (items_1[pos_url] for items_1 in act_price_data_in_stock_list)) or \
+                not (item_url in (items_2[pos_url] for items_2 in min_act_price_data_in_stock_list)):
+            irrelevant_url_list.append(item_url)
+
+    return irrelevant_url_list
+
+
+# Для неактуальных постов: поиск среди всех данных только тех, что в наличии
+def irr_post_search_data_in_stock(act_price_data_list, pr_product_in_stock_list):
+    pos_price, pos_shop, pos_datetime, pos_color, pos_url = 0, 1, 2, 3, 4
+
+    act_price_data_in_stock_list = []
+    for act_price_data_item in act_price_data_list:
+        if h.find_in_namedtuple_list(pr_product_in_stock_list, url=act_price_data_item[pos_url],
+                                     limit_one=True):
+            act_price_data_in_stock_list.append(act_price_data_item)
+
+    return act_price_data_in_stock_list
 
 
 # Получить данные с файла (для теста)
@@ -166,6 +256,8 @@ class Bot:
         self.three_star_per = float(self.config['bot-stars']['three_star_per'])
         self.four_star_per = float(self.config['bot-stars']['four_star_per'])
         self.five_star_per = float(self.config['bot-stars']['five_star_per'])
+        self.irrelevant_url_text = self.config['bot']['irrelevant_url_text']
+        self.hash_tag_actual = '#' + self.config['bot']['hash_tag_actual']
         self.pc_product_list = []
         self.actual_posts_in_telegram_list = []
         self.num_all_post = 0
@@ -181,8 +273,10 @@ class Bot:
     # Чтение кол-ва всех и актуальных постов
     def __load_num_posts(self):
         with open(h.NUM_POSTS_IN_TELEGRAM_PATH, 'r', encoding='UTF-8') as f:
-            self.num_all_post = int(f.readline().replace('\n', ''))
-            self.num_actual_post = int(f.readline().replace('\n', ''))
+            line1 = f.readline().replace('\n', '')
+            self.num_all_post = int(line1) if line1 else 0
+            line2 = f.readline().replace('\n', '')
+            self.num_actual_post = int(line2) if line2 else 0
 
             logger.info("Num All Posts in Telegram = {}".format(self.num_all_post))
             logger.info("Num Actual Posts in Telegram = {}".format(self.num_actual_post))
@@ -207,6 +301,9 @@ class Bot:
         with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r', encoding='UTF-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
+                row_urls_list = row['URLs'].replace("'", "").replace('(', '').replace(')', '').replace(' ', '')
+                row_shops_list = row['Магазины'].replace("'", "").replace('(', '').replace(')', '').replace(' ', '')
+
                 self.actual_posts_in_telegram_list.append(h.MessagesInTelegram(
                     message_id=int(row['Message ID']),
                     text=row['Текст'],
@@ -215,7 +312,8 @@ class Bot:
                     ram=int(row['RAM']),
                     rom=int(row['ROM']),
                     cur_price=int(row['Цена']),
-                    shop=int(row['Магазин']),
+                    shops_list=tuple(int(item) for item in row_shops_list.split(',') if item),
+                    urls_list=tuple(item for item in row_urls_list.split(',') if item),
                     img_url=row['Img URL'],
                     datetime=datetime.strptime(str(row['Дата и Время']), '%Y-%m-%d %H:%M:%S.%f'),
                 ))
@@ -228,7 +326,8 @@ class Bot:
             product.category[0:-1].title(), product.brand_name.title(), product.model_name.title()))
 
         # КОМПЛЕКТАЦИЯ
-        text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom) if product.ram \
+        text += '<b>{}/{} GB</b>\n\n'.format(product.ram, product.rom) \
+            if (product.ram and product.brand_name != 'apple') \
             else '<b>{} GB</b>\n\n'.format(product.rom)
 
         # ОГОНЬКИ
@@ -270,7 +369,7 @@ class Bot:
             date_time = datetime.strptime(str(product.hist_min_date), '%Y-%m-%d %H:%M:%S.%f').strftime(
                 '%d.%m.%Y')
             s_price = '{0:,}'.format(product.hist_min_price).replace(',', ' ')
-            text += '<i>Минимальная цена {}</i> ₽ <i>была {} в {}</i>\n'.format(
+            text += '<i>Минимальная цена {}</i> ₽ <i>была в {} {}</i>\n'.format(
                 s_price, h.TRUE_SHOP_NAMES[product.hist_min_shop - 1], date_time)
 
         # СПИСОК ССЫЛОК ДЛЯ ПОКУПКИ
@@ -298,7 +397,7 @@ class Bot:
             indx += 1
 
         # ХЭШТЕГИ
-        text += '\n' + '#' + product.brand_name + ' ' + hashtag_shops
+        text += '\n' + '#' + product.brand_name + ' ' + hashtag_shops + self.hash_tag_actual
 
         return text
 
@@ -345,7 +444,7 @@ class Bot:
         # Проверка на наличие такого же поста в списке актуальных сообщений
         if h.find_in_namedtuple_list(self.actual_posts_in_telegram_list, brand_name=item.brand_name,
                                      model_name=item.model_name, cur_price=item.cur_price, ram=item.ram,
-                                     rom=item.rom, shop=item.shop, limit_one=True):
+                                     rom=item.rom, limit_one=True):
             logger.info("Duplicate post, SKIP\n{}".format(item))
             return
 
@@ -381,73 +480,181 @@ class Bot:
                                            disable_notification=dis_notify)
                 print(resp.message_id)
 
+                shops_list = tuple(set(item_shop.shop for item_shop in version_list))
+                urls_list = tuple(set(item_url.url for item_url in version_list))
+
                 # При успешной отправки добавляем данную позицию в список актуальных товаров
                 self.actual_posts_in_telegram_list.append(h.MessagesInTelegram(
                     message_id=resp.message_id,
-                    text=text,
+                    text=text.replace(self.hash_tag_actual, ''),
                     brand_name=item.brand_name,
                     model_name=item.model_name,
                     ram=item.ram,
                     rom=item.rom,
                     cur_price=item.cur_price,
-                    shop=item.shop,
+                    shops_list=shops_list,
+                    urls_list=urls_list,
                     img_url=item.img_url,
                     datetime=datetime.now(),
                 ))
 
                 break
+
             except telebot.apihelper.ApiException:
                 logger.warning("Слишком много постов в телеграм, ожидаем 30 сек, ({})".format(i + 1))
                 time.sleep(30)
 
+    # Отредактировать пост как частично или полностью неактуальный. По-умолчанию полностью неактуальный
+    def __edit_post_as_irrelevant(self, post, text=None, stamp=True):
+        img = image_change(post.img_url, stamp)
+        if not img:
+            logger.error("No IMG in edit post")
+            return False
+
+        if not text:
+            text = post.text
+
+        # Редактирование поста
+        try:
+            self.bot.edit_message_media(
+                media=types.InputMediaPhoto(media=img, caption=text, parse_mode='html'),
+                chat_id=self.chat_id, message_id=post.message_id)
+
+            # Декремент кол-ва актуальных постов
+            self.num_actual_post -= 1
+            return True
+
+        except telebot.apihelper.ApiException as e:
+            logger.error("Не удалось отредактировать пост: {}".format(e))
+            return False
+
     # Проверка неактуальных постов
-    def __checking_irrelevant_posts(self):
+    def __checking_irrelevant_posts(self, pr_product_in_stock_list):
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
 
-        # Проход по всем актуальным постам, подгрузка актуальных данных с базы и сверка со списком
+        # Проход по всем актуальным постам, их проверка на полную, частичную актуальность и неактуальность
         new_actual_posts_in_telegram_list = []
         for item in self.actual_posts_in_telegram_list:
-            # Получить список всех актуальных цен на данную комплектацию: price, datetime, color, url_product
-            act_price_data_list = self.db.execute_read_query(sr.search_actual_prices_by_version_and_shop_query,
-                                                             (item.brand_name, item.model_name, item.ram,
-                                                              item.rom, item.shop))
 
-            # Если минимальная цена в списке актуальных цен этого магазина равна цене в посте - пост актуальный
-            if min(item[0] for item in act_price_data_list) == item.cur_price:
-                logger.info("Цены совпали, пост актуальный:\n{}".format(item))
+            # Получить список всех актуальных цен и данных на данную комплектацию:
+            act_price_data_list = self.db.execute_read_query(sr.search_actual_prices_by_version_query,
+                                                             (item.brand_name, item.model_name, item.ram, item.rom))
+
+            # Фильтрация списка актуальных цен с учетом наличия в магазинах
+            act_price_data_in_stock_list = irr_post_search_data_in_stock(act_price_data_list, pr_product_in_stock_list)
+
+            # Список данных с минимальными актуальными ценами в наличии
+            min_act_price_data_in_stock_list = irr_post_find_all_min_price_data(act_price_data_in_stock_list)
+
+            # Если минимальная цена отличается от цены в посте - ПОСТ ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
+            if min_act_price_data_in_stock_list and min_act_price_data_in_stock_list[0][0] != item.cur_price:
+                logger.info("Пост полностью неактуальный - есть более выгодное(ые) предложение(ия)")
+                if not self.__edit_post_as_irrelevant(item):
+                    new_actual_posts_in_telegram_list.append(item)
+                continue
+
+            logger.info("item: {}".format(item))
+            logger.info("item.urls_list: {}".format(item.urls_list))
+            logger.info("item.shops_list: {}".format(item.shops_list))
+            logger.info("act_price_data_list: {}".format(act_price_data_list))
+            logger.info("act_price_data_in_stock_list: {}".format(act_price_data_in_stock_list))
+            logger.info("min_act_price_data_in_stock_list: {}".format(min_act_price_data_in_stock_list))
+
+            # Проверка других магазинов, в которых цена такая же выгодная. Если True - пост ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
+            if irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item.shops_list):
+                logger.info("Пост полностью неактуальный - есть другие магазины с такой же ценой")
+                if not self.__edit_post_as_irrelevant(item):
+                    new_actual_posts_in_telegram_list.append(item)
+                continue
+
+            # Получение неактуальных ссылок в посте
+            irrelevant_url_list = irr_post_find_irr_url(act_price_data_in_stock_list, min_act_price_data_in_stock_list,
+                                                        item.urls_list)
+
+            logger.info("irrelevant_url_list: {}".format(irrelevant_url_list))
+            logger.info("-" * 50)
+
+            # Если список пустой - пост ПОЛНОСТЬЮ АКТУАЛЬНЫЙ
+            if not irrelevant_url_list:
+                logger.info("Пост полностью актуальный:\n{}".format(item))
                 new_actual_posts_in_telegram_list.append(item)
-            # Пост неактуальный
-            else:
-                logger.info("Цены не совпали, пост НЕ актуальный:\n{}".format(item))
+                continue
 
-                img = image_change(item.img_url, True)
-                if not img:
-                    logger.error("No IMG in edit post")
-                    return
+            # Если кол-во неактуальных ссылок равно кол-ву ссылок в посте - пост ПОЛНОСТЬЮ НЕ АКТУАЛЬНЫЙ
+            if len(irrelevant_url_list) == len(item.urls_list):
+                logger.info("Пост полностью неактуальный - все ссылки неактуальны")
+                if not self.__edit_post_as_irrelevant(item):
+                    new_actual_posts_in_telegram_list.append(item)
+                continue
 
-                # Редактирование поста
-                self.bot.edit_message_media(
-                    media=types.InputMediaPhoto(caption=item.text, media=img, parse_mode='html'), chat_id=self.chat_id,
-                    message_id=item.message_id)
+            logger.info("Пост частично актуальный")
+            new_actual_posts_in_telegram_list.append(item)
 
-                # Декремент кол-ва актуальных постов
-                self.num_actual_post -= 1
+            # Поиск неактуальных ссылок в тексте поста для пометки "неактуально"
+            new_post_text = ""
+            text_from_post = io.StringIO(item.text)
+            for line in text_from_post:
+                # Есть ли неактуальная ссылка (из списка) в текущей строке:
+                if re.findall(r'|'.join(irrelevant_url_list), line):
+                    new_post_text += "{} {}\n".format(line[:-1], self.irrelevant_url_text)
+                else:
+                    new_post_text += line
+
+            new_post_text += " #актуально"
+
+            self.__edit_post_as_irrelevant(item, new_post_text, False)
 
         self.actual_posts_in_telegram_list = new_actual_posts_in_telegram_list
         self.db.disconnect()
 
-    # Запуск бота
-    def run(self, pc_product_list):
+    # Запуск отправки новых постов
+    def send_posts(self, pc_product_list):
         # pc_product_list = get_data()
-        if pc_product_list:
-            self.pc_product_list = pc_product_list
-            self.__filtering_data()
-            self.__prepare_posts_and_send()
-            self.__save_msg_in_telegram_list()
-            save_stats_prods_dictionary()
-            save_stats_shops_dictionary()
-        else:
+        if not pc_product_list:
             logger.info("НЕТ ДАННЫХ ДЛЯ TELEGRAM")
+            return
 
-        self.__checking_irrelevant_posts()
+        self.pc_product_list = pc_product_list
+        self.__filtering_data()
+        self.__prepare_posts_and_send()
+        save_stats_prods_dictionary()
+        save_stats_shops_dictionary()
+        self.__save_msg_in_telegram_list()
         self.__save_num_posts()
+
+    # Запуск проверки на неактуальность постов
+    def checking_irrelevant_posts(self, pr_product_in_stock_list):
+        if not pr_product_in_stock_list:
+            logger.error("НЕТ ДАННЫХ ДЛЯ НЕАКТУАЛЬНЫХ ПОСТОВ")
+            return
+
+        self.__checking_irrelevant_posts(pr_product_in_stock_list)
+        self.__save_msg_in_telegram_list()
+        self.__save_num_posts()
+
+
+listtu = [(1111, 3, datetime(2020, 12, 16, 15, 31, 59, 687886), 'белый', 'https://www.dns-shop.ru/product/854dc0c06e3b1b80/65-smartfon-realme-6i-128-gb-belyj/'),
+          (2222, 5, datetime(2020, 12, 16, 15, 31, 59, 690103), 'white', 'https://www.shop.mts.ru/product/smartfon-realme-6i-4-128gb-white'),
+          (3333, 3, datetime(2020, 12, 16, 15, 32, 45, 739955), 'зеленый', 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'),
+          (4444, 3, datetime(2020, 12, 16, 15, 31, 59, 691840), 'серый', 'https://www.dns-shop.ru/product/bf256b6f79643332/652-smartfon-realme-c3-64-gb-seryj/'),
+          (5555, 1, datetime(2020, 12, 16, 15, 31, 59, 694720), 'volcano grey', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-volcano-grey-rmx2020-30049951'),
+          (6666, 1, datetime(2020, 12, 16, 15, 31, 59, 695397), 'blazing red', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-blazing-red-rmx2020-30048602'),
+          (7777, 3, datetime(2020, 12, 16, 15, 32, 45, 746571), 'красный', 'https://www.dns-shop.ru/product/96e2c63b5d003332/652-smartfon-realme-c3-64-gb-krasnyj/'),
+          (8888, 3, datetime(2020, 12, 16, 15, 32, 45, 747695), 'синий', 'https://www.dns-shop.ru/product/848e429c5d003332/652-smartfon-realme-c3-64-gb-sinij/'),
+          (9999, 5, datetime(2020, 12, 16, 15, 32, 45, 748380), 'grey', 'https://www.shop.mts.ru/product/smartfon-realme-c3-3-64gb-grey'),
+          (1010, 1, datetime(2020, 12, 16, 15, 32, 45, 749052), 'frozen blue', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-frozen-blue-rmx2020-30048601')]
+
+url = 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'
+
+# print(irr_post_find_price_data_by_url(listtu, url))
+# bot = Bot()
+
+# bot.db.connect_or_create("parser2", "postgres", "1990", "127.0.0.1", "5432")
+# act_price_data_list = bot.db.execute_read_query(sr.search_actual_prices_by_version_query,
+#                                                              ('samsung', 'galaxy s20', 8, 128))
+# bot.db.disconnect()
+#
+# for item in act_price_data_list:
+#     print(item)
+#     print(item[1])
+

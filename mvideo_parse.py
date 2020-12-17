@@ -38,7 +38,7 @@ def mvideo_parse_model_name(name):
     # Понижение регистра
     name = str.lower(name)
     # Удалить nfc и 5g
-    name = name.replace(' nfc ', '').replace(' 5g ', ' ')
+    name = name.replace(' nfc ', ' ').replace(' 5g ', ' ')
     # Удалить все скобки
     brackets = re.findall(r"\(.+?\)", name)
     for item in brackets:
@@ -419,12 +419,15 @@ class MVideoParse:
             # Особенность МВидео - при переключении страницы, пока сайт ждет ответ от сервера,
             # оставляет старые данные с эффектом размытия. Ждем, пока они не исчезнут
             self.wait.until_not(ec.presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
-                self.pr_result_list[-1].url))))
+                self.pr_result_list[-5].url))))
             # Тоже особенность МВидео - данные могут прогрузится, а цены нет, будут висеть 9999 с эффектом размытия.
             # self.wait.until_not(ec.presence_of_element_located((By.CLASS_NAME,
             #                                                     "price-block with-blur product-list-card__price")))
         except se.TimeoutException:
             logger.error('Не пропадает телефон с прошлой страницы, не могу прогрузить текущую')
+            return False
+        except IndexError:
+            logger.error('По непонятной причине список pr_result_list[-5] оказался пуст, выход за границы списка')
             return False
 
         # Ждем, пока не прогрузится страница

@@ -55,7 +55,7 @@ def mts_parse_model_name(name):
     name = h.find_and_replace_except_model_name(name)
     # Понижение регистра
     name = str.lower(name)
-    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', '').replace(' 5g ', ' ')
+    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', ' ').replace(' 5g ', ' ')
     # Удалить все скобки
     brackets = re.findall(r"\(.+?\)", name)
     for item in brackets:
@@ -88,7 +88,7 @@ def mts_parse_model_name(name):
     # Получить название бренда
     brand_name = name.split()[0]
     # Удалить лишние слова в названии модели
-    model_name = name.replace(ram_rom, '').replace(color, '').replace(brand_name, '').replace(year, '').\
+    model_name = name.replace(ram_rom, '').replace(color, '').replace(brand_name, '').replace(year, ''). \
         replace(samsung_code, '').replace('  ', ' ').strip()
 
     return brand_name, model_name, color, ram, rom
@@ -521,17 +521,113 @@ models = ('Apple iPhone 7 32 GB Black (MN8X2RU/A)',
           'Nokia 5310 (2020) White -Red',
           'Irbis SF08 Dual sim Red')
 
+models2 = (
+    'Смартфон Motorola G9 PLay XT2083-3',
+    'Смартфон Motorola G9 Play XT2083-3',
+    'Смартфон Motorola G8 XT2045-2',
+    'Смартфон Samsung Galaxy G975 S10 Plus',
+    'Смартфон Samsung Galaxy S10 G973',
+    'Смартфон Huawei P40 Pro Deep',
+    'Смартфон Asus ROG Phone 3 12Gb',
+    'Смартфон Asus ROG Phone 3 16Gb',
+    'Смартфон Samsung S10 Lite',
+    'Смартфон Samsung Galaxy Z Fold2',
+    'Смартфон Hisense F16 +8Gb',
+    'Смартфон Meizu Pro7 +4Gb',
+    'Смартфон Motorola MOTO E5 Plus XT1924-1',
+    'Смартфон Nokia 3.1 Plus DS',
+    'Смартфон OPPO Reno 3',
+    'Смартфон OPPO Reno 2',
+    'Смартфон OPPO Reno 4 Lite',
+    'Смартфон OPPO АХ7',
+    'Смартфон OPPO Reno 4 Pro',
+    'Смартфон OPPO Reno 3 Pro',
+    'Смартфон OPPO Reno 2Z',
+    'Смартфон OPPO Reno 2 Z',
+    'Смартфон Poco phone F1',
+    'Смартфон Poco X3',
+    'Смартфон Realme X3 Super Zoom',
+    'Смартфон Samsung Galaxy Note 10 Lite',
+    'Смартфон Samsung Galaxy Note 10',
+    'Смартфон Samsung Galaxy Note 20',
+    'Смартфон Samsung Galaxy Note 20 Ultra',
+    'Смартфон Samsung Galaxy S10 Plus',
+    'Смартфон Samsung Galaxy S20+ Purple',
+    'Смартфон Smartisan U3 4+32G Rainbow',
+    'Смартфон Smartisan U3 4+32G',
+    'Смартфон Sony Xperia 5 II',
+    'Смартфон vivo V20SE',
+    'Смартфон ZTE Blade A3 2020Dark',
+    'Смартфон Samsung Galaxy Ace 4 Lite SM-G313',
+)
 
 if __name__ == '__main__':
     time_start = time.time()
 
-    import main
-    main.load_exceptions_model_names()
+    # import main
+    # main.load_exceptions_model_names()
+    #
+    # for item in models2:
+    #     print(item)
+    #     print(mts_parse_model_name(item))
+    #     print()
 
-    parser = MTSParse()
-    result_list = parser.run_catalog(
-        #"https://shop.mts.ru/catalog/smartfony/")
-        "https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
+    # my_model_list = []
+    # num_my_models = 0
+    # with open('my_models.txt', 'r', encoding='UTF-8') as f:
+    #     for line in f:
+    #         if line[:-1]:
+    #             my_model_list.append(line[:-1].title())
+    #             num_my_models += 1
+    #
+    # true_model_list = []
+    # num_true_models = 0
+    # with open('true_models.txt', 'r', encoding='UTF-8') as f:
+    #     for line in f:
+    #         if line[:-1]:
+    #             true_model_list.append(line[:-1])
+    #             num_true_models += 1
+    #
+    # true_model_lower_list = []
+    # for item in true_model_list:
+    #     true_model_lower_list.append(item.lower())
+    #
+    # num_bad_models = 0
+    # for item in my_model_list:
+    #     if not (item in true_model_list):
+    #         num_bad_models += 1
+    #         indx = 0
+    #         try:
+    #             indx = true_model_lower_list.index(item.lower())
+    #         except ValueError:
+    #             print(item)
+    #             pass
+    #
+    #         if indx:
+    #             true_res = true_model_list[indx]
+    #             # print("[{}] -> [{}]".format(item, true_res))
+    #
+    # print()
+    # print("num_my_models = {}".format(num_my_models))
+    # print("num_true_models = {}".format(num_true_models))
+    # print("num_bad_models = {}".format(num_bad_models))
+
+    # with open('all_apple.html', 'r', encoding='UTF-8') as f:
+    #     html = f.read()
+    #
+    # soup = bs4.BeautifulSoup(html, 'lxml')
+    # container = soup.select('div.name')
+    #
+    # for item in container:
+    #     print(item.text)
+
+    # import main
+    # main.load_exceptions_model_names()
+    #
+    # parser = MTSParse()
+    # result_list = parser.run_catalog(
+    #     "https://shop.mts.ru/catalog/smartfony/")
+        #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
 
     # result_list = load_result_from_csv()
     # check = checker.Checker(result_list)
