@@ -572,12 +572,61 @@ if __name__ == '__main__':
     #     print(mts_parse_model_name(item))
     #     print()
 
-    import main
-    main.load_exceptions_model_names()
+    # my_model_list = []
+    # num_my_models = 0
+    # with open('my_models.txt', 'r', encoding='UTF-8') as f:
+    #     for line in f:
+    #         if line[:-1]:
+    #             my_model_list.append(line[:-1].title())
+    #             num_my_models += 1
+    #
+    # true_model_list = []
+    # num_true_models = 0
+    # with open('true_models.txt', 'r', encoding='UTF-8') as f:
+    #     for line in f:
+    #         if line[:-1]:
+    #             true_model_list.append(line[:-1])
+    #             num_true_models += 1
+    #
+    # true_model_lower_list = []
+    # for item in true_model_list:
+    #     true_model_lower_list.append(item.lower())
+    #
+    # num_bad_models = 0
+    # for item in my_model_list:
+    #     if not (item in true_model_list):
+    #         num_bad_models += 1
+    #         indx = 0
+    #         try:
+    #             indx = true_model_lower_list.index(item.lower())
+    #         except ValueError:
+    #             print(item)
+    #             pass
+    #
+    #         if indx:
+    #             true_res = true_model_list[indx]
+    #             # print("[{}] -> [{}]".format(item, true_res))
+    #
+    # print()
+    # print("num_my_models = {}".format(num_my_models))
+    # print("num_true_models = {}".format(num_true_models))
+    # print("num_bad_models = {}".format(num_bad_models))
 
-    parser = MTSParse()
-    result_list = parser.run_catalog(
-        "https://shop.mts.ru/catalog/smartfony/")
+    # with open('all_apple.html', 'r', encoding='UTF-8') as f:
+    #     html = f.read()
+    #
+    # soup = bs4.BeautifulSoup(html, 'lxml')
+    # container = soup.select('div.name')
+    #
+    # for item in container:
+    #     print(item.text)
+
+    # import main
+    # main.load_exceptions_model_names()
+    #
+    # parser = MTSParse()
+    # result_list = parser.run_catalog(
+    #     "https://shop.mts.ru/catalog/smartfony/")
         #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
 
     # result_list = load_result_from_csv()
