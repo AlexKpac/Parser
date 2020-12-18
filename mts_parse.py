@@ -564,53 +564,54 @@ models2 = (
 if __name__ == '__main__':
     time_start = time.time()
 
-    # import main
-    # main.load_exceptions_model_names()
-    #
-    # for item in models2:
-    #     print(item)
-    #     print(mts_parse_model_name(item))
-    #     print()
+    import main
+    main.load_exceptions_model_names()
 
-    # my_model_list = []
-    # num_my_models = 0
-    # with open('my_models.txt', 'r', encoding='UTF-8') as f:
-    #     for line in f:
-    #         if line[:-1]:
-    #             my_model_list.append(line[:-1].title())
-    #             num_my_models += 1
-    #
-    # true_model_list = []
-    # num_true_models = 0
-    # with open('true_models.txt', 'r', encoding='UTF-8') as f:
-    #     for line in f:
-    #         if line[:-1]:
-    #             true_model_list.append(line[:-1])
-    #             num_true_models += 1
-    #
-    # true_model_lower_list = []
-    # for item in true_model_list:
-    #     true_model_lower_list.append(item.lower())
-    #
-    # num_bad_models = 0
-    # for item in my_model_list:
-    #     if not (item in true_model_list):
-    #         num_bad_models += 1
-    #         indx = 0
-    #         try:
-    #             indx = true_model_lower_list.index(item.lower())
-    #         except ValueError:
-    #             print(item)
-    #             pass
-    #
-    #         if indx:
-    #             true_res = true_model_list[indx]
-    #             # print("[{}] -> [{}]".format(item, true_res))
-    #
-    # print()
-    # print("num_my_models = {}".format(num_my_models))
-    # print("num_true_models = {}".format(num_true_models))
-    # print("num_bad_models = {}".format(num_bad_models))
+    # for item in h.EXCEPT_MODEL_NAMES_DICT.items():
+    #     print(item)
+    # for item in models2:
+    #     print(mts_parse_model_name(item))
+
+    my_model_list = []
+    num_my_models = 0
+    with open('my_models.txt', 'r', encoding='UTF-8') as f:
+        for line in f:
+            if line[:-1]:
+                my_model_list.append(line[:-1].title())
+                num_my_models += 1
+
+    true_model_list = []
+    num_true_models = 0
+    with open('true_models.txt', 'r', encoding='UTF-8') as f:
+        for line in f:
+            if line[:-1]:
+                true_model_list.append(line[:-1])
+                num_true_models += 1
+
+    true_model_lower_list = []
+    for item in true_model_list:
+        true_model_lower_list.append(item.lower())
+
+    num_bad_models = 0
+    for item in my_model_list:
+        if not (item in true_model_list):
+            num_bad_models += 1
+            indx = 0
+            try:
+                indx = true_model_lower_list.index(item.lower())
+            except ValueError:
+                # print(item)
+                pass
+
+            if indx:
+                true_res = true_model_list[indx]
+                print("[{}] -> [{}]".format(item, true_res))
+
+    print()
+    print("num_my_models = {}".format(num_my_models))
+    print("num_true_models = {}".format(num_true_models))
+    print("num_bad_models = {}".format(num_bad_models))
+
 
     # with open('all_apple.html', 'r', encoding='UTF-8') as f:
     #     html = f.read()

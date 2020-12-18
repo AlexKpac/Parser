@@ -270,6 +270,9 @@ class Bot:
         self.__load_num_posts()
         self.__load_msg_in_telegram_list()
 
+        for item in self.actual_posts_in_telegram_list:
+            print(type(item.cur_price))
+
     # Чтение кол-ва всех и актуальных постов
     def __load_num_posts(self):
         with open(h.NUM_POSTS_IN_TELEGRAM_PATH, 'r', encoding='UTF-8') as f:
@@ -546,19 +549,19 @@ class Bot:
             # Список данных с минимальными актуальными ценами в наличии
             min_act_price_data_in_stock_list = irr_post_find_all_min_price_data(act_price_data_in_stock_list)
 
-            # Если минимальная цена отличается от цены в посте - ПОСТ ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
-            if min_act_price_data_in_stock_list and min_act_price_data_in_stock_list[0][0] != item.cur_price:
-                logger.info("Пост полностью неактуальный - есть более выгодное(ые) предложение(ия)")
-                if not self.__edit_post_as_irrelevant(item):
-                    new_actual_posts_in_telegram_list.append(item)
-                continue
-
             logger.info("item: {}".format(item))
             logger.info("item.urls_list: {}".format(item.urls_list))
             logger.info("item.shops_list: {}".format(item.shops_list))
             logger.info("act_price_data_list: {}".format(act_price_data_list))
             logger.info("act_price_data_in_stock_list: {}".format(act_price_data_in_stock_list))
             logger.info("min_act_price_data_in_stock_list: {}".format(min_act_price_data_in_stock_list))
+
+            # Если минимальная цена отличается от цены в посте - ПОСТ ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
+            if min_act_price_data_in_stock_list and min_act_price_data_in_stock_list[0][0] != item.cur_price:
+                logger.info("Пост полностью неактуальный - есть более выгодное(ые) предложение(ия)")
+                if not self.__edit_post_as_irrelevant(item):
+                    new_actual_posts_in_telegram_list.append(item)
+                continue
 
             # Проверка других магазинов, в которых цена такая же выгодная. Если True - пост ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
             if irr_post_check_price_in_other_shop(min_act_price_data_in_stock_list, item.shops_list):
@@ -633,22 +636,22 @@ class Bot:
         self.__save_num_posts()
 
 
-listtu = [(1111, 3, datetime(2020, 12, 16, 15, 31, 59, 687886), 'белый', 'https://www.dns-shop.ru/product/854dc0c06e3b1b80/65-smartfon-realme-6i-128-gb-belyj/'),
-          (2222, 5, datetime(2020, 12, 16, 15, 31, 59, 690103), 'white', 'https://www.shop.mts.ru/product/smartfon-realme-6i-4-128gb-white'),
-          (3333, 3, datetime(2020, 12, 16, 15, 32, 45, 739955), 'зеленый', 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'),
-          (4444, 3, datetime(2020, 12, 16, 15, 31, 59, 691840), 'серый', 'https://www.dns-shop.ru/product/bf256b6f79643332/652-smartfon-realme-c3-64-gb-seryj/'),
-          (5555, 1, datetime(2020, 12, 16, 15, 31, 59, 694720), 'volcano grey', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-volcano-grey-rmx2020-30049951'),
-          (6666, 1, datetime(2020, 12, 16, 15, 31, 59, 695397), 'blazing red', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-blazing-red-rmx2020-30048602'),
-          (7777, 3, datetime(2020, 12, 16, 15, 32, 45, 746571), 'красный', 'https://www.dns-shop.ru/product/96e2c63b5d003332/652-smartfon-realme-c3-64-gb-krasnyj/'),
-          (8888, 3, datetime(2020, 12, 16, 15, 32, 45, 747695), 'синий', 'https://www.dns-shop.ru/product/848e429c5d003332/652-smartfon-realme-c3-64-gb-sinij/'),
-          (9999, 5, datetime(2020, 12, 16, 15, 32, 45, 748380), 'grey', 'https://www.shop.mts.ru/product/smartfon-realme-c3-3-64gb-grey'),
-          (1010, 1, datetime(2020, 12, 16, 15, 32, 45, 749052), 'frozen blue', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-frozen-blue-rmx2020-30048601')]
-
-url = 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'
+# listtu = [(1111, 3, datetime(2020, 12, 16, 15, 31, 59, 687886), 'белый', 'https://www.dns-shop.ru/product/854dc0c06e3b1b80/65-smartfon-realme-6i-128-gb-belyj/'),
+#           (2222, 5, datetime(2020, 12, 16, 15, 31, 59, 690103), 'white', 'https://www.shop.mts.ru/product/smartfon-realme-6i-4-128gb-white'),
+#           (3333, 3, datetime(2020, 12, 16, 15, 32, 45, 739955), 'зеленый', 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'),
+#           (4444, 3, datetime(2020, 12, 16, 15, 31, 59, 691840), 'серый', 'https://www.dns-shop.ru/product/bf256b6f79643332/652-smartfon-realme-c3-64-gb-seryj/'),
+#           (5555, 1, datetime(2020, 12, 16, 15, 31, 59, 694720), 'volcano grey', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-volcano-grey-rmx2020-30049951'),
+#           (6666, 1, datetime(2020, 12, 16, 15, 31, 59, 695397), 'blazing red', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-blazing-red-rmx2020-30048602'),
+#           (7777, 3, datetime(2020, 12, 16, 15, 32, 45, 746571), 'красный', 'https://www.dns-shop.ru/product/96e2c63b5d003332/652-smartfon-realme-c3-64-gb-krasnyj/'),
+#           (8888, 3, datetime(2020, 12, 16, 15, 32, 45, 747695), 'синий', 'https://www.dns-shop.ru/product/848e429c5d003332/652-smartfon-realme-c3-64-gb-sinij/'),
+#           (9999, 5, datetime(2020, 12, 16, 15, 32, 45, 748380), 'grey', 'https://www.shop.mts.ru/product/smartfon-realme-c3-3-64gb-grey'),
+#           (1010, 1, datetime(2020, 12, 16, 15, 32, 45, 749052), 'frozen blue', 'https://www.mvideo.ru/products/smartfon-realme-c3-364gb-nfc-frozen-blue-rmx2020-30048601')]
+#
+# url = 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-128-gb-zelenyj/'
 
 # print(irr_post_find_price_data_by_url(listtu, url))
 # bot = Bot()
-
+#
 # bot.db.connect_or_create("parser2", "postgres", "1990", "127.0.0.1", "5432")
 # act_price_data_list = bot.db.execute_read_query(sr.search_actual_prices_by_version_query,
 #                                                              ('samsung', 'galaxy s20', 8, 128))
@@ -656,5 +659,5 @@ url = 'https://www.dns-shop.ru/product/b5cb85606e3b1b80/65-smartfon-realme-6i-12
 #
 # for item in act_price_data_list:
 #     print(item)
-#     print(item[1])
+#     print(type(item[0]))
 

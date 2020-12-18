@@ -351,6 +351,9 @@ class DNSParse:
             brand_name = "error"
         else:
             brand_name = brand_name.get('data-value')
+            # Заплатка для POCO
+            if 'poco' in brand_name:
+                brand_name = 'xiaomi'
 
         # Ссылка на изображение товара
         img_url = product_block.select_one("div.img > a.lightbox-img")
@@ -459,6 +462,9 @@ class DNSParse:
             return
         else:
             brand_name = brand_name.get('data-value')
+            # Заплатка для POCO
+            if 'poco' in brand_name:
+                brand_name = 'xiaomi'
 
         # Ссылка на изображение товара
         img_url = block.select_one('img')
@@ -1221,7 +1227,8 @@ models1 = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
            '6.5" Смартфон Samsung Galaxy A21s 32 ГБ красный',
            '7.6" Смартфон Samsung Galaxy Z Fold2 256 ГБ коричневый',
            '6.5" Смартфон realme 6 4/128 ГБ синий',
-           '4.7" Смартфон Apple iPhone 7 32 Гб черный матовый')
+           '4.7" Смартфон Apple iPhone 7 32 Гб черный матовый',
+           '6.18" Смартфон Pocophone F1 64 ГБ синий')
 
 if __name__ == '__main__':
     time_start = time.time()
@@ -1230,9 +1237,12 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
-    parser = DNSParse()
-    result = parser.run_catalog(
-        "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    for item in models1:
+        print(dns_parse_model_name('', item))
+
+    # parser = DNSParse()
+    # result = parser.run_catalog(
+    #     "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
 
     # result = load_result_from_csv()
     # check = checker.Checker(result)
