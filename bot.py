@@ -570,6 +570,10 @@ class Bot:
                                                     hist_min_date=item.hist_min_date,
                                                     diff_cur_avg=item.avg_actual_price-item.cur_price))
 
+            if not versions_list:
+                logger.error("Неизвестная ошибка с пустым versions_list, пропуск")
+                continue
+
             new_text = self.__format_text(versions_list, is_actual)
             if not self.__edit_post_as_irrelevant(item, new_text, is_actual):
                 logger.error("Не удалось отредактировать пост!")
