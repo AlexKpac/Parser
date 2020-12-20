@@ -370,7 +370,7 @@ class Checker:
 
     # Запуск
     def run(self):
-        self.db.connect_or_create("parser3", "postgres", "1990", "127.0.0.1", "5432")
+        self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
         self.adding_all_products_to_db()
         if not len(self.pr_price_change_list):
             logger.info('СПИСОК ПРОДУКТОВ НА ПРОВЕРКУ ВЫГОДЫ ПУСТ')
