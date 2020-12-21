@@ -511,7 +511,7 @@ class Bot:
                 chat_id=self.chat_id, message_id=post.message_id)
 
             # Декремент кол-ва актуальных постов
-            self.num_actual_post -= 1
+            self.num_actual_post += (-1) if stamp else 1
             return True
 
         except telebot.apihelper.ApiException as e:
