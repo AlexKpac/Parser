@@ -421,7 +421,7 @@ class MTSParse:
         # Код продукта
         product_code = "None"
 
-        # Цена, ветвление: 2 вида акций, поиск по тегам
+        # Цена
         cur_price = block.select_one('span.product-price__current')
         if not cur_price:
             logger.warning("No price")
@@ -429,15 +429,17 @@ class MTSParse:
         else:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
-        promo_code = block.select('div.action-product-item.promo-action')
-        if promo_code:
-            for item in promo_code:
-                if 'промокод' in item.text:
-                    logger.info('Нашел промокод "{}", применяю'.format(item.text))
-                    promo_code = re.findall(r'\d+', item.text.replace(' ', ''))
-                    promo_code = int(promo_code[0]) if promo_code else 0
-                    cur_price -= promo_code
-                    break
+        # Попытка применить промокод
+        # old_price = block.select_one('div.product-price__old')
+        # promo_code = block.select('div.action-product-item.promo-action')
+        # if not old_price and promo_code:
+        #     for item in promo_code:
+        #         if 'промокод' in item.text:
+        #             logger.info('Нашел промокод "{}", применяю'.format(item.text))
+        #             promo_code = re.findall(r'\d+', item.text.replace(' ', ''))
+        #             promo_code = int(promo_code[0]) if promo_code else 0
+        #             cur_price -= promo_code
+        #             break
 
         # Парсинг названия модели
         brand_name, model_name, color, ram, rom = mts_parse_model_name(model_name)
@@ -574,45 +576,45 @@ if __name__ == '__main__':
     # for item in models2:
     #     print(mts_parse_model_name(item))
 
-    my_model_list = []
-    num_my_models = 0
-    with open('my_models.txt', 'r', encoding='UTF-8') as f:
-        for line in f:
-            if line[:-1]:
-                my_model_list.append(line[:-1].title())
-                num_my_models += 1
-
-    true_model_list = []
-    num_true_models = 0
-    with open('true_models.txt', 'r', encoding='UTF-8') as f:
-        for line in f:
-            if line[:-1]:
-                true_model_list.append(line[:-1])
-                num_true_models += 1
-
-    true_model_lower_list = []
-    for item in true_model_list:
-        true_model_lower_list.append(item.lower())
-
-    num_bad_models = 0
-    for item in my_model_list:
-        if not (item in true_model_list):
-            num_bad_models += 1
-            indx = 0
-            try:
-                indx = true_model_lower_list.index(item.lower())
-            except ValueError:
-                # print(item)
-                pass
-
-            if indx:
-                true_res = true_model_list[indx]
-                print("[{}] -> [{}]".format(item, true_res))
-
-    print()
-    print("num_my_models = {}".format(num_my_models))
-    print("num_true_models = {}".format(num_true_models))
-    print("num_bad_models = {}".format(num_bad_models))
+    # my_model_list = []
+    # num_my_models = 0
+    # with open('my_models.txt', 'r', encoding='UTF-8') as f:
+    #     for line in f:
+    #         if line[:-1]:
+    #             my_model_list.append(line[:-1].title())
+    #             num_my_models += 1
+    #
+    # true_model_list = []
+    # num_true_models = 0
+    # with open('true_models.txt', 'r', encoding='UTF-8') as f:
+    #     for line in f:
+    #         if line[:-1]:
+    #             true_model_list.append(line[:-1])
+    #             num_true_models += 1
+    #
+    # true_model_lower_list = []
+    # for item in true_model_list:
+    #     true_model_lower_list.append(item.lower())
+    #
+    # num_bad_models = 0
+    # for item in my_model_list:
+    #     if not (item in true_model_list):
+    #         num_bad_models += 1
+    #         indx = 0
+    #         try:
+    #             indx = true_model_lower_list.index(item.lower())
+    #         except ValueError:
+    #             # print(item)
+    #             pass
+    #
+    #         if indx:
+    #             true_res = true_model_list[indx]
+    #             print("[{}] -> [{}]".format(item, true_res))
+    #
+    # print()
+    # print("num_my_models = {}".format(num_my_models))
+    # print("num_true_models = {}".format(num_true_models))
+    # print("num_bad_models = {}".format(num_bad_models))
 
 
     # with open('all_apple.html', 'r', encoding='UTF-8') as f:
@@ -627,9 +629,9 @@ if __name__ == '__main__':
     # import main
     # main.load_exceptions_model_names()
     #
-    # parser = MTSParse()
-    # result_list = parser.run_catalog(
-    #     "https://shop.mts.ru/catalog/smartfony/")
+    parser = MTSParse()
+    result_list = parser.run_catalog(
+        "https://shop.mts.ru/catalog/smartfony/")
         #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
 
     # result_list = load_result_from_csv()
