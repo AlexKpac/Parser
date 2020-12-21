@@ -352,7 +352,7 @@ class DNSParse:
         else:
             brand_name = brand_name.get('data-value')
             # Заплатка для POCO
-            if 'poco' in brand_name:
+            if 'poco' in brand_name.lower():
                 brand_name = 'xiaomi'
 
         # Ссылка на изображение товара
@@ -463,7 +463,7 @@ class DNSParse:
         else:
             brand_name = brand_name.get('data-value')
             # Заплатка для POCO
-            if 'poco' in brand_name:
+            if 'poco' in brand_name.lower():
                 brand_name = 'xiaomi'
 
         # Ссылка на изображение товара

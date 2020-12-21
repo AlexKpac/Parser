@@ -47,7 +47,7 @@ def mvideo_parse_model_name(name):
     year = re.findall(r' 20[1,2]\d ', name)
     year = year[0] if year else ''
     # Получить размер ROM
-    rom = re.findall(r'\d*\+*\d+(?:gb|tb)', name)
+    rom = re.findall(r'\d*[gb]*\+*\d+(?:gb|tb)', name)
     rom = (rom[0]) if rom else ""
     # Получить ЦВЕТ
     # Получить 2 слова цвета
@@ -714,6 +714,7 @@ class MVideoParse:
 
 
 models = (
+    'Смартфон Meizu Pro7 64Gb+4Gb Gold (M792H)',
     'Смартфон Vertex Impress Luck 3G Gold',
     'Смартфон Vertex Impress Luck 3G Black',
     'Смартфон ZTE Blade L130 Blue',
@@ -1186,16 +1187,19 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
+    name_r = "Смартфон Meizu Pro7 64GB+4Gb Gold (M792H)"
+    print(mvideo_parse_model_name(name_r))
 
     # for item in models:
     #     logger.info(h.find_and_replace_except_model_name(item))
 
     for item in models:
         res = mvideo_parse_model_name(item)
-        print('{},{},{}'.format(res[0], res[1], res[2]))
-    # parser = MVideoParse()
-    # result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
-    # check = checker.Checker(result_list)
-    # check.run()
+        print(res)
+    #     print('{},{},{}'.format(res[0], res[1], res[2]))
+    # # parser = MVideoParse()
+    # # result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # # check = checker.Checker(result_list)
+    # # check.run()
 
     logger.info(f"Время выполнения: {time.time() - time_start} сек")
