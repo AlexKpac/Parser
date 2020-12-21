@@ -1,6 +1,7 @@
 pyvenv.cfg
 debug.log
 log-*
+/cache/
 
 # Created by https://www.toptal.com/developers/gitignore/api/windows
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows
