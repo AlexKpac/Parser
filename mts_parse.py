@@ -401,6 +401,8 @@ class MTSParse:
             return
         else:
             img_url = img_url.get('src')
+            if '/resize/' in img_url:
+                img_url = img_url[:img_url.index('/resize/')]
 
         # Рейтинг товара
         rating = block.select_one('span.assessment-product__text')

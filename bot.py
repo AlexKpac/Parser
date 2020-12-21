@@ -660,6 +660,3 @@ class Bot:
 # for item in act_price_data_list:
 #     print(item)
 #     print(type(item[0]))
-
-
-
