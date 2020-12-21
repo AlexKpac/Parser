@@ -1,1 +1,3 @@
 Message_ID,Category,Brand,Model,RAM,ROM,Cur_Price,Avg_Price,Img_URL,Where_Buy_List,Hist_Min_Price,Hist_Min_Shop,Hist_Min_Date,Post_Datetime,Actual
+519,смартфоны,samsung,galaxy s10,8,128,38499,44070.0,https://img.mvideo.ru/pdb/small_pic/480/30042519b.jpg,"[(3, 'красный', 'https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/')]",38499,3,2020-12-21 13:23:13.240489,2020-12-21 13:23:18.036887,True
+520,смартфоны,samsung,galaxy s10,8,128,33499,43616.0,https://img.mvideo.ru/pdb/small_pic/480/30042519b.jpg,"[(3, 'красный', 'https://www.dns-shop.ru/product/19f11df67aac3332/61-smartfon-samsung-galaxy-s10-128-gb-krasnyj/')]",33499,3,2020-12-21 13:23:31.814162,2020-12-21 13:23:32.547439,True

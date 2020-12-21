@@ -575,7 +575,7 @@ class Bot:
                 continue
 
             new_text = self.__format_text(versions_list, is_actual)
-            if not self.__edit_post_as_irrelevant(item, new_text, is_actual):
+            if not self.__edit_post_as_irrelevant(item, new_text, not is_actual):
                 logger.error("Не удалось отредактировать пост!")
 
             # Сохраняем пост в список постов
