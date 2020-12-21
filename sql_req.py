@@ -211,6 +211,7 @@ search_min_historical_price_by_version_query = """
 """
 
 # Поиск только актуальных (с самой свежей датой) цен всех магазинов и цветов
+# SELECT price, id_shop_name, datetime, color, general_table.url_product
 search_actual_prices_by_version_query = """
     SELECT price, id_shop_name, datetime, color, general_table.url_product
     FROM general_table

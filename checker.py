@@ -182,6 +182,9 @@ class Checker:
     def add_product_to_bd(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color,
                           img_url, url, product_code, local_rating, num_rating, price, bonus_rubles=0):
 
+        logger.info('-' * 50)
+        logger.info("-- {} {} {} {} {} {} {} {}".format(shop_name, brand_name, model_name, var_rom, var_ram, var_color, url, price))
+
         if not self.db.connection:
             logger.warning("Can't execute query - no connection")
             return 'error'
@@ -196,17 +199,21 @@ class Checker:
         id_product = self.db.execute_read_query(sr.select_id_product_query, (brand_name, model_name))
         # + Продукт присутствует в #products_table
         if id_product:
+
+            logger.info("---id_prod = {}".format(id_product))
             id_product = id_product[0][0]
             id_ver_phone = self.db.execute_read_query(sr.select_id_ver_phone_query,
                                                       (id_product, var_ram, var_rom))
             # ++ Комплектация присутствует в #version_phones_table
             if id_ver_phone:
+                logger.info("---id_ver_phone = {}".format(id_ver_phone))
                 id_ver_phone = id_ver_phone[0][0]
                 id_shop_phone = self.db.execute_read_query(sr.select_id_shop_phone_query,
                                                            (id_ver_phone, id_shop_name, url))
 
                 # +++ Данную комплектацию можно купить в этом магазине в #shop_phones_table
                 if id_shop_phone:
+                    logger.info("---id_shop_phone = {}".format(id_shop_phone))
                     id_shop_phone = id_shop_phone[0][0]
                     price_phone = self.db.execute_read_query(sr.select_price_in_price_phone_query, (id_shop_phone,))
 
@@ -217,10 +224,11 @@ class Checker:
 
                     # ++++ Цена данной комплектации в данном магазине не изменилась - ничего не делаем
                     if price_phone[-1][0] == price:
+                        logger.info("---price_phone = {}".format(price_phone))
                         # Если ничего не изменилось - обновить дату у цены
                         logger.info("NO CHANGE, IGNORE; "
-                                    "id_prod = {}, id_ver = {}, id_shop = {}".format(id_product, id_ver_phone,
-                                                                                     id_shop_phone))
+                                    "id_prod = {}, id_ver = {}, id_shop = {}, price = {}".format(id_product, id_ver_phone,
+                                                                                     id_shop_phone, price_phone[-1][0]))
 
                     # ---- Цена данной комплектации в данном магазине изменилась - добавляем в список цен
                     else:

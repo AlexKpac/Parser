@@ -1186,10 +1186,11 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
+
     # for item in models:
     #     logger.info(h.find_and_replace_except_model_name(item))
 
-    for item in models1:
+    for item in models:
         res = mvideo_parse_model_name(item)
         print('{},{},{}'.format(res[0], res[1], res[2]))
     # parser = MVideoParse()
