@@ -114,7 +114,7 @@ def image_change(url, stamp_irrelevant=False):
         width, height = img.size
         new_height = H
         new_width = int(new_height * width / height)
-        img = img.resize((new_width, new_height), Image.ANTIALIAS)
+        img = img.resize((new_width, new_height), Image.LANCZOS)
 
     im = Image.new('RGB', (W, H), color='#FFFFFF')
     im.paste(img, (int((W - img.width) / 2), 0), 0)
@@ -497,25 +497,41 @@ class Bot:
                 time.sleep(30)
 
     # Отредактировать пост как частично или полностью неактуальный. По-умолчанию полностью неактуальный
-    def __edit_post_as_irrelevant(self, post, text, stamp):
+    def __edit_post_as_irrelevant(self, post, text, is_actual):
 
-        img = image_change(post.img_url, stamp)
-        if not img:
-            logger.error("No IMG in edit post")
-            return False
+        # Если пост был неактуальный и до сих пор неактуальный - выходим, менять нечего
+        if not post.is_actual and not is_actual:
+            logger.info("Пост был и остается неактуальным, не меняем")
+            return True
+
+        change_actual = post.is_actual != is_actual
+
+        # Если пост был неактуальный, а стал актуальный - создаем новое изображение
+        img = None
+        if change_actual:
+            img = image_change(post.img_url, not is_actual)
+            if not img:
+                logger.error("No IMG in edit post")
+                return False
 
         # Редактирование поста
         try:
-            self.bot.edit_message_media(
-                media=types.InputMediaPhoto(media=img, caption=text, parse_mode='html'),
-                chat_id=self.chat_id, message_id=post.message_id)
+            if change_actual:
+                self.bot.edit_message_media(
+                    media=types.InputMediaPhoto(media=img, caption=text, parse_mode='html'),
+                    chat_id=self.chat_id, message_id=post.message_id)
+            else:
+                self.bot.edit_message_caption(caption=text, parse_mode='html',
+                                              chat_id=self.chat_id, message_id=post.message_id)
 
             # Декремент кол-ва актуальных постов
-            self.num_actual_post += (-1) if stamp else 1
+            if change_actual:
+                self.num_actual_post += 1 if is_actual else (-1)
             return True
 
         except telebot.apihelper.ApiException as e:
             logger.error("Не удалось отредактировать пост: {}".format(e))
+            img.save("cache/{}.jpg".format(post.message_id), "jpeg")
             return False
 
     # Проверка неактуальных постов
@@ -534,6 +550,7 @@ class Bot:
             # Список данных с минимальными актуальными ценами в наличии
             min_act_price_data_in_stock_list = irr_post_find_all_min_price_data(act_price_data_in_stock_list)
 
+            logger.info("-" * 50)
             logger.info("item: {}".format(item))
             logger.info("item actual: {}".format(item.is_actual))
             logger.info("act_price_data_list: {}".format(act_price_data_list))
@@ -542,8 +559,9 @@ class Bot:
 
             # Если минимальная цена отличается от цены в посте - ПОСТ ПОЛНОСТЬЮ НЕАКТУАЛЬНЫЙ
             is_actual = True
-            if min_act_price_data_in_stock_list and min_act_price_data_in_stock_list[0][0] != item.cur_price:
-                logger.info("Пост полностью неактуальный - есть более выгодное(ые) предложение(ия)")
+            if (min_act_price_data_in_stock_list and min_act_price_data_in_stock_list[0][0] != item.cur_price) or \
+                    not min_act_price_data_in_stock_list:
+                logger.info("Пост полностью неактуальный - есть более выгодное(ые) предложение(ия) или акция прошла")
                 is_actual = False
 
             # Индексы структуры с данными о ссылках
@@ -575,12 +593,12 @@ class Bot:
                 continue
 
             new_text = self.__format_text(versions_list, is_actual)
-            if not self.__edit_post_as_irrelevant(item, new_text, not is_actual):
+            if not self.__edit_post_as_irrelevant(item, new_text, is_actual):
                 logger.error("Не удалось отредактировать пост!")
 
             # Сохраняем пост в список постов
             irr_post_add_item_in_msg_in_telegram_list(new_posts_in_telegram_list,
-                                                      self.max_num_act_post_telegram, item, True)
+                                                      self.max_num_act_post_telegram, item, is_actual)
 
         self.posts_in_telegram_list = new_posts_in_telegram_list
         self.db.disconnect()
