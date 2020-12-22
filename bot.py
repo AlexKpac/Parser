@@ -534,7 +534,8 @@ class Bot:
 
         except telebot.apihelper.ApiException as e:
             logger.error("Не удалось отредактировать пост: {}".format(e))
-            img.save("cache/{}.jpg".format(post.message_id), "jpeg")
+            if img:
+                img.save("cache/{}.jpg".format(post.message_id), "jpeg")
             return False
 
     # Проверка неактуальных постов
