@@ -524,6 +524,9 @@ class Bot:
                 self.bot.edit_message_caption(caption=text, parse_mode='html',
                                               chat_id=self.chat_id, message_id=post.message_id)
 
+            # Задержка перед редактированием следующего поста, попытка отловить баг телеграма
+            time.sleep(5)
+
             # Декремент кол-ва актуальных постов
             if change_actual:
                 self.num_actual_post += 1 if is_actual else (-1)
