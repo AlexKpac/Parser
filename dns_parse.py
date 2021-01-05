@@ -47,6 +47,9 @@ def load_result_from_csv():
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
 def dns_parse_model_name(brand, name):
+    # Убираем неразрывные пробелы
+    name = name.replace(u'\xc2\xa0', u' ')
+    name = name.replace(u'\xa0', u' ')
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
     # Понижение регистра
@@ -246,7 +249,12 @@ class DNSParse:
 
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
-        self.driver.get(url)
+        try:
+            self.driver.get(url)
+        except (se.TimeoutException, se.WebDriverException):
+            print("Не смог загрузить страницу")
+            logger.error("Не смог загрузить страницу")
+            return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -351,9 +359,9 @@ class DNSParse:
             brand_name = "error"
         else:
             brand_name = brand_name.get('data-value')
-            # Заплатка для POCO
-            if 'poco' in brand_name.lower():
-                brand_name = 'xiaomi'
+            # # Заплатка для POCO
+            # if 'poco' in brand_name.lower():
+            #     brand_name = 'xiaomi'
 
         # Ссылка на изображение товара
         img_url = product_block.select_one("div.img > a.lightbox-img")
@@ -462,9 +470,9 @@ class DNSParse:
             return
         else:
             brand_name = brand_name.get('data-value')
-            # Заплатка для POCO
-            if 'poco' in brand_name.lower():
-                brand_name = 'xiaomi'
+            # # Заплатка для POCO
+            # if 'poco' in brand_name.lower():
+            #     brand_name = 'xiaomi'
 
         # Ссылка на изображение товара
         img_url = block.select_one('img')
@@ -1237,8 +1245,10 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
-    for item in models1:
-        print(dns_parse_model_name('', item))
+    # for item in models1:
+    #     print(dns_parse_model_name('', item))
+
+    print(dns_parse_model_name("BQ", '5.45" Смартфон bright & quick BQ-5519G JEANS 16 ГБ зеленый'))
 
     # parser = DNSParse()
     # result = parser.run_catalog(
