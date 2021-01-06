@@ -513,7 +513,7 @@ class Bot:
                 return False
 
         # Если пост не менял актуальность (true=true) и хэш сообщения изменился - обновляем описание поста
-        if hashlib.sha256(text.encode()).hexdigest() != post.hash_text:
+        if hashlib.sha256(text.encode()).hexdigest() != post.text_hash:
             try:
                 self.bot.edit_message_caption(caption=text, parse_mode='html',
                                               chat_id=self.chat_id, message_id=post.message_id)
@@ -523,6 +523,9 @@ class Bot:
             except telebot.apihelper.ApiException as e:
                 logger.error("Не удалось отредактировать пост - edit_message_caption: {}".format(e))
                 return False
+
+        logger.info("В посте ничего не изменилось")
+        return True
 
     # Проверка неактуальных постов
     def __checking_irrelevant_posts(self, pr_product_in_stock_list):
@@ -584,7 +587,7 @@ class Bot:
 
             new_text = self.__format_text(versions_list, is_actual)
             if not self.__edit_post_as_irrelevant(item, new_text, is_actual):
-                logger.error("Не удалось отредактировать пост! Сохарняю как актуальный для следующей попытки")
+                logger.error("Не удалось отредактировать пост!")
                 is_actual = True
 
             # Сохраняем пост в список постов
@@ -619,3 +622,23 @@ class Bot:
         self.__checking_irrelevant_posts(pr_product_in_stock_list)
         self.__save_msg_in_telegram_list()
         self.__save_num_posts()
+
+
+# from admitad import api, items
+#
+# client_id = "O4soVKt8QcnbWsdqGzIYEJX1ZkXORC"
+# client_secret = "lFJIDCMvSDpe34DnMgO2BvKHcCy4sT"
+# scope = ' '.join(set([items.Me.SCOPE]))
+#
+# client = api.get_oauth_client_client(
+#     client_id,
+#     client_secret,
+#     scope
+# )
+#
+# print(client.Me.get())
+#
+# res = client.DeeplinksManage.create(22, 10, ulp=['https://www.mvideo.ru/products/smartfon-huawei-p40-lite-midnight-black-jny-lx1-30048480s',], subid='a20koellat')
+#
+#
+# print(res)

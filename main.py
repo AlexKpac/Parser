@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     # save_result_list(result_list)
 
-    result_list = load_result_from_csv("s35.csv")
+    result_list = load_result_from_csv("goods3.csv")
     check = Checker(result_list)
     benefit_price_list = check.run()
 
