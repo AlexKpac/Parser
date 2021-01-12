@@ -51,6 +51,9 @@ def mts_parse_model_name(name):
     # Защита от неправильных названий
     if len(name.split()) < 3:
         return "error", "error", "error", 0, 0
+    # Убираем неразрывные пробелы
+    name = name.replace(u'\xc2\xa0', u' ')
+    name = name.replace(u'\xa0', u' ')
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
     # Понижение регистра
@@ -110,7 +113,7 @@ class MTSParse:
         self.shop = "мтс"
         # Конфиг
         self.config = configparser.ConfigParser()
-        self.config.read('conf.ini', encoding="utf-8")
+        self.config.read('config.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
         self.wait_between_pages_sec = int(self.config.defaults()['wait_between_pages_sec'])
 
@@ -268,7 +271,12 @@ class MTSParse:
 
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
-        self.driver.get(url)
+        try:
+            self.driver.get(url)
+        except (se.TimeoutException, se.WebDriverException):
+            print("Не смог загрузить страницу")
+            logger.error("Не смог загрузить страницу")
+            return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -571,6 +579,10 @@ if __name__ == '__main__':
     import main
     main.load_exceptions_model_names()
 
+    # print(mts_parse_model_name("Смартфон Samsung G770 Galaxy S10 Lite 6/128Gb White"))
+
+    h.find_and_replace_except_model_name("Смартфон Samsung G770 Galaxy S10 Lite 6/128Gb White")
+
     # for item in h.EXCEPT_MODEL_NAMES_DICT.items():
     #     print(item)
     # for item in models2:
@@ -629,10 +641,10 @@ if __name__ == '__main__':
     # import main
     # main.load_exceptions_model_names()
     #
-    parser = MTSParse()
-    result_list = parser.run_catalog(
-        "https://shop.mts.ru/catalog/smartfony/")
-        #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
+    # parser = MTSParse()
+    # result_list = parser.run_catalog(
+    #     "https://shop.mts.ru/catalog/smartfony/")
+    #     #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
 
     # result_list = load_result_from_csv()
     # check = checker.Checker(result_list)

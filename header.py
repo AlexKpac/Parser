@@ -26,12 +26,19 @@ def find_and_replace_except_model_name(model_name):
     if not EXCEPT_MODEL_NAMES_DICT:
         return model_name
 
-    # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
-    res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_DICT.keys()), model_name)
-    # Если есть - подменяем
-    if res:
-        res = res[0]
-        model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_DICT.get(res))
+    for key, value in EXCEPT_MODEL_NAMES_DICT.items():
+        if key in model_name:
+            model_name = model_name.replace(key, value)
+            logger.info("Нашел модель в словаре исключений, key={}".format(key))
+
+    # # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
+    # res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_DICT.keys()), model_name)
+    #
+    # # Если есть - подменяем
+    # if res:
+    #     res = res[0]
+    #     model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_DICT.get(res))
+    #     logger.info("Нашел модель в словаре исключений")
 
     return model_name
 
@@ -241,6 +248,7 @@ MessagesInTelegram = collections.namedtuple(
         'hist_min_shop',
         'hist_min_date',
         'post_datetime',
+        'text_hash',
         'is_actual',
     ),
 )
@@ -260,6 +268,7 @@ HEADERS_MSG_IN_TELEGRAM = (
     'Hist_Min_Shop',
     'Hist_Min_Date',
     'Post_Datetime',
+    'Text_Hash',
     'Actual',
 )
 

@@ -24,6 +24,9 @@ def mvideo_parse_model_name(name):
     # Защита от неправильных названий
     if len(name.split()) < 5:
         return None, None, None
+    # Убираем неразрывные пробелы
+    name = name.replace(u'\xc2\xa0', u' ')
+    name = name.replace(u'\xa0', u' ')
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
@@ -86,7 +89,7 @@ class MVideoParse:
         self.shop = "мвидео"
         # Конфиг
         self.config = configparser.ConfigParser()
-        self.config.read('conf.ini', encoding="utf-8")
+        self.config.read('config.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
         self.wait_between_pages_sec = int(self.config.defaults()['wait_between_pages_sec'])
 
@@ -319,7 +322,12 @@ class MVideoParse:
 
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
-        self.driver.get(url)
+        try:
+            self.driver.get(url)
+        except (se.TimeoutException, se.WebDriverException):
+            print("Не смог загрузить страницу")
+            logger.error("Не смог загрузить страницу")
+            return False
 
         # Ждем, пока не прогрузится страница, даем 3 попытки, т.к. сайт при первом запуске часто выдает пустую страницу
         for i in range(3):
@@ -360,7 +368,12 @@ class MVideoParse:
 
     # Запуск браузера, загрузка начальной страницы парсинга, выбор города
     def __wd_open_browser_product(self, url):
-        self.driver.get(url)
+        try:
+            self.driver.get(url)
+        except se.TimeoutException:
+            print("Не смог загрузить страницу")
+            logger.error("Не смог загрузить страницу")
+            return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_product():
@@ -1187,15 +1200,15 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
-    name_r = "Смартфон Meizu Pro7 64GB+4Gb Gold (M792H)"
+    name_r = "Смартфон Samsung Galaxy Z Fold 2 256GB Bronze (SM-F916B)"
     print(mvideo_parse_model_name(name_r))
 
     # for item in models:
     #     logger.info(h.find_and_replace_except_model_name(item))
 
-    for item in models:
-        res = mvideo_parse_model_name(item)
-        print(res)
+    # for item in models:
+    #     res = mvideo_parse_model_name(item)
+    #     print(res)
     #     print('{},{},{}'.format(res[0], res[1], res[2]))
     # # parser = MVideoParse()
     # # result_list = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")

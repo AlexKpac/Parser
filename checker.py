@@ -64,7 +64,7 @@ class Checker:
     def __init__(self, parse_result_list):
         self.db = bd.DataBase()
         self.config = configparser.ConfigParser()
-        self.config.read('conf.ini', encoding="utf-8")
+        self.config.read('config.ini', encoding="utf-8")
         self.min_diff_price_per = float(self.config.defaults()['min_diff_price_per'])
         self.best_shop_for_img_url = (self.config.defaults()['best_shops_for_img_url']).lower().split(', ')
         self.pr_product_list = parse_result_list
