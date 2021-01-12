@@ -64,7 +64,7 @@ def save_result_list(elements):
 # Чтение данных
 def read_config():
     config = configparser.ConfigParser()
-    config.read('conf.ini', encoding="utf-8")
+    config.read('config.ini', encoding="utf-8")
     h.REBUILT_IPHONE_NAME = ' ' + config.defaults()['rebuilt_iphone_name']
     h.IGNORE_WORDS_FOR_COLOR = config['parser']['color_ignore'].lower().split('\n')
 

@@ -113,7 +113,7 @@ class MTSParse:
         self.shop = "мтс"
         # Конфиг
         self.config = configparser.ConfigParser()
-        self.config.read('conf.ini', encoding="utf-8")
+        self.config.read('config.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
         self.wait_between_pages_sec = int(self.config.defaults()['wait_between_pages_sec'])
 

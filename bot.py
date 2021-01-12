@@ -18,7 +18,6 @@ import header as h
 import sql_req as sr
 from post_image import PostImage
 
-
 logger = h.logging.getLogger('bot')
 EXCEPT_MODEL_NAMES_TELEGRAM_DICT = {}
 STATS_PRODS_DICT = {}
@@ -201,7 +200,7 @@ def irr_post_add_item_in_msg_in_telegram_list(msg_telegram_list, max_element, it
 class Bot:
     def __init__(self):
         self.config = configparser.ConfigParser()
-        self.config.read('conf.ini', encoding="utf-8")
+        self.config.read('config.ini', encoding="utf-8")
         self.chat_id = self.config['bot']['chat_id']
         self.ignore_brands = self.config['bot-ignore']['brands'].lower().split('\n')
         self.bot = telebot.TeleBot(self.config['bot']['token'])
@@ -642,3 +641,63 @@ class Bot:
 #
 #
 # print(res)
+
+from pyrogram import Client, filters, idle
+from pyrogram.handlers import MessageHandler
+
+# app = Client("my_account")
+
+
+# with Client("my_account") as app:
+#
+#     @app.on_message(filters.user("@admitad_bot"))
+#     def echo(client, msg):
+#         print(msg.text)
+#         idle.is_idling = False
+#
+#     app.send_message("@admitad_bot",
+#                      text="https://www.mvideo.ru/products/smartfon-apple-iphone-11-pro-64gb-silver-mwc32ru-a-30045436")
+#
+#     idle()
+
+
+# app.start()
+# res = app.send_message("@admitad_bot",
+#                            text="https://www.mvideo.ru/products/smartfon-apple-iphone-12-128gb-black-mgja3ru-a-30052890")
+
+
+# with Client("my_account") as app:
+#     res = app.send_message("@admitad_bot",
+#                            text="https://www.mvideo.ru/products/smartfon-apple-iphone-12-128gb-black-mgja3ru-a-30052890")
+
+
+# app.run()
+
+# app.run()
+
+# app.run()
+# with Client("my_account") as app:
+#     app.send_message("me", "И еще привет!")
+
+
+from telethon.sync import TelegramClient, events
+
+
+api_id = 2945574
+api_hash = "42a2f225ef4504f0a300c72174f12586"
+url = 'https://www.mvideo.ru/products/smartfon-apple-iphone-se-128gb-black-mhgt3ru-a-30053932'
+
+
+
+
+with TelegramClient('name', api_id, api_hash) as client:
+
+    @client.on(events.NewMessage())
+    async def handler(event):
+        print(event.text)
+        deeplink = re.findall(r'https:\/\/lite[\w\/.]+', event.text)
+        print(deeplink)
+        await client.disconnect()
+
+    client.send_message('@admitad_bot', url)
+    client.run_until_disconnected()
