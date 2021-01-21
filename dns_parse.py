@@ -120,7 +120,7 @@ class DNSParse:
         try:
             result = self.driver.find_element(by, xpath)
             return result
-        except se.NoSuchElementException:
+        except (se.NoSuchElementException, se.TimeoutException):
             return None
 
     # Поиск элемента с таймаутом
@@ -146,7 +146,7 @@ class DNSParse:
         #     return True
 
     # Обертка для клика по элементу через ActionChains
-    def __wd_click_elem(self, elem):
+    def __wd_click_elem(self, elem, elem_xpath=""):
         if not elem:
             return False
 
@@ -157,76 +157,60 @@ class DNSParse:
             except se.ElementClickInterceptedException:
                 logger.warning("Не могу кликнуть на элемент, пробую еще")
                 time.sleep(1.5)
+            except se.StaleElementReferenceException:
+                if not elem_xpath:
+                    return False
+                logger.warning("Попытка кликнуть по ссылке на устаревший элемент, обновляю элемент")
+                elem = self.__wd_find_elem(By.XPATH, elem_xpath)
+                time.sleep(1)
 
         return False
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
-        modal_confirm_city = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']")
+        # city = self.__wd_find_elem_with_timeout(By.XPATH, "//i[@class='location-icon']")
+        # if not city:
+        #     logger.error("Не найдено поле с названием города")
+        #     return False
+        #
+        # # Если указан неверный город
+        # if not (str.lower(self.current_city) in str.lower(city.text)):
+        #     logger.info("Неверный город")
+        #
+        #     # Клик по городу
+        #     if not self.__wd_click_elem(city):
+        #         logger.error("Не могу нажать на кнопку выбора города")
+        #         return False
+        #
+        #     logger.info("Клик по городу")
+        #
+        # while True:
+        #     pass
+        # #####################################
 
-        # Если нашел всплывающее окно с подтверждением города
-        if modal_confirm_city:
-            # Если сайт предлагает нужный город
-            # if modal_confirm_city.text.find(h.CURRENT_CITY) != -1:
-            if self.current_city.lower() in modal_confirm_city.text.lower():
-                yes_button = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']/a[text()='Да']")
-                if not yes_button:
-                    logger.error("Не вижу кнопки ДА")
-                    return False
+        city_head = self.__wd_find_elem(By.XPATH, "//i[@class='location-icon']")
+        if not city_head:
+            logger.error("Не могу найти элемент с текущим городом на странице")
+            return False
 
-                yes_button.click()
-                # if not self.__wd_click_elem(yes_button):
-                #     logger.error("Не смог нажать на кнопку ДА")
-                #     return False
-            # Иначе выбор другого
-            else:
-                other_button = self.__wd_find_elem(By.XPATH, "//div[@class='dropdown-city']/a[text()='Выбрать другой']")
-                if not other_button:
-                    logger.error("Не вижу кнопки ДРУГОЙ ГОРОД")
-                    return False
-
-                other_button.click()
-                # if not self.__wd_click_elem(other_button):
-                #     logger.error("Не могу нажать на кнопку ДРУГОЙ")
-                #     return False
-
-                # Ждем загрузки формы с выбором города и получаем input для ввода города
-                input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
-                                                                        "input[@data-role='search-city']")
-                if not input_city:
-                    logger.error("Не могу найти поле для ввода города (1)")
-                    return False
-
-                # Отправка нужного города
-                input_city.send_keys(self.current_city, Keys.ENTER)
-                # ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
-                #     send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
-
-        # Если не нашел всплывающего окна с подтверждением города
-        else:
-            city_head = self.__wd_find_elem(By.XPATH, "//div[@class='w-choose-city-widget-label']")
-            if not city_head:
-                logger.error("Не могу найти элемент с текущим городом на странице")
+        # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
+        # if city_head.text.find(h.CURRENT_CITY) == -1:
+        if not (self.current_city.lower() in city_head.text.lower()):
+            # city_head.click()
+            if not self.__wd_click_elem(city_head):
+                logger.error("Не могу кликнуть по названию города для его смены")
                 return False
 
-            # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
-            # if city_head.text.find(h.CURRENT_CITY) == -1:
-            if not (self.current_city.lower() in city_head.text.lower()):
-                city_head.click()
-                # if not self.__wd_click_elem(city_head):
-                #     logger.error("Не могу кликнуть по названию города для его смены")
-                #     return False
+            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
+                                                                    "input[@data-role='search-city']")
+            if not input_city:
+                logger.error("Не могу найти поле для ввода города (2)")
+                return False
 
-                input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
-                                                                        "input[@data-role='search-city']")
-                if not input_city:
-                    logger.error("Не могу найти поле для ввода города (2)")
-                    return False
-
-                # Отправка нужного города
-                input_city.send_keys(self.current_city, Keys.ENTER)
-                # ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
-                #     send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
+            # Отправка нужного города
+            input_city.send_keys(self.current_city, Keys.ENTER)
+            # ActionChains(self.driver).move_to_element(input_city).click().pause(1). \
+            #     send_keys(h.CURRENT_CITY, Keys.ENTER).perform()
 
         return True
 
@@ -293,7 +277,8 @@ class DNSParse:
             return False
 
         # Клик - переход на следующую страницу
-        if not self.__wd_click_elem(num_page_elem):
+        if not self.__wd_click_elem(num_page_elem,
+                                    f"//li[@class='pagination-widget__page ']/a[text()='{self.cur_page}']"):
             logger.error("Не могу кликнуть на страницу в __wd_next_page")
             return False
 
@@ -414,7 +399,8 @@ class DNSParse:
             if brand_name != "error" and model_name != "error" \
             else ("error", "error", 0)
 
-        ram = dns_parse_specifications(specifications) if specifications != "error" else 0
+        ram = 0 if ('apple' in brand_name.lower()) else \
+            (dns_parse_specifications(specifications) if specifications != "error" else 0)
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(
@@ -534,9 +520,16 @@ class DNSParse:
             logger.warning("No model name or color")
             return
 
-        ram = dns_parse_specifications(specifications)
+        ram = 0 if ('apple' in brand_name.lower()) else dns_parse_specifications(specifications)
         if not ram:
             logger.warning("No ram")
+
+        # Проверка названия модели в словаре разрешенных моделей
+        full_model_name = '{} {}'.format(brand_name, model_name)
+        if not h.find_allowed_model_names(full_model_name):
+            logger.info("Обнаружена новая модель, отсутствующая в базе = '{} {}'".format(brand_name, model_name))
+            h.save_undefined_model_name(full_model_name)
+            return
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(
@@ -1241,18 +1234,18 @@ models1 = ('4" Смартфон INOI 1 Lite 4 ГБ черный',
 if __name__ == '__main__':
     time_start = time.time()
 
-    import main
-    main.load_exceptions_model_names()
-    main.read_config()
+    # import main
+    # main.load_exceptions_model_names()
+    # main.read_config()
+    #
+    # # for item in models1:
+    # #     print(dns_parse_model_name('', item))
+    #
+    # print(dns_parse_model_name("BQ", '5.45" Смартфон bright & quick BQ-5519G JEANS 16 ГБ зеленый'))
 
-    # for item in models1:
-    #     print(dns_parse_model_name('', item))
-
-    print(dns_parse_model_name("BQ", '5.45" Смартфон bright & quick BQ-5519G JEANS 16 ГБ зеленый'))
-
-    # parser = DNSParse()
-    # result = parser.run_catalog(
-    #     "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    parser = DNSParse()
+    result = parser.run_catalog(
+        "https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
 
     # result = load_result_from_csv()
     # check = checker.Checker(result)
