@@ -58,7 +58,8 @@ def mts_parse_model_name(name):
     name = h.find_and_replace_except_model_name(name)
     # Понижение регистра
     name = str.lower(name)
-    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', ' ').replace(' 5g ', ' ')
+    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', ' ').\
+        replace(' 5g ', ' ').replace('«', '').replace('»', '')
     # Удалить все скобки
     brackets = re.findall(r"\(.+?\)", name)
     for item in brackets:
@@ -456,6 +457,16 @@ class MTSParse:
             logger.warning("No brand name, model name or color")
             return
 
+        if 'apple' in brand_name.lower():
+            ram = 0
+
+        # Проверка названия модели в словаре разрешенных моделей
+        full_model_name = '{} {}'.format(brand_name, model_name)
+        if not h.find_allowed_model_names(full_model_name):
+            logger.info("Обнаружена новая модель, отсутствующая в базе = '{} {}'".format(brand_name, model_name))
+            h.save_undefined_model_name(full_model_name)
+            return
+
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(
             shop=self.shop,
@@ -573,15 +584,24 @@ models2 = (
     'Смартфон Samsung Galaxy Ace 4 Lite SM-G313',
 )
 
+
+def save_result_list(elements):
+    with open('cache/mts1.csv', 'w', newline='') as f:
+        writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(h.HEADERS)
+        for item in elements:
+            writer.writerow(item)
+
+
 if __name__ == '__main__':
     time_start = time.time()
 
-    import main
-    main.load_exceptions_model_names()
+    # import main
+    # main.load_exceptions_model_names()
 
     # print(mts_parse_model_name("Смартфон Samsung G770 Galaxy S10 Lite 6/128Gb White"))
 
-    h.find_and_replace_except_model_name("Смартфон Samsung G770 Galaxy S10 Lite 6/128Gb White")
+    # h.find_and_replace_except_model_name("Смартфон Samsung G770 Galaxy S10 Lite 6/128Gb White")
 
     # for item in h.EXCEPT_MODEL_NAMES_DICT.items():
     #     print(item)
@@ -638,13 +658,17 @@ if __name__ == '__main__':
     # for item in container:
     #     print(item.text)
 
-    # import main
-    # main.load_exceptions_model_names()
-    #
+    import main
+    main.load_exceptions_model_names()
+
+    print(mts_parse_model_name('Смартфон Apple iPhone 12 Pro Max 128Gb «Тихоокеанский синий»'))
+
     # parser = MTSParse()
     # result_list = parser.run_catalog(
     #     "https://shop.mts.ru/catalog/smartfony/")
     #     #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
+    #
+    # save_result_list(result_list)
 
     # result_list = load_result_from_csv()
     # check = checker.Checker(result_list)

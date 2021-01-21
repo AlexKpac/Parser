@@ -195,59 +195,7 @@ class MVideoParse:
 
     # Алгоритм выбора города для всех возможных ситуаций для страницы продукта
     def __wd_city_selection_product(self):
-        return True
-        city = self.__wd_find_elem_with_timeout(By.ID, "header-city-selection-link")
-        if not city:
-            logger.error("Не найдено поле с названием города")
-            return False
-
-        # Если указан неверный город
-        if not (str.lower(self.current_city) in str.lower(city.text)):
-
-            # Клик по городу
-            if not self.__wd_click_elem(city):
-                logger.error("Не могу нажать на кнопку выбора города")
-                return False
-
-            # Получить список всех городов и если есть нужный, кликнуть по нему
-            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "city-selection-popup-results")
-            if city_list:
-                city_list = self.__wd_find_all_elems_with_timeout(By.XPATH, "//li")
-                for item in city_list:
-                    if str.lower(self.current_city) in str.lower(item.text):
-                        time.sleep(1.5)
-                        return self.__wd_click_elem(item)
-            else:
-                logger.warning("Нет списка городов, попробую вбить вручную")
-
-            # Поиск поля для ввода города
-            input_city = self.__wd_find_elem_with_timeout(By.ID, "region-selection-form-city-input")
-            if not input_city:
-                logger.error("Не найдено поле, куда вводить новый город")
-                return False
-
-            self.__wd_click_elem(input_city)
-            time.sleep(1.5)
-            # Ввод названия города по буквам
-            for char in self.current_city:
-                self.__wd_send_keys(input_city, char)
-                time.sleep(0.2)
-
-            # Если не поставить задержку, окно закрывает, а город не применяет
-            time.sleep(1.5)
-
-            # Выбор города из сгенерированного списка городов
-            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//a[@class='sel-droplist-cities']")
-            if not input_city_item:
-                logger.error("Не найдено элементов при вводе города")
-                return False
-
-            # Клик по нему
-            if not self.__wd_click_elem(input_city_item):
-                logger.error("Не могу нажать на выбранный город")
-                return False
-
-        return True
+        pass
 
     # Проверка по ключевым div-ам что страница каталога прогружена полностью
     def __wd_check_load_page_catalog(self):
@@ -664,6 +612,16 @@ class MVideoParse:
                 not model_name or \
                 not color:
             logger.warning("No brand name, model name or color")
+            return
+
+        if 'apple' in brand_name.lower():
+            ram = 0
+
+        # Проверка названия модели в словаре разрешенных моделей
+        full_model_name = '{} {}'.format(brand_name, model_name)
+        if not h.find_allowed_model_names(full_model_name):
+            logger.info("Обнаружена новая модель, отсутствующая в базе = '{} {}'".format(brand_name, model_name))
+            h.save_undefined_model_name(full_model_name)
             return
 
         # Добавление полученных результатов в коллекцию

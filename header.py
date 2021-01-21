@@ -43,6 +43,20 @@ def find_and_replace_except_model_name(model_name):
     return model_name
 
 
+# Поиск названия из списка известных моделей
+def find_allowed_model_names(model_name):
+    for item in ALLOWED_MODEL_NAMES_LIST_FOR_BASE:
+        if item.lower() == model_name.lower():
+            return True
+
+    return False
+
+
+def save_undefined_model_name(model_name):
+    with open(PATH_UNDEFINED_MODEL_NAME_LIST, 'a') as f:
+        f.write(model_name + '\n')
+
+
 # Поиск элемента по любым параметрам в любом namedtuple
 def find_in_namedtuple_list(namedtuple_list, brand_name=None, model_name=None, shop=None, category=None, color=None,
                             ram=None, rom=None, cur_price=None, img_url=None, url=None, rating=None, num_rating=None,
@@ -140,9 +154,13 @@ STATS_PRODS_DICTIONARY_PATH = "dictionaries/stats_prods_from_telegram.dic"
 STATS_SHOPS_DICTIONARY_PATH = "dictionaries/stats_shops_from_telegram.dic"
 MESSAGES_IN_TELEGRAM_LIST_PATH = "data/msg_in_telegram.csv"
 NUM_POSTS_IN_TELEGRAM_PATH = "data/num_posts_in_telegram.data"
+PATH_LIST_MODEL_NAMES_BASE = "data/list_model_names_base.dat"
+PATH_UNDEFINED_MODEL_NAME_LIST = "data/undefined_model_name.dat"
 
 # ----------------------------- КОЛЛЕКЦИЯ -----------------------------
 
+# Список разрешенных названий моделей для добавления в БД
+ALLOWED_MODEL_NAMES_LIST_FOR_BASE = []
 # Словарь исключений названий моделей
 EXCEPT_MODEL_NAMES_DICT = {}
 # Единое название для всех восстановленных айфонов

@@ -27,6 +27,12 @@ def load_exceptions_model_names():
                 res[1].replace('[', '').replace(']', '')
 
 
+# Чтение списка разрешенных названий моделей для добавления в БД
+def load_allowed_model_names_list_for_base():
+    with open(h.PATH_LIST_MODEL_NAMES_BASE, 'r', encoding='UTF-8') as f:
+        h.ALLOWED_MODEL_NAMES_LIST_FOR_BASE = f.read().splitlines()
+
+
 # Загрузить данные с csv, чтобы не парсить сайт
 def load_result_from_csv(name):
     pr_result_list = []
@@ -74,6 +80,7 @@ if __name__ == '__main__':
     h.del_old_logs()
     # result_list = []
 
+    load_allowed_model_names_list_for_base()
     load_exceptions_model_names()
     read_config()
 
@@ -85,7 +92,7 @@ if __name__ == '__main__':
     # result_list.extend(result)
     #
     # parser = MTSParse()
-    # result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/?id=62427_233815 ")
+    # result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
     # # result = load_result_from_csv("mts.csv")
     # if not result:
     #     raise SystemExit(5)
