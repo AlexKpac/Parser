@@ -24,6 +24,12 @@ STATS_PRODS_DICT = {}
 STATS_SHOPS_DICT = {}
 
 
+# -------------------------- РЕФЕРАЛЬНЫЕ ССЫЛКИ -------------------------- #
+
+def convert_url_for_ref_link(url):
+    return url.replace(':', '%3A').replace('/', '%2F').strip()
+
+
 # -------------------------- СЛОВАРИ -------------------------- #
 
 # Чтение словаря с подсчетом кол-ва моделей
@@ -111,12 +117,22 @@ def get_data():
 
 # Поиск в строке названия фраз из списка исключения и их замена
 def find_and_replace_except_model_name(model_name):
+
+    if not EXCEPT_MODEL_NAMES_TELEGRAM_DICT:
+        return model_name
+
+    # Поиск в строке названия фраз из списка исключения и их замена
+    for key, value in EXCEPT_MODEL_NAMES_TELEGRAM_DICT.items():
+        if key in model_name:
+            model_name = model_name.replace(key, value)
+            logger.info("Нашел модель в словаре исключений телеграм, key={}".format(key))
+
     # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
-    res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_TELEGRAM_DICT.keys()), model_name)
-    # Если есть - подменяем
-    if res:
-        res = res[0]
-        model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_TELEGRAM_DICT.get(res))
+    # res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_TELEGRAM_DICT.keys()), model_name)
+    # # Если есть - подменяем
+    # if res:
+    #     res = res[0]
+    #     model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_TELEGRAM_DICT.get(res))
 
     return model_name
 
@@ -212,6 +228,16 @@ class Bot:
         self.irrelevant_url_text = self.config['bot']['irrelevant_url_text']
         self.hash_tag_actual = '#' + self.config['bot']['hash_tag_actual']
         self.max_num_act_post_telegram = int(self.config['bot']['max_num_act_post_telegram'])
+        # Рефералки
+        self.domain_mts = self.config['admitad']['domain_mts']
+        self.domain_mvideo = self.config['admitad']['domain_mvideo']
+        self.domain_citilink = self.config['admitad']['domain_citilink']
+        self.domain_eldorado = self.config['admitad']['domain_eldorado']
+        self.ref_link_mts = self.config['admitad']['ref_link_mts']
+        self.ref_link_mvideo = self.config['admitad']['ref_link_mvideo']
+        self.ref_link_citilink = self.config['admitad']['ref_link_citilink']
+        self.ref_link_eldorado = self.config['admitad']['ref_link_eldorado']
+
         self.pc_product_list = []
         self.posts_in_telegram_list = []
         self.num_all_post = 0
@@ -250,7 +276,7 @@ class Bot:
             for item in self.posts_in_telegram_list:
                 writer.writerow(item)
 
-    # Загрузить данные с csv, чтобы не парсить сайт
+    # Загрузить данные о сообщениях в канале телеграм
     def __load_msg_in_telegram_list(self):
         with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r', encoding='UTF-8') as f:
             reader = csv.DictReader(f)
@@ -338,11 +364,11 @@ class Bot:
             # Генерация тегов магазинов
             hashtag_shops += '#' + h.SHOPS_NAME_LIST[shop - 1][0] + ' '
 
-            # Генерация ссылок
+            # Генерация ссылок → ► ● ○ • ›
             urls = ''
             for product in version_list:
                 if product.shop == shop:
-                    urls += '<a href="{}">► {}</a>\n'.format(product.url, product.color.title())  # → ► ● ○ • ›
+                    urls += '<a href="{}">► {}</a>\n'.format(self.get_ref_link(product.url), product.color.title())
             links_shop_list.append(urls)
 
         # Генерация ссылок
@@ -426,15 +452,17 @@ class Bot:
 
         # Генерация поста
         text = self.__format_text(version_list, True)
-        img = PostImage(item.img_url).get_img()
-        if not img:
+        img = PostImage(item.img_url)
+        if not img.check():
             logger.error("No IMG in send post")
             return
+
+        img.lighten()
 
         # Отправка поста в обертке
         for i in range(3):
             try:
-                resp = self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html',
+                resp = self.bot.send_photo(chat_id=self.chat_id, photo=img.get_img(), caption=text, parse_mode='Html',
                                            disable_notification=dis_notify)
                 print(resp.message_id)
                 logger.info(
@@ -487,12 +515,12 @@ class Bot:
 
             # Установка штампа
             if not current_actual:
-                img.draw_stamp().change_bytes_img()
+                img.change_bytes_img().draw_stamp().darken()
+            else:
+                img.lighten()
 
             # 5 попыток изменить пост (из-за бага телеграм)
-            for i in range(5):
-                if current_actual:
-                    img.lighten()
+            for i in range(3):
 
                 try:
                     self.bot.edit_message_media(
@@ -507,7 +535,8 @@ class Bot:
 
                 except telebot.apihelper.ApiException as e:
                     logger.error("Не удалось отредактировать пост ({}) - edit_message_media: {}".format(i + 1, e))
-                    img.save("cache/", "{}.jpg".format(post.message_id))
+                    img.save_as_jpg("cache/", "{}.jpg".format(post.message_id))
+                    img.lighten() if current_actual else img.darken()
             else:
                 logger.error("Не удалось отредактировать пост после 5 попыток")
                 return False
@@ -622,6 +651,27 @@ class Bot:
         self.__checking_irrelevant_posts(pr_product_in_stock_list)
         self.__save_msg_in_telegram_list()
         self.__save_num_posts()
+
+    # Получить реферальную ссылку
+    def get_ref_link(self, url):
+
+        # Мвидео
+        if self.domain_mvideo in url:
+            return self.ref_link_mvideo + convert_url_for_ref_link(url)
+
+        # МТС
+        if self.domain_mts in url:
+            return self.ref_link_mts + convert_url_for_ref_link(url)
+
+        # Ситилинк
+        if self.domain_citilink in url:
+            return self.ref_link_citilink + convert_url_for_ref_link(url)
+
+        # Эльдорадо
+        if self.domain_eldorado in url:
+            return self.ref_link_eldorado + convert_url_for_ref_link(url)
+
+        return url
 
 
 # from admitad import api, items
@@ -799,12 +849,23 @@ from pyrogram.handlers import MessageHandler
 #     img.save('cache/dif/', str(indx1))
 #     indx1 += 1
 # from post_image import PostImage
+# #
+
+
+
+# url = 'https://img.mvideo.ru/Pdb/30051369b.jpg'
+# img = PostImage(url)
+# img.change_bytes_img().draw_stamp().darken()
+# # img.lighten()
+# img.save_as_jpg('cache/', 'olo')
+
+
+
 #
-# img = PostImage('https://mtscdn.ru/upload/iblock/f8d/smartfon_samsung_a415_galaxy_a41_4_64gb_white_1.jpg')
-# img.get_img().show()
-# img.change_bytes_img()
-# img.get_img().show()
-#
+# img1 = PostImage()
+# img1.open('cache/ololo.jpg')
+# print(img1.steganography_decrypt(len('Prodavach')))
+
 
 # # img123.save('cache/', 'img_orig')
 # img123.draw_stamp()

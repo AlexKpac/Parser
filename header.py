@@ -53,7 +53,7 @@ def find_allowed_model_names(model_name):
 
 
 def save_undefined_model_name(model_name):
-    with open(PATH_UNDEFINED_MODEL_NAME_LIST, 'a') as f:
+    with open(PATH_UNDEFINED_MODEL_NAME_LIST, 'a', encoding='UTF-8') as f:
         f.write(model_name + '\n')
 
 
@@ -156,6 +156,7 @@ MESSAGES_IN_TELEGRAM_LIST_PATH = "data/msg_in_telegram.csv"
 NUM_POSTS_IN_TELEGRAM_PATH = "data/num_posts_in_telegram.data"
 PATH_LIST_MODEL_NAMES_BASE = "data/list_model_names_base.dat"
 PATH_UNDEFINED_MODEL_NAME_LIST = "data/undefined_model_name.dat"
+PATH_UNDEFINED_MODEL_NAME_LIST_LOCK = "data/undefined_model_name.lock"
 
 # ----------------------------- КОЛЛЕКЦИЯ -----------------------------
 

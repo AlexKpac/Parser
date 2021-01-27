@@ -27,8 +27,6 @@ def mvideo_parse_model_name(name):
     # Убираем неразрывные пробелы
     name = name.replace(u'\xc2\xa0', u' ')
     name = name.replace(u'\xa0', u' ')
-    # Проверка названия в словаре исключений названий моделей
-    name = h.find_and_replace_except_model_name(name)
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
     rebuilt = h.REBUILT_IPHONE_NAME if (MVIDEO_REBUILT_IPHONE in name.lower()) else ''
     name = name.replace(rebuilt, '')
@@ -63,12 +61,23 @@ def mvideo_parse_model_name(name):
 
     # Удалить первую часть часть
     name = name.replace('смартфон', '').replace(rom, '').replace(year, '').replace('  ', ' ')
+    # Убрать вторую часть лишних слов из названия
+    name = name.replace(color, '').replace('  ', ' ').strip()
+
+    # Проверка названия в словаре исключений названий моделей
+    name = h.find_and_replace_except_model_name(name)
+
+    # Проверка названия модели в словаре разрешенных моделей
+    if not h.find_allowed_model_names(name):
+        logger.info("Обнаружена новая модель, отсутствующая в базе = '{}'".format(name))
+        h.save_undefined_model_name(name)
+        return None, None, None
+
     # Получить название бренда
     brand_name = name.split()[0]
-    # Убрать вторую часть лишних слов из названия
-    name = name.replace(color, '').replace(brand_name, '').replace('  ', ' ').strip()
+    model_name = name.replace(brand_name, '').strip()
 
-    return brand_name, (name + rebuilt), color
+    return brand_name, (model_name + rebuilt), color
 
 
 # Парсер МВидео
@@ -344,7 +353,10 @@ class MVideoParse:
 
     # Получить текущий код страницы
     def __wd_get_cur_page(self):
-        return self.driver.page_source
+        try:
+            return self.driver.page_source
+        except se.TimeoutException:
+            return None
 
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
@@ -611,18 +623,11 @@ class MVideoParse:
         if not brand_name or \
                 not model_name or \
                 not color:
-            logger.warning("No brand name, model name or color")
+            logger.warning("No brand name, model name, color or not in the list of allowed")
             return
 
         if 'apple' in brand_name.lower():
             ram = 0
-
-        # Проверка названия модели в словаре разрешенных моделей
-        full_model_name = '{} {}'.format(brand_name, model_name)
-        if not h.find_allowed_model_names(full_model_name):
-            logger.info("Обнаружена новая модель, отсутствующая в базе = '{} {}'".format(brand_name, model_name))
-            h.save_undefined_model_name(full_model_name)
-            return
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(

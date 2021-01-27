@@ -2,6 +2,7 @@ import re
 import csv
 import configparser
 from time import time
+import os
 
 from dns_parse import DNSParse
 from mvideo_parse import MVideoParse
@@ -75,6 +76,19 @@ def read_config():
     h.IGNORE_WORDS_FOR_COLOR = config['parser']['color_ignore'].lower().split('\n')
 
 
+# Удалить лок-файл
+def del_lock_file():
+    if os.path.isfile(h.PATH_UNDEFINED_MODEL_NAME_LIST_LOCK):
+        os.remove(h.PATH_UNDEFINED_MODEL_NAME_LIST_LOCK)
+
+
+# Создать лок файл, запрещающий сервисному боту читать файл с исключениями
+def create_lock_file():
+    del_lock_file()
+    with open(h.PATH_UNDEFINED_MODEL_NAME_LIST_LOCK, 'w') as f:
+        pass
+
+
 if __name__ == '__main__':
     time_start = time()
     h.del_old_logs()
@@ -83,6 +97,7 @@ if __name__ == '__main__':
     load_allowed_model_names_list_for_base()
     load_exceptions_model_names()
     read_config()
+    create_lock_file()
 
     # parser = MVideoParse()
     # result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
@@ -105,9 +120,10 @@ if __name__ == '__main__':
     #     raise SystemExit(5)
     # result_list.extend(result)
 
+    del_lock_file()
     # save_result_list(result_list)
 
-    result_list = load_result_from_csv("goods3.csv")
+    result_list = load_result_from_csv("goods2.csv")
     check = Checker(result_list)
     benefit_price_list = check.run()
 

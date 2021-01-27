@@ -9,12 +9,16 @@ HIGHLIGHTING_PATH = 'img/white.png'
 
 
 class PostImage:
-    def __init__(self, url):
+    def __init__(self, url=''):
         self.W = 640
         self.H = 480
         self.img = None
 
-        self.__creation(url)
+        if url:
+            self.__creation(url)
+
+    def open(self, path):
+        self.img = Image.open(path).convert('RGBA')
 
     # Генерация картинки нужного размера из url
     def __creation(self, url):
@@ -57,9 +61,14 @@ class PostImage:
 
     # Отрисовка штампа на изображении
     def draw_stamp(self):
+        if not self.img:
+            logger.error('no img in draw_stamp')
+            return self
+
         logger.info("draw stamp on image")
         stamp = Image.open(STAMP_PATH).convert("RGBA")
         self.img.paste(stamp, (int((self.W - stamp.width) / 2), int((self.H - stamp.height) / 2)), stamp)
+        # self.img.paste(stamp, (int(self.W - stamp.width), 0), stamp)
 
         return self
 
@@ -83,23 +92,25 @@ class PostImage:
 
     # Зашифровать текст в картинку
     def steganography_encrypt(self, text):
+        logger.info("steganography_encrypt")
         draw = ImageDraw.Draw(self.img)
         pix = self.img.load()
 
         indx = 0
         for elem in ([ord(elem) for elem in text]):
             for x in '{:08b}'.format(elem):
-                r, g, b = pix[indx, 0]
+                r, g, b, a = pix[indx, 0]
                 if not int(x):
-                    draw.point((indx, 0), (r, g, (b & 254)))
+                    draw.point((indx, 0), (r, g, (b & 254), a))
                 else:
-                    draw.point((indx, 0), (r, g, (b | 1)))
+                    draw.point((indx, 0), (r, g, (b | 1), a))
                 indx += 1
 
         return self
 
     # Изменить байты изображения для фильтра изображений телеграм
     def change_bytes_img(self):
+        logger.info("change_bytes_img")
         draw = ImageDraw.Draw(self.img)
         pix = self.img.load()
         width, height = self.img.size
@@ -107,20 +118,27 @@ class PostImage:
         for i in range(width):
             for j in range(height):
                 cur_pix = pix[i, j]
-                if cur_pix[0] > 250 and cur_pix[1] > 250 and cur_pix[2] > 250:
-                    draw.point((i, j), (cur_pix[0] ^ 0x07, cur_pix[1] ^ 0x07, cur_pix[2] ^ 0x07))
-                else:
-                    draw.point((i, j), (cur_pix[0] ^ 0x03, cur_pix[1] ^ 0x01, cur_pix[2] ^ 0x07))
+
+                # if cur_pix[0] > 250 and cur_pix[1] > 250 and cur_pix[2] > 250:
+                #     draw.point((i, j), (cur_pix[0] ^ 0x07, cur_pix[1] ^ 0x07, cur_pix[2] ^ 0x07))
+                # else:
+                #     draw.point((i, j), (cur_pix[0] ^ 0x03, cur_pix[1] ^ 0x01, cur_pix[2] ^ 0x07))
+
+                # Менять только НЕ белые пиксели (белые для фона, там градиент)
+                if cur_pix[0] < 250 or cur_pix[1] < 250 or cur_pix[2] < 250:
+                    draw.point((i, j), (cur_pix[0] ^ 0x03, cur_pix[1] ^ 0x03, cur_pix[2] ^ 0x07))
 
         return self
 
     # Расшифровать стенографию, зашифрованную в каждой картинке
     def steganography_decrypt(self, len_text):
+        logger.info("steganography_decrypt")
         pix = self.img.load()  # создаём объект изображения
         cipher_text = ""
 
         for i in range(len_text):
             one_char = 0
+            print(pix[i, 0])
             for j in range(8):
                 cur_bit = pix[(i * 8) + j, 0][2] & 1
                 one_char += cur_bit << (7 - j)
@@ -129,5 +147,11 @@ class PostImage:
         return cipher_text
 
     # Сохранение изображения на диск
-    def save(self, path, name):
+    def save_as_png(self, path, name):
+        # img_png = self.img.convert('RGBA')
         self.img.save("{}/{}.png".format(path, name), "png")
+
+    # Сохранение изображения на диск
+    def save_as_jpg(self, path, name):
+        img_jpg = self.img.convert('RGB')
+        img_jpg.save("{}/{}.jpg".format(path, name), "jpeg")

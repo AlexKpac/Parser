@@ -1,6 +1,8 @@
 import time
 import telebot
 import threading
+import os
+import header as h
 
 TOKEN = '1511696373:AAFr9Ys56bgn2EKPEGBG9_H0OhsVHZyCgiE'
 CHAT_ID = -1001336090621
@@ -12,15 +14,20 @@ TEXT_APPROVED = "Название модели <b>'{}'</b> <i><b>утвержд�
 TEXT_ENTER_TRUE_NAME = "Введите правильное название для модели: '{}'"
 TEXT_CHANGED = "Название модели <b>'{}'</b> <i><b>изменено</b></i> на <b>'{}'</b>"
 
-PATH_UNDEFINED_MODEL_NAME_LIST = 'data/undefined_model_name.dat'
-PATH_LIST_MODEL_NAMES_BASE = 'data/list_model_names_base.dat'
-PATH_EXCEPT_MODEL_NAMES = 'dictionaries/except_model_names.dic'
-PATH_EXCEPT_MODEL_NAMES_TELEGRAM = 'dictionaries/except_model_names_telegram.dic'
+PATH = 'C:/Py_Projects/ParserOnlineShop/'
+PATH_UNDEFINED_MODEL_NAME_LIST = PATH + 'data/undefined_model_name.dat'
+PATH_LIST_MODEL_NAMES_BASE = PATH + 'data/list_model_names_base.dat'
+PATH_EXCEPT_MODEL_NAMES = PATH + 'dictionaries/except_model_names.dic'
+PATH_EXCEPT_MODEL_NAMES_TELEGRAM = PATH + 'dictionaries/except_model_names_telegram.dic'
+PATH_MODEL_NAME_MSG_IN_TELEGRAM = 'msg_in_telegram.dat'
+
+LINE_BEFORE_INSERT = '[Iphone] -> [iPhone]'
+BRAND_NAME_LIST = ['iphone', 'realme', 'vivo', 'oppo', 'zte']
 
 is_running = False
 is_waiting_approve = False
 
-bot = telebot.TeleBot(TOKEN, threaded=True)
+bot = telebot.TeleBot(TOKEN)
 
 
 # Клавиатура для первоначального выбора ДА или НЕТ
@@ -43,20 +50,45 @@ def get_keyboard_approve_back(model_name, who):
 
 # Сохранить утвержденное название (в список разрешенных)
 def save_approved_model_name(model_name):
-    with open(PATH_LIST_MODEL_NAMES_BASE, 'a') as f:
+    with open(PATH_LIST_MODEL_NAMES_BASE, 'a', encoding='UTF-8') as f:
         f.write(model_name.lower() + '\n')
 
 
 # Сохранить измененное название (в словарь)
 def save_changed_model_name(prev_model_name, new_model_name):
-    with open(PATH_EXCEPT_MODEL_NAMES, 'a') as f:
+    with open(PATH_EXCEPT_MODEL_NAMES, 'a', encoding='UTF-8') as f:
         f.write('[{}] -> [{}]\n'.format(prev_model_name.lower(), new_model_name.lower()))
 
 
 # Сохранить в словарь телеграма
 def save_true_letter_case_from_telegram(prev_model_name, new_model_name):
-    with open(PATH_EXCEPT_MODEL_NAMES_TELEGRAM, 'a') as f:
-        f.write('[{}] -> [{}]\n'.format(prev_model_name.lower().title(), new_model_name))
+
+    for item in BRAND_NAME_LIST:
+        # Если в названии предыдущей модели есть слово из списка брендов
+        if item in prev_model_name.lower():
+
+            indx = prev_model_name.lower().index(item) + len(item)
+            if prev_model_name[indx:] == new_model_name[indx:]:
+                print('Названия отличаются только по бренду, выход: "{}"="{}"'.format(prev_model_name, new_model_name))
+                return
+
+            print('Названия отличаются не только по бренду - добавляем в файл')
+            break
+
+    # Чтение всего файла одной строкой
+    with open(PATH_EXCEPT_MODEL_NAMES_TELEGRAM, 'r', encoding='UTF-8') as f:
+        data_in_file = f.read()
+
+    # Проверка на дубликат
+    new_line = '[{}] -> [{}]\n'.format(prev_model_name.lower().title(), new_model_name)
+    if new_line in data_in_file:
+        print('Такая запись уже есть, выход')
+        return
+
+    # Запись новой строчки в файл
+    indx = data_in_file.index(LINE_BEFORE_INSERT)
+    with open(PATH_EXCEPT_MODEL_NAMES_TELEGRAM, 'w', encoding='UTF-8') as f:
+        f.write(data_in_file[:indx] + new_line + data_in_file[indx:])
 
 
 @bot.message_handler(content_types=['text'])
@@ -70,7 +102,7 @@ def text_messages(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('Yes'))
 def yes_callback(query):
     global is_running, is_waiting_approve
-    bot.answer_callback_query(query.id)
+    bot.answer_callback_query(callback_query_id=query.id, text='Незаконченное действие' if is_running else None)
 
     if not is_running:
         is_running = True
@@ -112,7 +144,7 @@ def approve_no_callback(query):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('Back'))
 def back_callback(query):
-    global is_running
+    global is_running, is_waiting_approve
     bot.answer_callback_query(query.id)
 
     model_name = query.data[4:]
@@ -120,15 +152,17 @@ def back_callback(query):
                           parse_mode='html', reply_markup=get_keyboard_yes_no(model_name))
 
     is_running = False
+    is_waiting_approve = False
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('No'))
 def no_callback(query):
-    global is_running
-    bot.answer_callback_query(query.id)
+    global is_running, is_waiting_approve
+    bot.answer_callback_query(callback_query_id=query.id, text='Незаконченное действие' if is_running else None)
 
     if not is_running:
         is_running = True
+        is_waiting_approve = True
 
         model_name = query.data[2:]
         bot.edit_message_text(chat_id=query.message.chat.id, message_id=query.message.id,
@@ -137,19 +171,6 @@ def no_callback(query):
     else:
         print('Yes_call: is_running is True, skip')
 
-    # global is_running
-    # bot.answer_callback_query(query.id)
-    #
-    # if not is_running:
-    #     is_running = True
-    #     model_name = query.data[2:]
-    #
-    #     bot.delete_message(query.message.chat.id, query.message.id)
-    #     msg = bot.send_message(query.message.chat.id, TEXT_ENTER_TRUE_NAME.format(model_name))
-    #     bot.register_next_step_handler(msg, no_answer_get_true_name, (msg.id, model_name))
-    # else:
-    #     print('Yes_call: is_running is True, skip')
-
 
 # Второй шаг изменения названия
 def no_answer_get_true_name(message, args):
@@ -157,6 +178,8 @@ def no_answer_get_true_name(message, args):
     id_msg_post = args[0]
     prev_model_name = args[1]
     new_model_name = message.text
+    # Фильтрация названия
+    new_model_name = new_model_name.replace("'", '').replace('"', '').replace('  ', ' ').strip()
     text = TEXT_CHANGED.format(prev_model_name, new_model_name)
 
     # Если слова равны без учета регистра
@@ -186,6 +209,9 @@ def offer_model_for_user(chat_id, model_name):
         bot.send_message(chat_id, TEXT_MODEL_NAME.format(model_name), parse_mode='html',
                          reply_markup=get_keyboard_yes_no(model_name))
 
+        with open(PATH_MODEL_NAME_MSG_IN_TELEGRAM, 'a', encoding='UTF-8') as f:
+            f.write(model_name.lower() + '\n')
+
     except telebot.apihelper.ApiTelegramException as e:
         print('offer_model_for_user except: {}'.format(e))
         if e.result_json.get('parameters', None):
@@ -193,26 +219,59 @@ def offer_model_for_user(chat_id, model_name):
             time.sleep(time_sleep_sec)
 
 
+# Удалить дубликаты в файле, если имеются
+def check_model_name_in_msg(models_list):
+    with open(PATH_MODEL_NAME_MSG_IN_TELEGRAM, 'r', encoding='UTF-8') as f:
+        model_name_list_in_telegram = f.read().splitlines()
+
+    result = []
+    for item in models_list:
+        if not model_name_list_in_telegram.count(item.lower()):
+            result.append(item)
+
+    return result
+
+
 def check_new_data_in_file():
     while True:
-        # Считывание новых значений с файла
-        with open(PATH_UNDEFINED_MODEL_NAME_LIST, 'r') as f:
-            pr_result_list = f.read().splitlines()
 
-        if pr_result_list:
-            pr_result_list = [item.lower().title() for item in pr_result_list]
+        # Если есть лок-файл, ждем и повторяем проверку
+        if os.path.isfile(h.PATH_UNDEFINED_MODEL_NAME_LIST_LOCK):
+            time.sleep(3)
+            continue
+
+        print("НОВЫЙ ЦИКЛ")
+
+        # Считывание новых значений с файла
+        with open(PATH_UNDEFINED_MODEL_NAME_LIST, 'r', encoding='UTF-8') as f:
+            models_list = f.read().splitlines()
+
+        if models_list:
+            models_list = [item.lower().title() for item in models_list]
+            models_list = list(set(models_list))
+            models_list = check_model_name_in_msg(models_list)
 
             # Очистка файла
-            # with open(PATH_UNDEFINED_MODEL_NAME_LIST, 'w') as f:
-            #     pass
+            with open(PATH_UNDEFINED_MODEL_NAME_LIST, 'w') as f:
+                pass
 
-            for item in pr_result_list:
+            for item in models_list:
                 offer_model_for_user(CHAT_ID, item)
 
-        time.sleep(130)
+        time.sleep(300)
+
 
 
 if __name__ == '__main__':
+    print("Start")
+    # time_start = time.time()
+    # save_true_letter_case_from_telegram('Iphone Xr восст.', 'iPhone Xr восст')
+    # print(f"Время выполнения: {time.time() - time_start} сек")
+    # stre = 'Oppo A1K'
+    # item = 'oppo'
+    # indx = stre.lower().index(item) + len(item)
+    # prev = stre[indx:]
+    # print(prev)
     check_data_thread = threading.Thread(target=check_new_data_in_file)
     check_data_thread.start()
     bot.polling(none_stop=True, interval=0)

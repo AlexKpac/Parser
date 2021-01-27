@@ -55,7 +55,7 @@ def mts_parse_model_name(name):
     name = name.replace(u'\xc2\xa0', u' ')
     name = name.replace(u'\xa0', u' ')
     # Проверка названия в словаре исключений названий моделей
-    name = h.find_and_replace_except_model_name(name)
+    # name = h.find_and_replace_except_model_name(name)
     # Понижение регистра
     name = str.lower(name)
     name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', ' ').\
@@ -89,11 +89,22 @@ def mts_parse_model_name(name):
         else name.split()[-3:-1]
     # Если первое слово цвета состоит только из букв и длиннее 2 символов - добавить к итоговому цвету
     color = color1 + " " + color2 if (color1.isalpha() and len(color1) > 2) else color2
+    # Удалить лишние слова в названии модели
+    name = name.replace(ram_rom, '').replace(color, '').replace(year, ''). \
+        replace(samsung_code, '').replace('  ', ' ').strip()
+
+    # Проверка названия в словаре исключений названий моделей
+    name = h.find_and_replace_except_model_name(name)
+
+    # Проверка названия модели в словаре разрешенных моделей
+    if not h.find_allowed_model_names(name):
+        logger.info("Обнаружена новая модель, отсутствующая в базе = '{}'".format(name))
+        h.save_undefined_model_name(name)
+        return None, None, None, 0, 0
+
     # Получить название бренда
     brand_name = name.split()[0]
-    # Удалить лишние слова в названии модели
-    model_name = name.replace(ram_rom, '').replace(color, '').replace(brand_name, '').replace(year, ''). \
-        replace(samsung_code, '').replace('  ', ' ').strip()
+    model_name = name.replace(brand_name, '').strip()
 
     return brand_name, model_name, color, ram, rom
 
@@ -317,7 +328,10 @@ class MTSParse:
 
     # Получить текущий код страницы
     def __wd_get_cur_page(self):
-        return self.driver.page_source
+        try:
+            return self.driver.page_source
+        except se.TimeoutException:
+            return None
 
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
@@ -388,12 +402,16 @@ class MTSParse:
     def __parse_catalog_block(self, block):
 
         # Название модели
-        model_name = block.select_one('div.card-product-description__name')
+        # model_name = block.select_one('div.card-product-description__name')
+        model_name = block.select_one('a.card-product-description__heading')
         if not model_name:
             logger.warning("No model name and URL")
             return
         else:
-            model_name = model_name.text.replace('\n', '').strip()
+            print(model_name.get('aria-label'))
+            model_name = model_name.get('aria-label').replace('\n', '').strip()
+
+        print(model_name)
 
         # URL
         url = block.select_one('a.card-product-description__heading')
@@ -459,13 +477,6 @@ class MTSParse:
 
         if 'apple' in brand_name.lower():
             ram = 0
-
-        # Проверка названия модели в словаре разрешенных моделей
-        full_model_name = '{} {}'.format(brand_name, model_name)
-        if not h.find_allowed_model_names(full_model_name):
-            logger.info("Обнаружена новая модель, отсутствующая в базе = '{} {}'".format(brand_name, model_name))
-            h.save_undefined_model_name(full_model_name)
-            return
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(
@@ -585,14 +596,6 @@ models2 = (
 )
 
 
-def save_result_list(elements):
-    with open('cache/mts1.csv', 'w', newline='') as f:
-        writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(h.HEADERS)
-        for item in elements:
-            writer.writerow(item)
-
-
 if __name__ == '__main__':
     time_start = time.time()
 
@@ -661,12 +664,12 @@ if __name__ == '__main__':
     import main
     main.load_exceptions_model_names()
 
-    print(mts_parse_model_name('Смартфон Apple iPhone 12 Pro Max 128Gb «Тихоокеанский синий»'))
+    # print(mts_parse_model_name('Смартфон Samsung G975 Galaxy S10 Plus 8/128Gb Аквамарин'))
 
     # parser = MTSParse()
     # result_list = parser.run_catalog(
-    #     "https://shop.mts.ru/catalog/smartfony/")
-    #     #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
+    #      "https://shop.mts.ru/catalog/smartfony/")
+    # #     #"https://shop.mts.ru/catalog/smartfony/?id=62427_233815")
     #
     # save_result_list(result_list)
 
