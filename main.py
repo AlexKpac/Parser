@@ -8,6 +8,7 @@ import socket
 from dns_parse import DNSParse
 from mvideo_parse import MVideoParse
 from mts_parse import MTSParse
+from citilink_parse import CitilinkParse
 from checker import Checker
 from bot import Bot
 import header as h
@@ -138,6 +139,13 @@ if __name__ == '__main__':
     # parser = DNSParse()
     # result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
     # # result = load_result_from_csv("dns.csv")
+    # if not result:
+    #     raise SystemExit(5)
+    # result_list.extend(result)
+    #
+    # parser = CitilinkParse()
+    # result = parser.run_catalog("https://www.citilink.ru/catalog/mobile/smartfony/")
+    # # result = load_result_from_csv("citilink.csv")
     # if not result:
     #     raise SystemExit(5)
     # result_list.extend(result)
