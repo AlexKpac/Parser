@@ -29,7 +29,7 @@ def mvideo_parse_model_name(name):
     name = name.replace(u'\xa0', u' ')
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
     rebuilt = h.REBUILT_IPHONE_NAME if (MVIDEO_REBUILT_IPHONE in name.lower()) else ''
-    name = name.replace(rebuilt, '')
+    name = name.replace(MVIDEO_REBUILT_IPHONE, '')
     # Оборачивание скобками названия модели, если их не было
     last_word = name.split()[-1]
     if last_word.isupper() and \
@@ -316,7 +316,7 @@ class MVideoParse:
 
         time.sleep(1)
 
-        # Ждем, пока не прогрузится страница
+        # Скролл
         if not self.__wd_mvideo_scroll_down():
             logger.error("Не удалось прогрузить страницу после скролла в __wd_open_browser (3)")
             return False

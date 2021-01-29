@@ -1,8 +1,9 @@
 import re
 import csv
 import configparser
-from time import time
+from time import time, sleep
 import os
+import socket
 
 from dns_parse import DNSParse
 from mvideo_parse import MVideoParse
@@ -13,6 +14,22 @@ import header as h
 
 
 logger = h.logging.getLogger('main')
+
+
+# Проверка наличия подключения к сети
+def check_internet():
+    for timeout in [1, 5, 10, 15]:
+        try:
+            socket.setdefaulttimeout(timeout)
+            host = socket.gethostbyname("www.google.com")
+            s = socket.create_connection((host, 80), 2)
+            s.close()
+            return True
+
+        except Exception:
+            print("Нет интернета")
+            sleep(5)
+    return False
 
 
 # Чтение словаря исключений названий моделей
@@ -90,6 +107,11 @@ def create_lock_file():
 
 
 if __name__ == '__main__':
+
+    # Проверка наличия интернета перед выполнением программы
+    if not check_internet():
+        raise SystemExit(2)
+
     time_start = time()
     h.del_old_logs()
     # result_list = []

@@ -117,7 +117,6 @@ def get_data():
 
 # Поиск в строке названия фраз из списка исключения и их замена
 def find_and_replace_except_model_name(model_name):
-
     if not EXCEPT_MODEL_NAMES_TELEGRAM_DICT:
         return model_name
 
@@ -444,11 +443,13 @@ class Bot:
             STATS_PRODS_DICT[full_name] = 1
 
         # Обновление словаря статистики магазинов
-        shop_name = h.SHOPS_NAME_LIST[item.shop - 1][0]
-        if shop_name in STATS_SHOPS_DICT:
-            STATS_SHOPS_DICT[shop_name] += 1
-        else:
-            STATS_SHOPS_DICT[shop_name] = 1
+        shops_set = list(set(item.shop for item in version_list))
+        for shop_item in shops_set:
+            shop_name = h.SHOPS_NAME_LIST[shop_item - 1][0]
+            if shop_name in STATS_SHOPS_DICT:
+                STATS_SHOPS_DICT[shop_name] += 1
+            else:
+                STATS_SHOPS_DICT[shop_name] = 1
 
         # Генерация поста
         text = self.__format_text(version_list, True)
@@ -697,7 +698,6 @@ class Bot:
 from pyrogram import Client, filters, idle
 from pyrogram.handlers import MessageHandler
 
-
 # app = Client("my_account")
 # if res[0].outgoing == False:
 #     print("Сообщение от бота")
@@ -852,13 +852,11 @@ from pyrogram.handlers import MessageHandler
 # #
 
 
-
-# url = 'https://img.mvideo.ru/Pdb/30051369b.jpg'
+# url = 'https://img.mvideo.ru/Pdb/30050131b.jpg'
 # img = PostImage(url)
-# img.change_bytes_img().draw_stamp().darken()
+# img.change_bytes_img().draw_stamp()
 # # img.lighten()
-# img.save_as_jpg('cache/', 'olo')
-
+# img.save_as_jpg('cache/', 'olo1')
 
 
 #
@@ -881,3 +879,6 @@ from pyrogram.handlers import MessageHandler
 # steganography_encrypt("Prodavach: https://t.me/prodavach_nsk")
 # print("you message: '{}'".format(steganography_decrypt(37)))
 # print(f"Время выполнения: {time() - time_start} сек")
+
+
+

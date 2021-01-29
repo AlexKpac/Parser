@@ -13,6 +13,7 @@ TEXT_IT_NEED_TO_CHANGE = "<b>ИЗМЕНИТЬ</b> название модели 
 TEXT_APPROVED = "Название модели <b>'{}'</b> <i><b>утверждено</b></i>"
 TEXT_ENTER_TRUE_NAME = "Введите правильное название для модели: '{}'"
 TEXT_CHANGED = "Название модели <b>'{}'</b> <i><b>изменено</b></i> на <b>'{}'</b>"
+TEXT_ADD_MANUALLY = "<i><b>Вручную</b></i> в словарь базы добавлена запись: <b>'{}'</b> -> <b>'{}'</b>"
 
 PATH = 'C:/Py_Projects/ParserOnlineShop/'
 PATH_UNDEFINED_MODEL_NAME_LIST = PATH + 'data/undefined_model_name.dat'
@@ -89,6 +90,27 @@ def save_true_letter_case_from_telegram(prev_model_name, new_model_name):
     indx = data_in_file.index(LINE_BEFORE_INSERT)
     with open(PATH_EXCEPT_MODEL_NAMES_TELEGRAM, 'w', encoding='UTF-8') as f:
         f.write(data_in_file[:indx] + new_line + data_in_file[indx:])
+
+
+@bot.message_handler(commands=['add'])
+def command_man(message):
+    bot.delete_message(message.chat.id, message.id)
+    msg = message.text.replace('/add', '').strip()
+
+    if not msg or not ('->' in msg):
+        print("Некорректная команда add")
+        return
+
+    left = msg[:msg.index('->')].strip()
+    right = msg[msg.index('->') + 2:].strip()
+
+    if not left or not right:
+        print("Некорректный ввод для команды add")
+        return
+
+    print("В словарь БД добавлена новая запись: '{}' -> '{}'".format(left, right))
+    save_changed_model_name(left, right)
+    bot.send_message(message.chat.id, TEXT_ADD_MANUALLY.format(left, right))
 
 
 @bot.message_handler(content_types=['text'])

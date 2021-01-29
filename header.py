@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 
 
 log_name = "logs/log-" + datetime.now().strftime("%Y.%m.%d-%H.%M") + ".txt"
-logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
-                    level=logging.INFO)
-# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
+#                     level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('header')
 
 
