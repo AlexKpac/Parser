@@ -18,45 +18,59 @@ import bot
 import header as h
 import checker
 
-logger = h.logging.getLogger('citilinkparse')
-CITILINK_REBUILT_IPHONE = '"как новый"'
+logger = h.logging.getLogger('eldoradoparse')
+ELDORADO_REBUILT_IPHONE = 'как новый'
 
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
-def citilink_parse_model_name(name):
+def eldorado_parse_model_name(name):
     # Защита от неправильных названий
-    if len(name.split()) < 3 or not name.count(','):
+    if len(name.split()) < 5:
         return None, None, None
     # Убираем неразрывные пробелы
     name = name.replace(u'\xc2\xa0', u' ')
     name = name.replace(u'\xa0', u' ')
+    # Восстановленные телефоны (только для iphone). Если есть слово - удалить
+    rebuilt = h.REBUILT_IPHONE_NAME if (ELDORADO_REBUILT_IPHONE in name.lower()) else ''
+    name = name.replace(ELDORADO_REBUILT_IPHONE, '')
+    # Оборачивание скобками названия модели, если их не было
+    last_word = name.split()[-1]
+    if last_word.isupper() and \
+            not ('(' in last_word) and \
+            not (')' in last_word):
+        name = name.replace(last_word, '({})'.format(last_word))
     # Понижение регистра
     name = str.lower(name)
-    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', ' ').\
-        replace(' 5g ', ' ').replace('«', '').replace('»', '')
-    # Восстановленные телефоны (только для iphone). Если есть слово - удалить
-    rebuilt = h.REBUILT_IPHONE_NAME if (CITILINK_REBUILT_IPHONE in name) else ''
-    name = name.replace(CITILINK_REBUILT_IPHONE, '')
-    # Цвет
-    color = name[name.rfind(','):].replace(',', '').replace('(product)', '').strip()
-    name = name[:name.find(',')]
+    # Удалить nfc и 5g
+    name = name.replace(' nfc ', ' ').replace(' 5g ', ' ')
     # Удалить все скобки
     brackets = re.findall(r"\(.+?\)", name)
     for item in brackets:
         name = name.replace(item, '')
-    # Получить размер RAM и ROM, если есть
-    ram_rom = re.findall(r'\d*/*\d+ *(?:gb|tb)', name)
-    ram_rom = ram_rom[0] if ram_rom else ''
     # Удалить год, если есть
     year = re.findall(r' 20[1,2]\d ', name)
     year = year[0] if year else ''
-    # Удалить лишние слова в названии модели
-    name = name.replace('смартфон', '').replace(ram_rom, '').replace(color, '').\
-        replace(year, '').replace('  ', ' ').strip()
+    # Получить размер ROM
+    rom = re.findall(r'\d*[gb]*[\+/]*\d+(?:gb|tb)', name)
+    rom = (rom[0]) if rom else ""
+    # Получить ЦВЕТ
+    # Получить 2 слова цвета
+    color1, color2 = name.split()[-2:] if name.split()[-1] != rom \
+        else name.split()[-3:-1]
+    # Если первое слово цвета состоит только из букв и длиннее 2 символов и отсутствует в игнор-листе - добавить
+    # к итоговому цвету
+    color1 = color1 if (
+            color1.isalpha() and len(color1) > 2 and not (color1.strip() in h.IGNORE_WORDS_FOR_COLOR)) else ""
+    color = color1 + " " + color2 if (color1.isalpha() and len(color1) > 2) else color2
+
+    # Удалить первую часть часть
+    name = name.replace('смартфон', '').replace(rom, '').replace(year, '').replace('  ', ' ')
+    # Убрать вторую часть лишних слов из названия
+    name = name.replace(color, '').replace('  ', ' ').strip()
 
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
-    name += rebuilt
+
     # Проверка названия модели в словаре разрешенных моделей
     if not h.find_allowed_model_names(name):
         logger.info("Обнаружена новая модель, отсутствующая в базе = '{}'".format(name))
@@ -67,10 +81,10 @@ def citilink_parse_model_name(name):
     brand_name = name.split()[0]
     model_name = name.replace(brand_name, '').strip()
 
-    return brand_name, model_name, color
+    return brand_name, (model_name + rebuilt), color
 
 
-class CitilinkParse:
+class EldoradoParse:
 
     def __init__(self):
         options = Options()
@@ -78,12 +92,12 @@ class CitilinkParse:
         options.add_argument("--disable-notifications")
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
         self.driver.implicitly_wait(1.5)
-        self.wait = WebDriverWait(self.driver, 30)
+        self.wait = WebDriverWait(self.driver, 10)  # !!!!!!!!!!!!!!!!!!!!!!!! 30
         self.pr_result_list = []
         self.cur_page = 1
         # Данные магазина
-        self.domain = "https://www.citilink.ru"
-        self.shop = "ситилинк"
+        self.domain = "https://www.eldorado.ru"
+        self.shop = "эльдорадо"
         # Конфиг
         self.config = configparser.ConfigParser()
         self.config.read('config.ini', encoding="utf-8")
@@ -144,7 +158,7 @@ class CitilinkParse:
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
-        city = self.__wd_find_elem_with_timeout(By.CLASS_NAME, "MainHeader__city")
+        city = self.__wd_find_elem_with_timeout(By.XPATH, "//span[@class='h8xlw5-3 kLXpZr']")
         if not city:
             logger.error("Не найдено поле с названием города")
             return False
@@ -161,7 +175,7 @@ class CitilinkParse:
             logger.info("Клик по городу")
 
             # Получить список всех городов и если есть нужный, кликнуть по нему
-            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "CitiesSearch__main-cities-list-item")
+            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "N5ndClh")
             if city_list:
                 for item in city_list:
                     if self.current_city.lower() in item.text.lower():
@@ -171,7 +185,7 @@ class CitilinkParse:
             logger.info("Не вижу нужный город в списке, пробую вбить вручную")
 
             # Поиск поля для ввода города
-            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//input[@type='search']")
+            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//input[@name='region-search']")
             if not input_city:
                 logger.error("Не найдено поле, куда вводить новый город")
                 return False
@@ -189,8 +203,8 @@ class CitilinkParse:
             time.sleep(4)
 
             # Выбор города из сгенерированного списка городов
-            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH,
-                                                               "//a[@data-search='{}']".format(self.current_city.lower()))
+            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//span[contains(text(),'{}')]".format(
+                self.current_city))
             if not input_city_item:
                 logger.error("Не найдено элементов при вводе города")
                 return False
@@ -210,8 +224,7 @@ class CitilinkParse:
     def __wd_check_load_page_catalog(self):
 
         # Ожидание прогрузки цен
-        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "ProductCardVerticalPrice__price-current_current-price"
-                                                if self.is_grid else "ProductCardHorizontal__price_current-price"):
+        if not self.__wd_find_elem_with_timeout(By.XPATH, '//span[@data-pc="offer_price"]'):
             return False
 
         logger.info("PAGE LOAD")
@@ -234,27 +247,7 @@ class CitilinkParse:
         return True
 
     def __wd_select_list_view(self):
-        # Если есть этот тег в html коде, значит сейчас стоит табличный вид, переключаем на список
-        if self.__wd_find_elem(By.XPATH,
-                               "//label[@class='ProductCardCategoryList__icon ProductCardCategoryList__icon_grid "
-                               "ProductCardCategoryList__icon-active']"):
-
-            # Переключение с табличного вида на список
-            listing_views = self.__wd_find_elem_with_timeout(By.XPATH,
-                                                             "//span[@class='gray-icon IconFont IconFont_size_m "
-                                                             "IconFont_list']")
-            if not listing_views:
-                logger.error("Не могу найти listing views")
-                return False
-
-            # Клик
-            if not self.__wd_click_elem(listing_views):
-                logger.error("Не могу нажать на кнопку в __select_list_view")
-                return False
-
-            self.is_grid = False
-
-        return True
+        pass
 
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
@@ -276,16 +269,6 @@ class CitilinkParse:
             return False
 
         time.sleep(2)
-
-        # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
-            return False
-
-        # Переключение на отображение товаров в виде списка
-        if not self.__wd_select_list_view():
-            logger.error("Не смог переключить отображение товара в виде списока")
-            return False
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -314,25 +297,19 @@ class CitilinkParse:
 
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
-        time.sleep(2)
         self.cur_page += 1
 
         # Поиск следующей кнопки страницы
         num_page_elem = self.__wd_find_elem(By.XPATH,
-                                            f"//a[@data-page='{self.cur_page}']")
+                                            f"//a[@aria-label='Page {self.cur_page}']")
         if not num_page_elem:
-            # num_last_page_elem = self.__wd_find_elem(By.XPATH, "")
-            # if num_last_page_elem and self.cur_page + 1 ==
             logger.info("Достигнут конец каталога")
             return False
 
-        # num_page_elem.click()
         # Клик - переход на следующую страницу
         if not self.__wd_click_elem(num_page_elem):
             logger.error("Не могу кликнуть на страницу в __wd_next_page")
             return False
-
-        time.sleep(2)
 
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
@@ -345,6 +322,11 @@ class CitilinkParse:
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_next_page (2)")
+            return False
+
+        no_in_stock = self.__wd_find_all_elems_with_timeout(By.XPATH, '//span[text()="Нет в наличии"]')
+        if no_in_stock and len(no_in_stock) == 36:
+            logger.info("Вся страница неактуальна, выход")
             return False
 
         return True
@@ -363,7 +345,7 @@ class CitilinkParse:
         soup = bs4.BeautifulSoup(html, 'lxml')
 
         # Категория (из хлебных крошек)
-        self.category = soup.select_one('h1.Heading.Heading_level_1.Subcategory__title')
+        self.category = soup.select_one('h1[data-pc="cat_name"]')
         if not self.category:
             logger.error("No category")
             self.category = "error"
@@ -371,8 +353,7 @@ class CitilinkParse:
             self.category = self.category.text.replace('\n', '').strip().lower()
 
         # Контейнер с элементами
-        container = soup.select('div.product_data__gtm-js.product_data__pageevents-js.'
-                                'ProductCardHorizontal.js--ProductCardInListing.js--ProductCardInWishlist')
+        container = soup.select('li[data-dy="product"]')
         for block in container:
             self.__parse_catalog_block(block)
         del container
@@ -380,19 +361,19 @@ class CitilinkParse:
     # Метод для парсинга html страницы товара
     def __parse_catalog_block(self, block):
 
+        # Проверка на "Нет в наличии"
+        if [item.text for item in block.select('span') if item.text == "Нет в наличии"]:
+            logger.info("Товара нет в наличии, пропуск")
+            return
+
         # Название модели
-        full_name = block.select_one('a.ProductCardHorizontal__title.Link.js--Link.Link_type_default')
+        full_name = block.select_one('a[data-dy="title"]')
         if not full_name:
             logger.warning("No model name and URL")
             return
         else:
             url = full_name.get('href')
             full_name = full_name.text.replace('\n', '').replace('  ', ' ').strip()
-
-        # Исключение
-        if 'clevercel' in full_name.lower():
-            logger.info('CLEVERCEL - Skip')
-            return
 
         # URL
         if not url:
@@ -402,32 +383,30 @@ class CitilinkParse:
             url = self.domain + url
 
         # Ссылка на изображение товара
-        img_url = block.select_one('div.ProductCardHorizontal__picture-hover_part.'
-                                   'js--ProductCardInListing__picture-hover_part')
+        img_url = block.select_one('a[href="{}"] > img'.format(url.replace(self.domain, '')))
         if not img_url:
             logger.warning("No img url")
             return
         else:
-            img_url = img_url.get('data-src')
+            img_url = img_url.get('src')
+            if '/resize/' in img_url:
+                img_url = img_url[:img_url.index('/resize/')]
 
         # Рейтинг товара и на основании скольки отзывов построен
-        rating = 0
-        num_rating = 0
-
-        rating_and_num_rating = block.select('div.Tooltip__content.js--Tooltip__content.ProductCardHorizontal__tooltip__content.Tooltip__content_center')
-        if rating_and_num_rating:
-            for item in rating_and_num_rating:
-                if 'рейтинг' in item.text.lower():
-                    rating = float(re.findall(r'\d+.\d+', item.text)[0].replace(',', '.'))
-                if 'отзыв' in item.text.lower():
-                    num_rating = int(re.findall(r'\d+', item.text)[0])
+        rating = len(block.select('span.tevqf5-2.fBryir'))
+        num_rating = block.select_one('a[data-dy="review"]')
+        if not num_rating:
+            logger.info("No num rating")
+            num_rating = 0
+        else:
+            num_rating = int(re.findall(r'\d+', num_rating.text)[0])
 
         # Код продукта
         product_code = "None"
 
         ram = 0
         rom = 0
-        characteristics = block.select('li.ProductCardHorizontal__properties_item')
+        characteristics = block.select('li.aKmrwMA')
         if not characteristics:
             logger.error("Нет характеристик")
             return
@@ -439,13 +418,14 @@ class CitilinkParse:
                     rom = int(re.findall(r'\d+', item.text)[0])
 
         # Цена
-        cur_price = block.select_one('span.ProductCardHorizontal__price_current-price')
+        cur_price = block.select_one('span[data-pc="offer_price"]')
         if not cur_price:
             logger.warning("No price")
             return
         else:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
+        print(full_name)
         # print("Category = {}".format(self.category))
         # print("Name = {}".format(full_name))
         # print('RAM = {}'.format(ram))
@@ -457,7 +437,7 @@ class CitilinkParse:
         # print("Price = {}".format(cur_price))
         # print("-" * 50)
 
-        brand_name, model_name, color = citilink_parse_model_name(full_name)
+        brand_name, model_name, color = eldorado_parse_model_name(full_name)
         if not brand_name or not model_name or not color:
             logger.warning("No brand name, model name or color")
             return
@@ -484,7 +464,7 @@ class CitilinkParse:
 
     # Сохранение всего результата в csv файл
     def __save_result(self):
-        with open(h.CSV_PATH_RAW + "citilink.csv", 'w', newline='') as f:
+        with open(h.CSV_PATH_RAW + "eldorado.csv", 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
             for item in self.pr_result_list:
@@ -515,19 +495,27 @@ class CitilinkParse:
         pass
 
 
-models = ['Смартфон APPLE iPhone 12 mini 64Gb, MGE03RU/A, (PRODUCT)RED',
-          'Смартфон VERTEX Impress Lion 3G Dual Cam 8Gb, синий',
-          'Смартфон APPLE iPhone SE 2020 128Gb, MHGU3RU/A, белый',
-          'Смартфон ZTE Blade V2020 Smart 64Gb, темно-синий',
-          'Смартфон BLACKVIEW 32Gb, BV4900, черный/желтый',
-          'Смартфон CLEVERCEL APPLE iPhone 6s 16Gb (подержанный c гарантией), розовое золото',
-          'Смартфон SAMSUNG Galaxy Note 20 Ultra 256Gb, SM-N985F, черный',
-          'Смартфон HONOR 30 Premium 256Gb, черный',
-          'Смартфон CLEVERCEL APPLE iPhone XR 64Gb (подержанный c гарантией), черный',
-          'Смартфон CLEVERCEL APPLE iPhone X 64Gb (подержанный c гарантией), серый космос',
-          'Смартфон HUAWEI Y8P 4/128Gb, черный',
-          'Смартфон SAMSUNG Galaxy S20+ 8/128Gb, SM-G985F, черный',
-          'Смартфон HUAWEI Y7 (2019) 64Gb, пурпурный', ]
+models = ['Смартфон Realme X3 Super Zoom 8+128GB Arctic White (RMX2086)',
+          'Смартфон Samsung Galaxy Note10 Lite Red (SM-N770F/DSM)',
+          'Смартфон ZTE Blade A7 2020 (2+32GB) Black',
+          'Смартфон OPPO A12 Blue (CPH2083)',
+          'Смартфон vivo Y17 Синий аквамарин (1902)',
+          'Смартфон Xiaomi Redmi 7A 16GB Blue',
+          'Смартфон Huawei Nova 5T Midsummer Purple (YAL-L21)',
+          'Смартфон Honor 10X Lite 4+128GB Emerald Green (DNN-LX9)',
+          'Смартфон ZTE Blade A5 2020 Blue',
+          'Смартфон Samsung Galaxy S20+ Gray (SM-G985F/DS)',
+          'Смартфон vivo X50 Небесно-голубой (2004)',
+          'Смартфон vivo Y20 Черный агат (V2027)',
+          'Смартфон Apple iPhone 12 64GB (PRODUCT)RED (MGJ73RU/A)',
+          'Смартфон DOOGEE Y9 Plus Sky Black',
+          'Смартфон Samsung Galaxy A70 (2019) 128GB White (SM-A705FN/DSM)',
+          'Смартфон Huawei Y6 2019 Brown',
+          'Смартфон OPPO A72 4+128GB Aurora Purple (CPH2067)',
+          'Смартфон Huawei P40 Lite 6/128GB Midnight Black (JNY-LX1)',
+          'Смартфон Samsung Galaxy S21 Ultra 256GB Phantom Silver (SM-G998B)',
+          'Смартфон Apple iPhone XS Max 256GB как новый Space Grey (FT532RU/A)',
+          'Смартфон Honor 9C Aurora Blue AKA-L29', ]
 
 
 # Чтение данных
@@ -563,6 +551,11 @@ if __name__ == '__main__':
     load_exceptions_model_names()
     read_config()
 
-    parser = CitilinkParse()
-    parser.run_catalog('https://www.citilink.ru/catalog/mobile/smartfony/')
+    # for item in models:
+    #     print(item)
+    #     print(eldorado_parse_model_name(item))
+    #     print('-' * 50)
+
+    parser = EldoradoParse()
+    parser.run_catalog('https://www.eldorado.ru/c/smartfony/')
     logger.info(f"Время выполнения: {time.time() - time_start} сек")
