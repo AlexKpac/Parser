@@ -10,13 +10,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 import selenium.webdriver.support.expected_conditions as ec
-
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
-import bot
 import header as h
-import checker
+import main
 
 logger = h.logging.getLogger('eldoradoparse')
 ELDORADO_REBUILT_IPHONE = 'как новый'
@@ -40,7 +37,7 @@ def eldorado_parse_model_name(name):
             not (')' in last_word):
         name = name.replace(last_word, '({})'.format(last_word))
     # Понижение регистра
-    name = str.lower(name)
+    name = name.lower()
     # Удалить nfc и 5g
     name = name.replace(' nfc ', ' ').replace(' 5g ', ' ')
     # Удалить все скобки
@@ -62,11 +59,11 @@ def eldorado_parse_model_name(name):
     color1 = color1 if (
             color1.isalpha() and len(color1) > 2 and not (color1.strip() in h.IGNORE_WORDS_FOR_COLOR)) else ""
     color = color1 + " " + color2 if (color1.isalpha() and len(color1) > 2) else color2
-
     # Удалить первую часть часть
     name = name.replace('смартфон', '').replace(rom, '').replace(year, '').replace('  ', ' ')
     # Убрать вторую часть лишних слов из названия
     name = name.replace(color, '').replace('  ', ' ').strip()
+    name += rebuilt
 
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
@@ -81,7 +78,7 @@ def eldorado_parse_model_name(name):
     brand_name = name.split()[0]
     model_name = name.replace(brand_name, '').strip()
 
-    return brand_name, (model_name + rebuilt), color
+    return brand_name, model_name, color
 
 
 class EldoradoParse:
@@ -92,9 +89,9 @@ class EldoradoParse:
         options.add_argument("--disable-notifications")
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
         self.driver.implicitly_wait(1.5)
-        self.wait = WebDriverWait(self.driver, 10)  # !!!!!!!!!!!!!!!!!!!!!!!! 30
+        self.wait = WebDriverWait(self.driver, 20)
         self.pr_result_list = []
-        self.cur_page = 1
+        self.cur_page = 2
         # Данные магазина
         self.domain = "https://www.eldorado.ru"
         self.shop = "эльдорадо"
@@ -129,32 +126,40 @@ class EldoradoParse:
         except se.TimeoutException:
             return None
 
-    # Отправка клавиши в элемент через ActionChains
-    def __wd_send_keys(self, elem, keys):
-        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
-        return True
-        #     if not elem:
-        #         return False
-        #
-        #     # TODO: доделать обертку try-except
-        #     ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
-        #     return True
+    # Поиск всех элементов без таймаута
+    def __wd_find_all_elems(self, by, xpath):
+        try:
+            result = self.driver.find_elements(by, xpath)
+            return result
+        except se.NoSuchElementException:
+            return None
 
-    # Обертка для клика по элементу через ActionChains
-    def __wd_click_elem(self, elem):
+    # Отправка клавиши в элемент через ActionChains
+    def __wd_ac_send_keys(self, elem, keys):
         if not elem:
             return False
 
-        # try:
-        #     elem.click()
-        #     return True
-        # except se.ElementClickInterceptedException:
-        #     print("Элемент некликабельный")
-        #     return False
+        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        return True
 
-        # # TODO: доделать обертку try-except
+    # Обертка для клика по элементу через ActionChains
+    def __wd_ac_click_elem(self, elem):
+        if not elem:
+            return False
+
         ActionChains(self.driver).move_to_element(elem).click().perform()
         return True
+
+    # Обертка для клика по элементу через ActionChains
+    def __wd_click_el11em(self, elem):
+        if not elem:
+            return False
+        try:
+            elem.click()
+            return True
+        except se.ElementClickInterceptedException:
+            print("Элемент некликабельный")
+            return False
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
@@ -168,7 +173,7 @@ class EldoradoParse:
             logger.info("Неверный город")
 
             # Клик по городу
-            if not self.__wd_click_elem(city):
+            if not self.__wd_ac_click_elem(city):
                 logger.error("Не могу нажать на кнопку выбора города")
                 return False
 
@@ -180,9 +185,9 @@ class EldoradoParse:
                 for item in city_list:
                     if self.current_city.lower() in item.text.lower():
                         time.sleep(1.5)
-                        return self.__wd_click_elem(item)
-
-            logger.info("Не вижу нужный город в списке, пробую вбить вручную")
+                        return self.__wd_ac_click_elem(item)
+            else:
+                logger.info("Не вижу нужный город в списке, пробую вбить вручную")
 
             # Поиск поля для ввода города
             input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//input[@name='region-search']")
@@ -196,11 +201,10 @@ class EldoradoParse:
 
             # Ввод названия города по буквам
             for char in self.current_city:
-                self.__wd_send_keys(input_city, char)
+                self.__wd_ac_send_keys(input_city, char)
                 time.sleep(0.2)
 
-            # Если не поставить задержку, окно закрывает, а город не применяет
-            time.sleep(4)
+            time.sleep(2)
 
             # Выбор города из сгенерированного списка городов
             input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//span[contains(text(),'{}')]".format(
@@ -210,7 +214,7 @@ class EldoradoParse:
                 return False
 
             # Клик по нему
-            if not self.__wd_click_elem(input_city_item):
+            if not self.__wd_ac_click_elem(input_city_item):
                 logger.error("Не могу нажать на выбранный город")
                 return False
 
@@ -222,12 +226,11 @@ class EldoradoParse:
 
     # Проверка по ключевым div-ам что страница каталога прогружена полностью
     def __wd_check_load_page_catalog(self):
-
         # Ожидание прогрузки цен
         if not self.__wd_find_elem_with_timeout(By.XPATH, '//span[@data-pc="offer_price"]'):
             return False
 
-        logger.info("PAGE LOAD")
+        logger.info("Page loaded")
         return True
 
     # Проверка по ключевым div-ам что страница продукта прогружена полностью
@@ -236,16 +239,9 @@ class EldoradoParse:
 
     # Скролл вниз для прогрузки товаров на странице
     def __wd_scroll_down(self):
-        for i in range(20):
-            ActionChains(self.driver).send_keys(Keys.PAGE_DOWN).perform()
-            time.sleep(0.3)
+        pass
 
-        if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page (1)")
-            return False
-
-        return True
-
+    # Переключение на отображение товаров в виде списка
     def __wd_select_list_view(self):
         pass
 
@@ -275,13 +271,6 @@ class EldoradoParse:
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
             return False
 
-        # Скролл страницы
-        # if not self.__wd_scroll_down():
-        #     logger.error("Не удалось прогрузить страницу после скролла в __wd_open_browser (3)")
-        #     return False
-
-        time.sleep(2)
-
         return True
 
     # Запуск браузера, загрузка начальной страницы продукта, выбор города
@@ -295,41 +284,46 @@ class EldoradoParse:
         except se.TimeoutException:
             return None
 
-    # Переход на заданную страницу num_page через клик (для имитации пользователя)
+    # Переход на заданную страницу num_page через клик
     def __wd_next_page(self):
-        self.cur_page += 1
+        for num_try in range(3):
 
-        # Поиск следующей кнопки страницы
-        num_page_elem = self.__wd_find_elem(By.XPATH,
-                                            f"//a[@aria-label='Page {self.cur_page}']")
-        if not num_page_elem:
-            logger.info("Достигнут конец каталога")
+            if num_try and not self.__wd_check_load_page_catalog():
+                logger.error("Не удалось прогрузить страницу в __wd_next_page (1)")
+                self.driver.refresh()
+                continue
+
+            # Поиск следующей кнопки страницы
+            num_page_elem = self.__wd_find_elem(By.XPATH, "//a[@aria-label='Page {}']".format(self.cur_page))
+            if not num_page_elem:
+                logger.info("Достигнут конец каталога")
+                return False
+
+            # Клик - переход на следующую страницу
+            if not self.__wd_ac_click_elem(num_page_elem):
+                logger.error("Не могу кликнуть на страницу в __wd_next_page")
+                self.driver.refresh()
+                continue
+
+            # Специальная задержка между переключениями страниц для имитации юзера
+            time.sleep(self.wait_between_pages_sec)
+
+            # Ждем, пока не прогрузится страница
+            if not self.__wd_check_load_page_catalog():
+                logger.error("Не удалось прогрузить страницу в __wd_next_page (1)")
+                self.driver.refresh()
+                continue
+
+            no_in_stock = self.__wd_find_all_elems(By.XPATH, '//span[text()="Нет в наличии"]')
+            if no_in_stock and len(no_in_stock) == 36:
+                logger.info("Вся страница неактуальна, выход")
+                return False
+
+            self.cur_page += 1
+            return True
+        else:
+            logger.error("!! После 3 попыток не получилось переключить страницу !!")
             return False
-
-        # Клик - переход на следующую страницу
-        if not self.__wd_click_elem(num_page_elem):
-            logger.error("Не могу кликнуть на страницу в __wd_next_page")
-            return False
-
-        # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page (1)")
-            return False
-
-        # Специальная задержка между переключениями страниц для имитации юзера
-        time.sleep(self.wait_between_pages_sec)
-
-        # Ждем, пока не прогрузится страница
-        if not self.__wd_check_load_page_catalog():
-            logger.error("Не удалось прогрузить страницу в __wd_next_page (2)")
-            return False
-
-        no_in_stock = self.__wd_find_all_elems_with_timeout(By.XPATH, '//span[text()="Нет в наличии"]')
-        if no_in_stock and len(no_in_stock) == 36:
-            logger.info("Вся страница неактуальна, выход")
-            return False
-
-        return True
 
     # Завершение работы браузера
     def __wd_close_browser(self):
@@ -360,12 +354,6 @@ class EldoradoParse:
 
     # Метод для парсинга html страницы товара
     def __parse_catalog_block(self, block):
-
-        # Проверка на "Нет в наличии"
-        if [item.text for item in block.select('span') if item.text == "Нет в наличии"]:
-            logger.info("Товара нет в наличии, пропуск")
-            return
-
         # Название модели
         full_name = block.select_one('a[data-dy="title"]')
         if not full_name:
@@ -374,6 +362,12 @@ class EldoradoParse:
         else:
             url = full_name.get('href')
             full_name = full_name.text.replace('\n', '').replace('  ', ' ').strip()
+
+        # Проверка на "Нет в наличии" И предзаказ
+        if [item.text for item in block.select('span') if ("Нет в наличии" in item.text or
+                                                           "Оформить предзаказ" in item.text)]:
+            logger.info("Товара '{}' нет в наличии или предзаказ, пропуск".format(full_name))
+            return
 
         # URL
         if not url:
@@ -389,6 +383,7 @@ class EldoradoParse:
             return
         else:
             img_url = img_url.get('src')
+
             if '/resize/' in img_url:
                 img_url = img_url[:img_url.index('/resize/')]
 
@@ -404,8 +399,8 @@ class EldoradoParse:
         # Код продукта
         product_code = "None"
 
-        ram = 0
-        rom = 0
+        # RAM, ROM
+        ram, rom = 0, 0
         characteristics = block.select('li.aKmrwMA')
         if not characteristics:
             logger.error("Нет характеристик")
@@ -425,18 +420,7 @@ class EldoradoParse:
         else:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
-        print(full_name)
-        # print("Category = {}".format(self.category))
-        # print("Name = {}".format(full_name))
-        # print('RAM = {}'.format(ram))
-        # print('ROM = {}'.format(rom))
-        # print("Rating = {}".format(rating))
-        # print("Num Rating = {}".format(num_rating))
-        # print("Url = {}".format(url))
-        # print("Img Url = {}".format(img_url))
-        # print("Price = {}".format(cur_price))
-        # print("-" * 50)
-
+        # Парсинг названия модели
         brand_name, model_name, color = eldorado_parse_model_name(full_name)
         if not brand_name or not model_name or not color:
             logger.warning("No brand name, model name or color")
@@ -463,8 +447,8 @@ class EldoradoParse:
         ))
 
     # Сохранение всего результата в csv файл
-    def __save_result(self):
-        with open(h.CSV_PATH_RAW + "eldorado.csv", 'w', newline='') as f:
+    def __save_result(self, name):
+        with open(h.CSV_PATH_RAW + name, 'w', newline='') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
             for item in self.pr_result_list:
@@ -487,7 +471,7 @@ class EldoradoParse:
                 break
 
         self.__wd_close_browser()
-        self.__save_result()
+        self.__save_result("eldorado.csv")
         return self.pr_result_list
 
     # Запуск работы парсера для продукта
@@ -495,66 +479,11 @@ class EldoradoParse:
         pass
 
 
-models = ['Смартфон Realme X3 Super Zoom 8+128GB Arctic White (RMX2086)',
-          'Смартфон Samsung Galaxy Note10 Lite Red (SM-N770F/DSM)',
-          'Смартфон ZTE Blade A7 2020 (2+32GB) Black',
-          'Смартфон OPPO A12 Blue (CPH2083)',
-          'Смартфон vivo Y17 Синий аквамарин (1902)',
-          'Смартфон Xiaomi Redmi 7A 16GB Blue',
-          'Смартфон Huawei Nova 5T Midsummer Purple (YAL-L21)',
-          'Смартфон Honor 10X Lite 4+128GB Emerald Green (DNN-LX9)',
-          'Смартфон ZTE Blade A5 2020 Blue',
-          'Смартфон Samsung Galaxy S20+ Gray (SM-G985F/DS)',
-          'Смартфон vivo X50 Небесно-голубой (2004)',
-          'Смартфон vivo Y20 Черный агат (V2027)',
-          'Смартфон Apple iPhone 12 64GB (PRODUCT)RED (MGJ73RU/A)',
-          'Смартфон DOOGEE Y9 Plus Sky Black',
-          'Смартфон Samsung Galaxy A70 (2019) 128GB White (SM-A705FN/DSM)',
-          'Смартфон Huawei Y6 2019 Brown',
-          'Смартфон OPPO A72 4+128GB Aurora Purple (CPH2067)',
-          'Смартфон Huawei P40 Lite 6/128GB Midnight Black (JNY-LX1)',
-          'Смартфон Samsung Galaxy S21 Ultra 256GB Phantom Silver (SM-G998B)',
-          'Смартфон Apple iPhone XS Max 256GB как новый Space Grey (FT532RU/A)',
-          'Смартфон Honor 9C Aurora Blue AKA-L29', ]
-
-
-# Чтение данных
-def read_config():
-    config = configparser.ConfigParser()
-    config.read('config.ini', encoding="utf-8")
-    h.REBUILT_IPHONE_NAME = ' ' + config.defaults()['rebuilt_iphone_name']
-    h.IGNORE_WORDS_FOR_COLOR = config['parser']['color_ignore'].lower().split('\n')
-
-
-# Чтение списка разрешенных названий моделей для добавления в БД
-def load_allowed_model_names_list_for_base():
-    with open(h.PATH_LIST_MODEL_NAMES_BASE, 'r', encoding='UTF-8') as f:
-        h.ALLOWED_MODEL_NAMES_LIST_FOR_BASE = f.read().splitlines()
-
-
-# Чтение словаря исключений названий моделей
-def load_exceptions_model_names():
-    with open(h.EXCEPT_MODEL_NAMES_PATH, 'r', encoding='UTF-8') as f:
-        for line in f:
-            res = re.findall(r"\[.+?]", line)
-            # Отсечь кривые записи
-            if len(res) != 2:
-                continue
-            # Добавить в словарь
-            h.EXCEPT_MODEL_NAMES_DICT[res[0].replace('[', '').replace(']', '')] = \
-                res[1].replace('[', '').replace(']', '')
-
-
 if __name__ == '__main__':
     time_start = time.time()
-    load_allowed_model_names_list_for_base()
-    load_exceptions_model_names()
-    read_config()
-
-    # for item in models:
-    #     print(item)
-    #     print(eldorado_parse_model_name(item))
-    #     print('-' * 50)
+    main.load_allowed_model_names_list_for_base()
+    main.load_exceptions_model_names()
+    main.read_config()
 
     parser = EldoradoParse()
     parser.run_catalog('https://www.eldorado.ru/c/smartfony/')

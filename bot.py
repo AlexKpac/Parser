@@ -853,10 +853,15 @@ from pyrogram.handlers import MessageHandler
 
 
 # url = 'https://img.mvideo.ru/Pdb/30050131b.jpg'
-# img = PostImage(url)
-# img.change_bytes_img().draw_stamp()
-# # img.lighten()
-# img.save_as_jpg('cache/', 'olo1')
+# url = 'https://img.mvideo.ru/Pdb/30048072b.jpg'
+#
+# img1 = PostImage(url)
+# img1.draw_stamp().darken()
+# img1.save_as_jpg('cache/', 'img1')
+#
+# img2 = PostImage(url)
+# img2.lighten()
+# img2.save_as_jpg('cache/', 'img2')
 
 
 #
