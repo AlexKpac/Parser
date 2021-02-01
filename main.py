@@ -9,6 +9,7 @@ from dns_parse import DNSParse
 from mvideo_parse import MVideoParse
 from mts_parse import MTSParse
 from citilink_parse import CitilinkParse
+from eldorado_parse import EldoradoParse
 from checker import Checker
 from bot import Bot
 import header as h
@@ -110,50 +111,57 @@ def create_lock_file():
 if __name__ == '__main__':
 
     # Проверка наличия интернета перед выполнением программы
-    if not check_internet():
-        raise SystemExit(2)
+    # if not check_internet():
+    #     raise SystemExit(2)
 
     time_start = time()
     h.del_old_logs()
-    # result_list = []
+    result_list = []
 
     load_allowed_model_names_list_for_base()
     load_exceptions_model_names()
     read_config()
     create_lock_file()
 
-    # parser = MVideoParse()
-    # result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
-    # # result = load_result_from_csv("mvideo.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
-    #
-    # parser = MTSParse()
-    # result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
-    # # result = load_result_from_csv("mts.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
-    #
-    # parser = DNSParse()
-    # result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
-    # # result = load_result_from_csv("dns.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
-    #
-    # parser = CitilinkParse()
-    # result = parser.run_catalog("https://www.citilink.ru/catalog/mobile/smartfony/")
-    # # result = load_result_from_csv("citilink.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
+    parser = MVideoParse()
+    result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # result = load_result_from_csv("mvideo.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    parser = MTSParse()
+    result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
+    # result = load_result_from_csv("mts.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    parser = DNSParse()
+    result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    # result = load_result_from_csv("dns.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    parser = CitilinkParse()
+    result = parser.run_catalog("https://www.citilink.ru/catalog/mobile/smartfony/")
+    # result = load_result_from_csv("citilink.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    parser = EldoradoParse()
+    result = parser.run_catalog("https://www.eldorado.ru/c/smartfony/")
+    # result = load_result_from_csv("eldorado.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
 
     del_lock_file()
     # save_result_list(result_list)
 
-    result_list = load_result_from_csv("goods2.csv")
+    # result_list = load_result_from_csv("goods2.csv")
     check = Checker(result_list)
     benefit_price_list = check.run()
 

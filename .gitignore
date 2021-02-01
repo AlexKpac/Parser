@@ -1,12 +1,12 @@
-pyvenv.cfg
+# Project files
 debug.log
-log-*
-/cache/
+/venv/pyvenv.cfg
+/logs/**
+/cache/**
+/data/**
+/dictionaries/**
 
-# Created by https://www.toptal.com/developers/gitignore/api/windows
-# Edit at https://www.toptal.com/developers/gitignore?templates=windows
 
-### Windows ###
 # Windows thumbnail cache files
 Thumbs.db
 Thumbs.db:encryptable
@@ -31,5 +31,3 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
-
-# End of https://www.toptal.com/developers/gitignore/api/windows

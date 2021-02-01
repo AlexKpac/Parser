@@ -13,7 +13,7 @@ import selenium.webdriver.support.expected_conditions as ec
 from selenium.webdriver.common.action_chains import ActionChains
 
 import header as h
-import main
+
 
 logger = h.logging.getLogger('eldoradoparse')
 ELDORADO_REBUILT_IPHONE = 'как новый'
@@ -480,6 +480,8 @@ class EldoradoParse:
 
 
 if __name__ == '__main__':
+    import main
+
     time_start = time.time()
     main.load_allowed_model_names_list_for_base()
     main.load_exceptions_model_names()

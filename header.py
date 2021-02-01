@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 
 
 log_name = "logs/log-" + datetime.now().strftime("%Y.%m.%d-%H.%M") + ".txt"
-# logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
-#                     level=logging.INFO)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
+                    level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('header')
 
 
@@ -30,15 +30,6 @@ def find_and_replace_except_model_name(model_name):
         if key in model_name:
             model_name = model_name.replace(key, value)
             logger.info("Нашел модель в словаре исключений, key={}".format(key))
-
-    # # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
-    # res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_DICT.keys()), model_name)
-    #
-    # # Если есть - подменяем
-    # if res:
-    #     res = res[0]
-    #     model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_DICT.get(res))
-    #     logger.info("Нашел модель в словаре исключений")
 
     return model_name
 

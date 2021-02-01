@@ -14,7 +14,6 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
 import header as h
-import main
 
 logger = h.logging.getLogger('mvideoparse')
 MVIDEO_REBUILT_IPHONE = ' восст.'
@@ -589,6 +588,8 @@ class MVideoParse:
 
 
 if __name__ == '__main__':
+    import main
+
     time_start = time.time()
     main.load_allowed_model_names_list_for_base()
     main.load_exceptions_model_names()

@@ -1,8 +1,6 @@
 import re
-import io
 import time
 import csv
-import requests
 import configparser
 from datetime import datetime
 import hashlib
@@ -10,8 +8,6 @@ import hashlib
 import ast
 import telebot
 from telebot import types
-from PIL import Image
-from PIL import ImageEnhance
 
 import bd
 import header as h
@@ -675,183 +671,6 @@ class Bot:
         return url
 
 
-# from admitad import api, items
-#
-# client_id = "O4soVKt8QcnbWsdqGzIYEJX1ZkXORC"
-# client_secret = "lFJIDCMvSDpe34DnMgO2BvKHcCy4sT"
-# scope = ' '.join(set([items.Me.SCOPE]))
-#
-# client = api.get_oauth_client_client(
-#     client_id,
-#     client_secret,
-#     scope
-# )
-#
-# print(client.Me.get())
-#
-# # res = client.DeeplinksManage.create(1649831, 21659, ulp=['https://www.mvideo.ru/products/smartfon-huawei-p40-lite-midnight-black-jny-lx1-30048480s',], subid='a20koellat')
-# res = client.DeeplinksManage.create(1649831, 21659, ulp='https://shop.huawei.com/ru/product/huawei-p40-pro/', subid='a20kt')
-#
-#
-# print(res)
-
-from pyrogram import Client, filters, idle
-from pyrogram.handlers import MessageHandler
-
-# app = Client("my_account")
-# if res[0].outgoing == False:
-#     print("Сообщение от бота")
-
-
-# def hui():
-#     with Client("my_account") as app:
-#         # @app.on_message(filters.user("@admitad_bot"))
-#         # async def echo(client, msg):
-#         #     print(msg.text)
-#         #     await app.disconnect()
-#
-# # res = app.get_history("@admitad_bot", limit=2) # print(res) # print(res[0].outgoing) res = app.get_messages(
-# "@admitad_bot", 189) print(res.text) print(res.outgoing) # app.send_message("@admitad_bot", #
-# text="https://www.mvideo.ru/products/smartfon-apple-iphone-7-32gb-silver-mn8y2ru-a-30026136")
-#
-# hui()
-
-# list_url = ['https://www.mvideo.ru/products/smartfon-apple-iphone-7-plus-32gb-black-mnqm2ru-a-30026229',
-#             'https://www.mvideo.ru/products/smartfon-apple-iphone-6s-32gb-gold-mn112ru-a-30026284',
-#             'https://www.mvideo.ru/products/smartfon-apple-iphone-8-plus-256gb-space-gray-mq8p2ru-a-30030160']
-#
-#
-# async def get_deeplink(app, url_list):
-#     urls = ', '.join(url_list)
-#
-#     # Отправка ссылок боту и получение id сообщения-ответа
-#     res = await app.send_message("@admitad_bot", text=urls)
-#     message_id = res.message_id + 1
-#
-#     # Ждем ответа от бота
-#     while True:
-#         res = await app.get_messages("@admitad_bot", message_id)
-#         if not res.empty:
-#             return res.text
-#
-#         time.sleep(0.5)
-#
-#
-# app = Client("my_account")
-# app.start()
-# text = app.loop.run_until_complete(get_deeplink(app, list_url))
-# print("text = {}".format(text))
-# app.stop()
-# for message in app.iter_history("@admitad_bot"):
-#     print(message.text)
-
-
-# app.start()
-# res = app.send_message("@admitad_bot",
-#                            text="https://www.mvideo.ru/products/smartfon-apple-iphone-12-128gb-black-mgja3ru-a-30052890")
-
-
-# with Client("my_account") as app:
-#     res = app.send_message("@admitad_bot",
-#                            text="https://www.mvideo.ru/products/smartfon-apple-iphone-12-128gb-black-mgja3ru-a-30052890")
-
-
-# app.run()
-
-# app.run()
-
-# app.run()
-# with Client("my_account") as app:
-#     app.send_message("me", "И еще привет!")
-
-
-# from PIL import Image, ImageDraw
-# from time import time
-#
-#
-# def steganography_encrypt(text):
-#     img = Image.open('cache/enc_img.png')
-#     draw = ImageDraw.Draw(img)
-#     pix = img.load()
-#
-#     indx = 0
-#     for elem in ([ord(elem) for elem in text]):
-#         for x in '{:08b}'.format(elem):
-#             r, g, b = pix[indx, 0]
-#             if not int(x):
-#                 draw.point((indx, 0), (r, g, (b & 254)))
-#             else:
-#                 draw.point((indx, 0), (r, g, (b | 1)))
-#             indx += 1
-#
-#     img.save("cache/newimage.png", "PNG")
-#     return img
-#
-#
-# def change_bytes_img():
-#     img = Image.open('cache/enc_img.png')
-#     draw = ImageDraw.Draw(img)
-#     width, height = img.size
-#     pix = img.load()
-#
-#     for i in range(width):
-#         for j in range(height):
-#             cur_pix = pix[i, j]
-#             if cur_pix[0] > 240 and cur_pix[1] > 240 and cur_pix[2] > 240:
-#                 draw.point((i, j), (cur_pix[0] ^ 0x07, cur_pix[1] ^ 0x07, cur_pix[2] ^ 0x07))
-#             else:
-#                 draw.point((i, j), (cur_pix[0] ^ 0x03, cur_pix[1] ^ 0x01, cur_pix[2] ^ 0x07))
-#
-#     return img
-#
-#
-# def steganography_decrypt(len_text):
-#     pix = Image.open('cache/newimage.png').load()  # создаём объект изображения
-#     cipher_text = ""
-#
-#     for i in range(len_text):
-#         one_char = 0
-#         for j in range(8):
-#             cur_bit = pix[(i * 8) + j, 0][2] & 1
-#             one_char += cur_bit << (7 - j)
-#         cipher_text += chr(one_char)
-#
-#     return cipher_text
-
-# def check_div_two_img():
-#     img1 = Image.open('cache/img_orig.png')
-#     pix1 = img1.load()
-#     pix2 = Image.open('cache/img_stamp.png').load()
-#     width, height = img1.size
-#
-#     dif_pix = 0
-#     all_pix = 0
-#     for i in range(width):
-#         for j in range(height):
-#             all_pix += 1
-#             cur_pix1 = pix1[i, j]
-#             cur_pix2 = pix2[i, j]
-#
-#             if cur_pix1[0] != cur_pix2[0] or cur_pix1[1] != cur_pix2[1] or cur_pix1[2] != cur_pix2[2]:
-#                 dif_pix += 1
-#
-#     print('dif_pix = {}, all_pix = {}'.format(dif_pix, all_pix))
-#     print('per = {}%'.format(float(dif_pix/all_pix) * 100.0))
-
-
-# check_div_two_img()
-
-# indx1 = 0
-# for item in list_url:
-#     print(item)
-#     img = PostImage(item)
-#     img.change_bytes_img()
-#     img.save('cache/dif/', str(indx1))
-#     indx1 += 1
-# from post_image import PostImage
-# #
-
-
 # url = 'https://img.mvideo.ru/Pdb/30050131b.jpg'
 # url = 'https://img.mvideo.ru/Pdb/30048072b.jpg'
 #
@@ -862,28 +681,3 @@ from pyrogram.handlers import MessageHandler
 # img2 = PostImage(url)
 # img2.lighten()
 # img2.save_as_jpg('cache/', 'img2')
-
-
-#
-# img1 = PostImage()
-# img1.open('cache/ololo.jpg')
-# print(img1.steganography_decrypt(len('Prodavach')))
-
-
-# # img123.save('cache/', 'img_orig')
-# img123.draw_stamp()
-# img123.darken()
-# img123.save('cache/', 'img_stamp')
-
-
-# output = [int(x) for x in '{:08b}'.format(num)]
-# print(output)
-
-
-# time_start = time()
-# steganography_encrypt("Prodavach: https://t.me/prodavach_nsk")
-# print("you message: '{}'".format(steganography_decrypt(37)))
-# print(f"Время выполнения: {time() - time_start} сек")
-
-
-
