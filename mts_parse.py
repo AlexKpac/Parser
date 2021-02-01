@@ -471,7 +471,7 @@ class MTSParse:
             shop=self.shop,
             category=self.category.lower(),
             brand_name=brand_name.lower(),
-            model_name=full_name.lower(),
+            model_name=model_name.lower(),
             color=color.lower(),
             cur_price=cur_price,
             ram=ram,
