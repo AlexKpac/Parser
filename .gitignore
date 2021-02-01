@@ -1,10 +1,14 @@
 # Project files
 debug.log
 /venv/pyvenv.cfg
-/logs/**
-/cache/**
-/data/**
-/dictionaries/**
+#/logs/**
+#/cache/**
+#/data/**
+#/dictionaries/**
+#!/logs/.empty
+#!/cache/.empty
+#!/data/.empty
+#!/dictionaries/.empty
 
 
 # Windows thumbnail cache files
