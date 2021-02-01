@@ -99,8 +99,6 @@ class Checker:
 
         return id_shop_phone[0][0] if id_shop_phone else None
 
-        # Добавление цены определенного магазина определенной комплектации в prices_phones_table
-
     # Добавление цены в таблицу prices_phones_table
     def __insert_price_in_prices_phones_table(self, id_shop_name, id_product, id_shop_phone, price, date_time='now()'):
         self.db.execute_query(sr.insert_into_prices_phones_table_query,
@@ -378,62 +376,3 @@ class Checker:
         self.db.disconnect()
         self.__save_result()
         return self.pc_result_list
-
-
-# Загрузить данные с csv, чтобы не парсить сайт
-def load_result_from_csv(name):
-    pr_result_list = []
-    with open(h.CSV_PATH_RAW + name, 'r', encoding='UTF-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            pr_result_list.append(h.ParseResult(
-                shop=row['Магазин'],
-                category=row['Категория'],
-                brand_name=row['Бренд'],
-                model_name=row['Модель'],
-                color=row['Цвет'],
-                cur_price=int(row['Цена']),
-                ram=int(row['RAM']),
-                rom=int(row['ROM']),
-                img_url=row['Ссылка на изображение'],
-                url=row['Ссылка'],
-                rating=float(row['Рейтинг']),
-                num_rating=int(row['Кол-во отзывов']),
-                product_code=row['Код продукта'],
-            ))
-
-    return pr_result_list
-
-
-def get_data():
-    pc_product_list = []
-    with open(h.PRICE_CHANGES_PATH, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            pc_product_list.append(h.PriceChanges(
-                shop=int(row['Магазин']),
-                category=row['Категория'],
-                brand_name=row['Бренд'],
-                model_name=row['Модель'],
-                color=row['Цвет'],
-                ram=int(row['RAM']),
-                rom=int(row['ROM']),
-                img_url=row['Ссылка на изображение'],
-                url=row['Ссылка'],
-                date_time=row['Дата и время'],
-                cur_price=int(row['Текущая цена']),
-                avg_actual_price=float(row['Средняя цена']),
-                hist_min_price=int(row['Историческая мин. цена']),
-                hist_min_shop=int(row['Исторический мин. магазин']),
-                hist_min_date=row['Исторический мин. дата'],
-                diff_cur_avg=int(row['Разница цены от средней']),
-            ))
-
-    return pc_product_list
-
-# ch = Checker([])
-# res = get_data()  # load_result_from_csv("dif_price.csv")
-# res12 = h.find_in_namedtuple_list(res, brand_name='honor', model_name='', date_time='', hist_min_price=13519,
-#                                 cur_price=13519, color='белый')
-# for item1 in res12:
-#     print(item1)

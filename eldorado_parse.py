@@ -10,61 +10,60 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 import selenium.webdriver.support.expected_conditions as ec
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 import header as h
 
 
-logger = h.logging.getLogger('mtsparse')
+logger = h.logging.getLogger('eldoradoparse')
+ELDORADO_REBUILT_IPHONE = 'как новый'
 
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
-def mts_parse_model_name(name):
+def eldorado_parse_model_name(name):
     # Защита от неправильных названий
-    if len(name.split()) < 3:
-        return "error", "error", "error", 0, 0
+    if len(name.split()) < 5:
+        return None, None, None
     # Убираем неразрывные пробелы
     name = name.replace(u'\xc2\xa0', u' ')
     name = name.replace(u'\xa0', u' ')
-    # Проверка названия в словаре исключений названий моделей
-    name = h.find_and_replace_except_model_name(name)
+    # Восстановленные телефоны (только для iphone). Если есть слово - удалить
+    rebuilt = h.REBUILT_IPHONE_NAME if (ELDORADO_REBUILT_IPHONE in name.lower()) else ''
+    name = name.replace(ELDORADO_REBUILT_IPHONE, '')
+    # Оборачивание скобками названия модели, если их не было
+    last_word = name.split()[-1]
+    if last_word.isupper() and \
+            not ('(' in last_word) and \
+            not (')' in last_word):
+        name = name.replace(last_word, '({})'.format(last_word))
     # Понижение регистра
     name = name.lower()
-    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', ' ').\
-        replace(' 5g ', ' ').replace('«', '').replace('»', '')
+    # Удалить nfc и 5g
+    name = name.replace(' nfc ', ' ').replace(' 5g ', ' ')
     # Удалить все скобки
     brackets = re.findall(r"\(.+?\)", name)
     for item in brackets:
         name = name.replace(item, '')
-    # Только для самсунгов - удалить код модели
-    samsung_code = re.findall(r'samsung ([\w+]*?) galaxy', name)
-    samsung_code = samsung_code[0] if samsung_code else ''
-    # Получить размер RAM и ROM, если есть
-    ram_rom = re.findall(r'\d*/*\d+ *(?:gb|tb)', name)
-    rom, ram = 0, 0
-    if ram_rom:
-        ram_rom = ram_rom[0]
-        if '/' in ram_rom:
-            ram_rom_digit = re.findall(r'\d+', ram_rom)
-            ram = int(ram_rom_digit[0])
-            rom = int(ram_rom_digit[1])
-        else:
-            ram = 0
-            rom = int(re.findall(r'\d+', ram_rom)[0])
-    else:
-        ram_rom = ''
     # Удалить год, если есть
     year = re.findall(r' 20[1,2]\d ', name)
     year = year[0] if year else ''
+    # Получить размер ROM
+    rom = re.findall(r'\d*[gb]*[\+/]*\d+(?:gb|tb)', name)
+    rom = (rom[0]) if rom else ""
+    # Получить ЦВЕТ
     # Получить 2 слова цвета
-    color1, color2 = name.split()[-2:] if name.split()[-1] != ram_rom \
+    color1, color2 = name.split()[-2:] if name.split()[-1] != rom \
         else name.split()[-3:-1]
-    # Если первое слово цвета состоит только из букв и длиннее 2 символов - добавить к итоговому цвету
+    # Если первое слово цвета состоит только из букв и длиннее 2 символов и отсутствует в игнор-листе - добавить
+    # к итоговому цвету
+    color1 = color1 if (
+            color1.isalpha() and len(color1) > 2 and not (color1.strip() in h.IGNORE_WORDS_FOR_COLOR)) else ""
     color = color1 + " " + color2 if (color1.isalpha() and len(color1) > 2) else color2
-    # Удалить лишние слова в названии модели
-    name = name.replace(ram_rom, '').replace(color, '').replace(year, ''). \
-        replace(samsung_code, '').replace('  ', ' ').strip()
+    # Удалить первую часть часть
+    name = name.replace('смартфон', '').replace(rom, '').replace(year, '').replace('  ', ' ')
+    # Убрать вторую часть лишних слов из названия
+    name = name.replace(color, '').replace('  ', ' ').strip()
+    name += rebuilt
 
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
@@ -73,16 +72,16 @@ def mts_parse_model_name(name):
     if not h.find_allowed_model_names(name):
         logger.info("Обнаружена новая модель, отсутствующая в базе = '{}'".format(name))
         h.save_undefined_model_name(name)
-        return None, None, None, 0, 0
+        return None, None, None
 
     # Получить название бренда
     brand_name = name.split()[0]
     model_name = name.replace(brand_name, '').strip()
 
-    return brand_name, model_name, color, ram, rom
+    return brand_name, model_name, color
 
 
-class MTSParse:
+class EldoradoParse:
 
     def __init__(self):
         options = Options()
@@ -92,15 +91,16 @@ class MTSParse:
         self.driver.implicitly_wait(1.5)
         self.wait = WebDriverWait(self.driver, 20)
         self.pr_result_list = []
-        self.cur_page = 3
+        self.cur_page = 2
         # Данные магазина
-        self.domain = "https://www.shop.mts.ru"
-        self.shop = "мтс"
+        self.domain = "https://www.eldorado.ru"
+        self.shop = "эльдорадо"
         # Конфиг
         self.config = configparser.ConfigParser()
         self.config.read('config.ini', encoding="utf-8")
         self.current_city = self.config.defaults()['current_city']
         self.wait_between_pages_sec = int(self.config.defaults()['wait_between_pages_sec'])
+        self.is_grid = True
 
     # Обертка поиска элемента для обработки исключений
     def __wd_find_elem(self, by, xpath):
@@ -150,21 +150,20 @@ class MTSParse:
         ActionChains(self.driver).move_to_element(elem).click().perform()
         return True
 
-    # Обертка для клика по элементу через click
-    def __wd_click_elem(self, elem):
+    # Обертка для клика по элементу через ActionChains
+    def __wd_click_el11em(self, elem):
         if not elem:
             return False
-
         try:
             elem.click()
             return True
         except se.ElementClickInterceptedException:
-            logger.error("Элемент некликабельный")
+            print("Элемент некликабельный")
             return False
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
-        city = self.__wd_find_elem_with_timeout(By.XPATH, "//span[@class='current-region__text']")
+        city = self.__wd_find_elem_with_timeout(By.XPATH, "//span[@class='h8xlw5-3 kLXpZr']")
         if not city:
             logger.error("Не найдено поле с названием города")
             return False
@@ -178,40 +177,38 @@ class MTSParse:
                 logger.error("Не могу нажать на кнопку выбора города")
                 return False
 
+            logger.info("Клик по городу")
+
             # Получить список всех городов и если есть нужный, кликнуть по нему
-            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "default-regions__item")
+            city_list = self.__wd_find_all_elems_with_timeout(By.CLASS_NAME, "N5ndClh")
             if city_list:
                 for item in city_list:
                     if self.current_city.lower() in item.text.lower():
                         time.sleep(1.5)
                         return self.__wd_ac_click_elem(item)
             else:
-                logger.warning("Нет списка городов, попробую вбить вручную")
+                logger.info("Не вижу нужный город в списке, пробую вбить вручную")
 
             # Поиск поля для ввода города
-            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='select-region-form__fieldset "
-                                                                    "input-group__fieldset']")
+            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//input[@name='region-search']")
             if not input_city:
                 logger.error("Не найдено поле, куда вводить новый город")
                 return False
 
-            time.sleep(1)
-
             # Кликнуть на форму для ввода текста
-            if not self.__wd_ac_click_elem(input_city):
-                logger.error("Не могу нажать на поле поиска")
-                return False
+            time.sleep(1)
+            ActionChains(self.driver).move_to_element(input_city).click().perform()
 
             # Ввод названия города по буквам
             for char in self.current_city:
                 self.__wd_ac_send_keys(input_city, char)
                 time.sleep(0.2)
 
-            # Если не поставить задержку, окно закрывает, а город не применяет
-            time.sleep(1.5)
+            time.sleep(2)
 
             # Выбор города из сгенерированного списка городов
-            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//li[@class='list-results__item']")
+            input_city_item = self.__wd_find_elem_with_timeout(By.XPATH, "//span[contains(text(),'{}')]".format(
+                self.current_city))
             if not input_city_item:
                 logger.error("Не найдено элементов при вводе города")
                 return False
@@ -223,14 +220,14 @@ class MTSParse:
 
         return True
 
-    # Алгоритм выбора города для всех возможных ситуаций на странице продукта
+    # Алгоритм выбора города для всех возмодных ситуаций на странице продукта
     def __wd_city_selection_product(self):
         pass
 
     # Проверка по ключевым div-ам что страница каталога прогружена полностью
     def __wd_check_load_page_catalog(self):
         # Ожидание прогрузки цен
-        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-price__current"):
+        if not self.__wd_find_elem_with_timeout(By.XPATH, '//span[@data-pc="offer_price"]'):
             return False
 
         logger.info("Page loaded")
@@ -242,15 +239,11 @@ class MTSParse:
 
     # Скролл вниз для прогрузки товаров на странице
     def __wd_scroll_down(self):
-        for i in range(10):
-            ActionChains(self.driver).send_keys(Keys.PAGE_DOWN).perform()
-            time.sleep(0.3)
+        pass
 
-        # if not self.__wd_check_load_page_catalog():
-        #     logger.error("Не удалось прогрузить страницу в __wd_scroll_down")
-        #     return False
-
-        return True
+    # Переключение на отображение товаров в виде списка
+    def __wd_select_list_view(self):
+        pass
 
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
@@ -278,19 +271,6 @@ class MTSParse:
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
             return False
 
-        # Скролл страницы 1
-        if not self.__wd_scroll_down():
-            logger.error("Не удалось прогрузить страницу после скролла в __wd_open_browser (3)")
-            return False
-
-        time.sleep(4)
-
-        # Скролл страницы 2 (подргужается автоматически)
-        if not self.__wd_scroll_down():
-            logger.error("Не удалось прогрузить страницу после скролла в __wd_open_browser (4)")
-            return False
-
-        time.sleep(2)
         return True
 
     # Запуск браузера, загрузка начальной страницы продукта, выбор города
@@ -304,7 +284,7 @@ class MTSParse:
         except se.TimeoutException:
             return None
 
-    # Переход на заданную страницу num_page через клик (для имитации пользователя)
+    # Переход на заданную страницу num_page через клик
     def __wd_next_page(self):
         for num_try in range(3):
 
@@ -314,8 +294,7 @@ class MTSParse:
                 continue
 
             # Поиск следующей кнопки страницы
-            num_page_elem = self.__wd_find_elem(By.XPATH, "//div[contains(@class, 'pagination__page')]/"
-                                                          "a[text()='{}']".format(self.cur_page))
+            num_page_elem = self.__wd_find_elem(By.XPATH, "//a[@aria-label='Page {}']".format(self.cur_page))
             if not num_page_elem:
                 logger.info("Достигнут конец каталога")
                 return False
@@ -329,22 +308,16 @@ class MTSParse:
             # Специальная задержка между переключениями страниц для имитации юзера
             time.sleep(self.wait_between_pages_sec)
 
-            no_in_stock = self.__wd_find_all_elems(By.XPATH, '//div[contains(text(), "Нет в наличии")]')
-            if no_in_stock and len(no_in_stock) == 30:
-                logger.info("Вся страница неактуальна, выход")
-                return False
-
             # Ждем, пока не прогрузится страница
             if not self.__wd_check_load_page_catalog():
-                logger.error("Не удалось прогрузить страницу в __wd_next_page (2)")
+                logger.error("Не удалось прогрузить страницу в __wd_next_page (1)")
                 self.driver.refresh()
                 continue
 
-            # Скролл вниз и ожидание прогрузки страницы
-            if not self.__wd_scroll_down():
-                logger.error("Не удалось прогрузить страницу после скролла в __wd_next_page")
-                self.driver.refresh()
-                continue
+            no_in_stock = self.__wd_find_all_elems(By.XPATH, '//span[text()="Нет в наличии"]')
+            if no_in_stock and len(no_in_stock) == 36:
+                logger.info("Вся страница неактуальна, выход")
+                return False
 
             self.cur_page += 1
             return True
@@ -366,51 +339,45 @@ class MTSParse:
         soup = bs4.BeautifulSoup(html, 'lxml')
 
         # Категория (из хлебных крошек)
-        self.category = soup.select('li.breadcrumbs__item')
+        self.category = soup.select_one('h1[data-pc="cat_name"]')
         if not self.category:
             logger.error("No category")
             self.category = "error"
         else:
-            self.category = self.category[-1].text.replace(' ', '').replace('\n', '').lower()
+            self.category = self.category.text.replace('\n', '').strip().lower()
 
         # Контейнер с элементами
-        container = soup.select('div.card-product-wrapper.card-product-wrapper--catalog')
+        container = soup.select('li[data-dy="product"]')
         for block in container:
             self.__parse_catalog_block(block)
         del container
 
     # Метод для парсинга html страницы товара
     def __parse_catalog_block(self, block):
-
         # Название модели
-        full_name = block.select_one('a.card-product-description__heading')
+        full_name = block.select_one('a[data-dy="title"]')
         if not full_name:
             logger.warning("No model name and URL")
             return
         else:
-            full_name = full_name.get('aria-label').replace('\n', '').strip()
+            url = full_name.get('href')
+            full_name = full_name.text.replace('\n', '').replace('  ', ' ').strip()
 
-        # Проверка на предзаказ
-        if [item.text for item in block.select("span.button__text") if item.text == "Предзаказ"]:
-            logger.info("Товар '{}' по предзаказу, пропуск".format(full_name))
-            return
-
-        # Проверка на мобильный телефон
-        type_product = block.select_one("div.card-product-description__type")
-        if type_product and "Мобильный телефон" in type_product.text:
-            logger.info("Найден мобильный телефон, пропуск")
+        # Проверка на "Нет в наличии" И предзаказ
+        if [item.text for item in block.select('span') if ("Нет в наличии" in item.text or
+                                                           "Оформить предзаказ" in item.text)]:
+            logger.info("Товара '{}' нет в наличии или предзаказ, пропуск".format(full_name))
             return
 
         # URL
-        url = block.select_one('a.card-product-description__heading')
         if not url:
             logger.warning("No URL")
             return
         else:
-            url = self.domain + url.get('href')
+            url = self.domain + url
 
         # Ссылка на изображение товара
-        img_url = block.select_one('img.gallery__img')
+        img_url = block.select_one('a[href="{}"] > img'.format(url.replace(self.domain, '')))
         if not img_url:
             logger.warning("No img url")
             return
@@ -420,16 +387,11 @@ class MTSParse:
             if '/resize/' in img_url:
                 img_url = img_url[:img_url.index('/resize/')]
 
-        # Рейтинг товара
-        rating = block.select_one('span.assessment-product__text')
-        if not rating:
-            rating = 0
-        else:
-            rating = float(rating.text.replace(' ', '').replace('\n', '').replace(',', '.'))
-
-        # На основании скольки отзывов построен рейтинг
-        num_rating = block.select_one('span.assessment-product__text')
+        # Рейтинг товара и на основании скольки отзывов построен
+        rating = len(block.select('span.tevqf5-2.fBryir'))
+        num_rating = block.select_one('a[data-dy="review"]')
         if not num_rating:
+            logger.info("No num rating")
             num_rating = 0
         else:
             num_rating = int(re.findall(r'\d+', num_rating.text)[0])
@@ -437,28 +399,29 @@ class MTSParse:
         # Код продукта
         product_code = "None"
 
+        # RAM, ROM
+        ram, rom = 0, 0
+        characteristics = block.select('li.aKmrwMA')
+        if not characteristics:
+            logger.error("Нет характеристик")
+            return
+        else:
+            for item in characteristics:
+                if 'оперативн' in item.text.lower():
+                    ram = int(re.findall(r'\d+', item.text)[0])
+                if 'встроенн' in item.text.lower():
+                    rom = int(re.findall(r'\d+', item.text)[0])
+
         # Цена
-        cur_price = block.select_one('span.product-price__current')
+        cur_price = block.select_one('span[data-pc="offer_price"]')
         if not cur_price:
             logger.warning("No price")
             return
         else:
             cur_price = int(re.findall(r'\d+', cur_price.text.replace(' ', ''))[0])
 
-        # Попытка применить промокод
-        # old_price = block.select_one('div.product-price__old')
-        # promo_code = block.select('div.action-product-item.promo-action')
-        # if not old_price and promo_code:
-        #     for item in promo_code:
-        #         if 'промокод' in item.text:
-        #             logger.info('Нашел промокод "{}", применяю'.format(item.text))
-        #             promo_code = re.findall(r'\d+', item.text.replace(' ', ''))
-        #             promo_code = int(promo_code[0]) if promo_code else 0
-        #             cur_price -= promo_code
-        #             break
-
         # Парсинг названия модели
-        brand_name, model_name, color, ram, rom = mts_parse_model_name(full_name)
+        brand_name, model_name, color = eldorado_parse_model_name(full_name)
         if not brand_name or not model_name or not color:
             logger.warning("No brand name, model name or color")
             return
@@ -471,7 +434,7 @@ class MTSParse:
             shop=self.shop,
             category=self.category.lower(),
             brand_name=brand_name.lower(),
-            model_name=full_name.lower(),
+            model_name=model_name.lower(),
             color=color.lower(),
             cur_price=cur_price,
             ram=ram,
@@ -508,7 +471,7 @@ class MTSParse:
                 break
 
         self.__wd_close_browser()
-        self.__save_result('mts.csv')
+        self.__save_result("eldorado.csv")
         return self.pr_result_list
 
     # Запуск работы парсера для продукта
@@ -524,6 +487,6 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
-    parser = MTSParse()
-    parser.run_catalog('https://shop.mts.ru/catalog/smartfony/')
+    parser = EldoradoParse()
+    parser.run_catalog('https://www.eldorado.ru/c/smartfony/')
     logger.info(f"Время выполнения: {time.time() - time_start} сек")

@@ -1,8 +1,6 @@
 import re
-import io
 import time
 import csv
-import requests
 import configparser
 from datetime import datetime
 import hashlib
@@ -10,8 +8,6 @@ import hashlib
 import ast
 import telebot
 from telebot import types
-from PIL import Image
-from PIL import ImageEnhance
 
 import bd
 import header as h
@@ -22,6 +18,12 @@ logger = h.logging.getLogger('bot')
 EXCEPT_MODEL_NAMES_TELEGRAM_DICT = {}
 STATS_PRODS_DICT = {}
 STATS_SHOPS_DICT = {}
+
+
+# -------------------------- РЕФЕРАЛЬНЫЕ ССЫЛКИ -------------------------- #
+
+def convert_url_for_ref_link(url):
+    return url.replace(':', '%3A').replace('/', '%2F').strip()
 
 
 # -------------------------- СЛОВАРИ -------------------------- #
@@ -111,12 +113,21 @@ def get_data():
 
 # Поиск в строке названия фраз из списка исключения и их замена
 def find_and_replace_except_model_name(model_name):
+    if not EXCEPT_MODEL_NAMES_TELEGRAM_DICT:
+        return model_name
+
+    # Поиск в строке названия фраз из списка исключения и их замена
+    for key, value in EXCEPT_MODEL_NAMES_TELEGRAM_DICT.items():
+        if key in model_name:
+            model_name = model_name.replace(key, value)
+            logger.info("Нашел модель в словаре исключений телеграм, key={}".format(key))
+
     # Поиск: есть ли какой-нибудь элемент из списка исключений в строке названия
-    res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_TELEGRAM_DICT.keys()), model_name)
-    # Если есть - подменяем
-    if res:
-        res = res[0]
-        model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_TELEGRAM_DICT.get(res))
+    # res = re.findall(r'|'.join(EXCEPT_MODEL_NAMES_TELEGRAM_DICT.keys()), model_name)
+    # # Если есть - подменяем
+    # if res:
+    #     res = res[0]
+    #     model_name = model_name.replace(res, EXCEPT_MODEL_NAMES_TELEGRAM_DICT.get(res))
 
     return model_name
 
@@ -212,6 +223,16 @@ class Bot:
         self.irrelevant_url_text = self.config['bot']['irrelevant_url_text']
         self.hash_tag_actual = '#' + self.config['bot']['hash_tag_actual']
         self.max_num_act_post_telegram = int(self.config['bot']['max_num_act_post_telegram'])
+        # Рефералки
+        self.domain_mts = self.config['admitad']['domain_mts']
+        self.domain_mvideo = self.config['admitad']['domain_mvideo']
+        self.domain_citilink = self.config['admitad']['domain_citilink']
+        self.domain_eldorado = self.config['admitad']['domain_eldorado']
+        self.ref_link_mts = self.config['admitad']['ref_link_mts']
+        self.ref_link_mvideo = self.config['admitad']['ref_link_mvideo']
+        self.ref_link_citilink = self.config['admitad']['ref_link_citilink']
+        self.ref_link_eldorado = self.config['admitad']['ref_link_eldorado']
+
         self.pc_product_list = []
         self.posts_in_telegram_list = []
         self.num_all_post = 0
@@ -250,7 +271,7 @@ class Bot:
             for item in self.posts_in_telegram_list:
                 writer.writerow(item)
 
-    # Загрузить данные с csv, чтобы не парсить сайт
+    # Загрузить данные о сообщениях в канале телеграм
     def __load_msg_in_telegram_list(self):
         with open(h.MESSAGES_IN_TELEGRAM_LIST_PATH, 'r', encoding='UTF-8') as f:
             reader = csv.DictReader(f)
@@ -338,11 +359,11 @@ class Bot:
             # Генерация тегов магазинов
             hashtag_shops += '#' + h.SHOPS_NAME_LIST[shop - 1][0] + ' '
 
-            # Генерация ссылок
+            # Генерация ссылок → ► ● ○ • ›
             urls = ''
             for product in version_list:
                 if product.shop == shop:
-                    urls += '<a href="{}">► {}</a>\n'.format(product.url, product.color.title())  # → ► ● ○ • ›
+                    urls += '<a href="{}">► {}</a>\n'.format(self.get_ref_link(product.url), product.color.title())
             links_shop_list.append(urls)
 
         # Генерация ссылок
@@ -418,23 +439,27 @@ class Bot:
             STATS_PRODS_DICT[full_name] = 1
 
         # Обновление словаря статистики магазинов
-        shop_name = h.SHOPS_NAME_LIST[item.shop - 1][0]
-        if shop_name in STATS_SHOPS_DICT:
-            STATS_SHOPS_DICT[shop_name] += 1
-        else:
-            STATS_SHOPS_DICT[shop_name] = 1
+        shops_set = list(set(item.shop for item in version_list))
+        for shop_item in shops_set:
+            shop_name = h.SHOPS_NAME_LIST[shop_item - 1][0]
+            if shop_name in STATS_SHOPS_DICT:
+                STATS_SHOPS_DICT[shop_name] += 1
+            else:
+                STATS_SHOPS_DICT[shop_name] = 1
 
         # Генерация поста
         text = self.__format_text(version_list, True)
-        img = PostImage(item.img_url).get_img()
-        if not img:
+        img = PostImage(item.img_url)
+        if not img.check():
             logger.error("No IMG in send post")
             return
+
+        img.lighten()
 
         # Отправка поста в обертке
         for i in range(3):
             try:
-                resp = self.bot.send_photo(chat_id=self.chat_id, photo=img, caption=text, parse_mode='Html',
+                resp = self.bot.send_photo(chat_id=self.chat_id, photo=img.get_img(), caption=text, parse_mode='Html',
                                            disable_notification=dis_notify)
                 print(resp.message_id)
                 logger.info(
@@ -487,12 +512,12 @@ class Bot:
 
             # Установка штампа
             if not current_actual:
-                img.draw_stamp().change_bytes_img()
+                img.change_bytes_img().draw_stamp().darken()
+            else:
+                img.lighten()
 
             # 5 попыток изменить пост (из-за бага телеграм)
-            for i in range(5):
-                if current_actual:
-                    img.lighten()
+            for i in range(3):
 
                 try:
                     self.bot.edit_message_media(
@@ -507,7 +532,8 @@ class Bot:
 
                 except telebot.apihelper.ApiException as e:
                     logger.error("Не удалось отредактировать пост ({}) - edit_message_media: {}".format(i + 1, e))
-                    img.save("cache/", "{}.jpg".format(post.message_id))
+                    img.save_as_jpg("cache/", "{}.jpg".format(post.message_id))
+                    img.lighten() if current_actual else img.darken()
             else:
                 logger.error("Не удалось отредактировать пост после 5 попыток")
                 return False
@@ -623,200 +649,35 @@ class Bot:
         self.__save_msg_in_telegram_list()
         self.__save_num_posts()
 
+    # Получить реферальную ссылку
+    def get_ref_link(self, url):
 
-# from admitad import api, items
-#
-# client_id = "O4soVKt8QcnbWsdqGzIYEJX1ZkXORC"
-# client_secret = "lFJIDCMvSDpe34DnMgO2BvKHcCy4sT"
-# scope = ' '.join(set([items.Me.SCOPE]))
-#
-# client = api.get_oauth_client_client(
-#     client_id,
-#     client_secret,
-#     scope
-# )
-#
-# print(client.Me.get())
-#
-# # res = client.DeeplinksManage.create(1649831, 21659, ulp=['https://www.mvideo.ru/products/smartfon-huawei-p40-lite-midnight-black-jny-lx1-30048480s',], subid='a20koellat')
-# res = client.DeeplinksManage.create(1649831, 21659, ulp='https://shop.huawei.com/ru/product/huawei-p40-pro/', subid='a20kt')
-#
-#
-# print(res)
+        # Мвидео
+        if self.domain_mvideo in url:
+            return self.ref_link_mvideo + convert_url_for_ref_link(url)
 
-from pyrogram import Client, filters, idle
-from pyrogram.handlers import MessageHandler
+        # МТС
+        if self.domain_mts in url:
+            return self.ref_link_mts + convert_url_for_ref_link(url)
+
+        # Ситилинк
+        if self.domain_citilink in url:
+            return self.ref_link_citilink + convert_url_for_ref_link(url)
+
+        # Эльдорадо
+        if self.domain_eldorado in url:
+            return self.ref_link_eldorado + convert_url_for_ref_link(url)
+
+        return url
 
 
-# app = Client("my_account")
-# if res[0].outgoing == False:
-#     print("Сообщение от бота")
-
-
-# def hui():
-#     with Client("my_account") as app:
-#         # @app.on_message(filters.user("@admitad_bot"))
-#         # async def echo(client, msg):
-#         #     print(msg.text)
-#         #     await app.disconnect()
+# url = 'https://img.mvideo.ru/Pdb/30050131b.jpg'
+# url = 'https://img.mvideo.ru/Pdb/30048072b.jpg'
 #
-# # res = app.get_history("@admitad_bot", limit=2) # print(res) # print(res[0].outgoing) res = app.get_messages(
-# "@admitad_bot", 189) print(res.text) print(res.outgoing) # app.send_message("@admitad_bot", #
-# text="https://www.mvideo.ru/products/smartfon-apple-iphone-7-32gb-silver-mn8y2ru-a-30026136")
+# img1 = PostImage(url)
+# img1.draw_stamp().darken()
+# img1.save_as_jpg('cache/', 'img1')
 #
-# hui()
-
-# list_url = ['https://www.mvideo.ru/products/smartfon-apple-iphone-7-plus-32gb-black-mnqm2ru-a-30026229',
-#             'https://www.mvideo.ru/products/smartfon-apple-iphone-6s-32gb-gold-mn112ru-a-30026284',
-#             'https://www.mvideo.ru/products/smartfon-apple-iphone-8-plus-256gb-space-gray-mq8p2ru-a-30030160']
-#
-#
-# async def get_deeplink(app, url_list):
-#     urls = ', '.join(url_list)
-#
-#     # Отправка ссылок боту и получение id сообщения-ответа
-#     res = await app.send_message("@admitad_bot", text=urls)
-#     message_id = res.message_id + 1
-#
-#     # Ждем ответа от бота
-#     while True:
-#         res = await app.get_messages("@admitad_bot", message_id)
-#         if not res.empty:
-#             return res.text
-#
-#         time.sleep(0.5)
-#
-#
-# app = Client("my_account")
-# app.start()
-# text = app.loop.run_until_complete(get_deeplink(app, list_url))
-# print("text = {}".format(text))
-# app.stop()
-# for message in app.iter_history("@admitad_bot"):
-#     print(message.text)
-
-
-# app.start()
-# res = app.send_message("@admitad_bot",
-#                            text="https://www.mvideo.ru/products/smartfon-apple-iphone-12-128gb-black-mgja3ru-a-30052890")
-
-
-# with Client("my_account") as app:
-#     res = app.send_message("@admitad_bot",
-#                            text="https://www.mvideo.ru/products/smartfon-apple-iphone-12-128gb-black-mgja3ru-a-30052890")
-
-
-# app.run()
-
-# app.run()
-
-# app.run()
-# with Client("my_account") as app:
-#     app.send_message("me", "И еще привет!")
-
-
-# from PIL import Image, ImageDraw
-# from time import time
-#
-#
-# def steganography_encrypt(text):
-#     img = Image.open('cache/enc_img.png')
-#     draw = ImageDraw.Draw(img)
-#     pix = img.load()
-#
-#     indx = 0
-#     for elem in ([ord(elem) for elem in text]):
-#         for x in '{:08b}'.format(elem):
-#             r, g, b = pix[indx, 0]
-#             if not int(x):
-#                 draw.point((indx, 0), (r, g, (b & 254)))
-#             else:
-#                 draw.point((indx, 0), (r, g, (b | 1)))
-#             indx += 1
-#
-#     img.save("cache/newimage.png", "PNG")
-#     return img
-#
-#
-# def change_bytes_img():
-#     img = Image.open('cache/enc_img.png')
-#     draw = ImageDraw.Draw(img)
-#     width, height = img.size
-#     pix = img.load()
-#
-#     for i in range(width):
-#         for j in range(height):
-#             cur_pix = pix[i, j]
-#             if cur_pix[0] > 240 and cur_pix[1] > 240 and cur_pix[2] > 240:
-#                 draw.point((i, j), (cur_pix[0] ^ 0x07, cur_pix[1] ^ 0x07, cur_pix[2] ^ 0x07))
-#             else:
-#                 draw.point((i, j), (cur_pix[0] ^ 0x03, cur_pix[1] ^ 0x01, cur_pix[2] ^ 0x07))
-#
-#     return img
-#
-#
-# def steganography_decrypt(len_text):
-#     pix = Image.open('cache/newimage.png').load()  # создаём объект изображения
-#     cipher_text = ""
-#
-#     for i in range(len_text):
-#         one_char = 0
-#         for j in range(8):
-#             cur_bit = pix[(i * 8) + j, 0][2] & 1
-#             one_char += cur_bit << (7 - j)
-#         cipher_text += chr(one_char)
-#
-#     return cipher_text
-
-# def check_div_two_img():
-#     img1 = Image.open('cache/img_orig.png')
-#     pix1 = img1.load()
-#     pix2 = Image.open('cache/img_stamp.png').load()
-#     width, height = img1.size
-#
-#     dif_pix = 0
-#     all_pix = 0
-#     for i in range(width):
-#         for j in range(height):
-#             all_pix += 1
-#             cur_pix1 = pix1[i, j]
-#             cur_pix2 = pix2[i, j]
-#
-#             if cur_pix1[0] != cur_pix2[0] or cur_pix1[1] != cur_pix2[1] or cur_pix1[2] != cur_pix2[2]:
-#                 dif_pix += 1
-#
-#     print('dif_pix = {}, all_pix = {}'.format(dif_pix, all_pix))
-#     print('per = {}%'.format(float(dif_pix/all_pix) * 100.0))
-
-
-# check_div_two_img()
-
-# indx1 = 0
-# for item in list_url:
-#     print(item)
-#     img = PostImage(item)
-#     img.change_bytes_img()
-#     img.save('cache/dif/', str(indx1))
-#     indx1 += 1
-# from post_image import PostImage
-#
-# img = PostImage('https://mtscdn.ru/upload/iblock/f8d/smartfon_samsung_a415_galaxy_a41_4_64gb_white_1.jpg')
-# img.get_img().show()
-# img.change_bytes_img()
-# img.get_img().show()
-#
-
-# # img123.save('cache/', 'img_orig')
-# img123.draw_stamp()
-# img123.darken()
-# img123.save('cache/', 'img_stamp')
-
-
-# output = [int(x) for x in '{:08b}'.format(num)]
-# print(output)
-
-
-# time_start = time()
-# steganography_encrypt("Prodavach: https://t.me/prodavach_nsk")
-# print("you message: '{}'".format(steganography_decrypt(37)))
-# print(f"Время выполнения: {time() - time_start} сек")
+# img2 = PostImage(url)
+# img2.lighten()
+# img2.save_as_jpg('cache/', 'img2')

@@ -1,17 +1,37 @@
 import re
 import csv
 import configparser
-from time import time
+from time import time, sleep
+import os
+import socket
 
 from dns_parse import DNSParse
 from mvideo_parse import MVideoParse
 from mts_parse import MTSParse
+from citilink_parse import CitilinkParse
+from eldorado_parse import EldoradoParse
 from checker import Checker
 from bot import Bot
 import header as h
 
 
 logger = h.logging.getLogger('main')
+
+
+# Проверка наличия подключения к сети
+def check_internet():
+    for timeout in [1, 5, 10, 15]:
+        try:
+            socket.setdefaulttimeout(timeout)
+            host = socket.gethostbyname("www.google.com")
+            s = socket.create_connection((host, 80), 2)
+            s.close()
+            return True
+
+        except Exception:
+            print("Нет интернета")
+            sleep(5)
+    return False
 
 
 # Чтение словаря исключений названий моделей
@@ -75,39 +95,73 @@ def read_config():
     h.IGNORE_WORDS_FOR_COLOR = config['parser']['color_ignore'].lower().split('\n')
 
 
+# Удалить лок-файл
+def del_lock_file():
+    if os.path.isfile(h.PATH_UNDEFINED_MODEL_NAME_LIST_LOCK):
+        os.remove(h.PATH_UNDEFINED_MODEL_NAME_LIST_LOCK)
+
+
+# Создать лок файл, запрещающий сервисному боту читать файл с исключениями
+def create_lock_file():
+    del_lock_file()
+    with open(h.PATH_UNDEFINED_MODEL_NAME_LIST_LOCK, 'w') as f:
+        pass
+
+
 if __name__ == '__main__':
+
+    # Проверка наличия интернета перед выполнением программы
+    # if not check_internet():
+    #     raise SystemExit(2)
+
     time_start = time()
     h.del_old_logs()
-    # result_list = []
+    result_list = []
 
     load_allowed_model_names_list_for_base()
     load_exceptions_model_names()
     read_config()
+    create_lock_file()
 
-    # parser = MVideoParse()
-    # result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
-    # # result = load_result_from_csv("mvideo.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
-    #
-    # parser = MTSParse()
-    # result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
-    # # result = load_result_from_csv("mts.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
-    #
-    # parser = DNSParse()
-    # result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
-    # # result = load_result_from_csv("dns.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
+    parser = MVideoParse()
+    result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # result = load_result_from_csv("mvideo.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
 
+    parser = MTSParse()
+    result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
+    # result = load_result_from_csv("mts.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    parser = DNSParse()
+    result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    # result = load_result_from_csv("dns.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    parser = CitilinkParse()
+    result = parser.run_catalog("https://www.citilink.ru/catalog/mobile/smartfony/")
+    # result = load_result_from_csv("citilink.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    parser = EldoradoParse()
+    result = parser.run_catalog("https://www.eldorado.ru/c/smartfony/")
+    # result = load_result_from_csv("eldorado.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
+
+    del_lock_file()
     # save_result_list(result_list)
 
-    result_list = load_result_from_csv("goods3.csv")
+    # result_list = load_result_from_csv("goods2.csv")
     check = Checker(result_list)
     benefit_price_list = check.run()
 
