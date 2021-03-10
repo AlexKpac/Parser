@@ -13,6 +13,8 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
+from selenium.webdriver.common.proxy import Proxy, ProxyType
+
 import header as h
 
 logger = h.logging.getLogger('mvideoparse')
@@ -56,7 +58,8 @@ def mvideo_parse_model_name(name):
         else name.split()[-3:-1]
     # Если первое слово цвета состоит только из букв и длиннее 2 символов и отсутствует в игнор-листе - добавить
     # к итоговому цвету
-    color1 = color1 if (color1.isalpha() and len(color1) > 2 and not (color1.strip() in h.IGNORE_WORDS_FOR_COLOR)) else ""
+    color1 = color1 if (
+                color1.isalpha() and len(color1) > 2 and not (color1.strip() in h.IGNORE_WORDS_FOR_COLOR)) else ""
     color = color1 + " " + color2 if (color1.isalpha() and len(color1) > 2) else color2
     # Удалить первую часть часть
     name = name.replace('смартфон', '').replace(rom, '').replace(year, '').replace('  ', ' ')
@@ -87,7 +90,14 @@ class MVideoParse:
         options = Options()
         options.add_argument("window-size=1920,1080")
         options.add_argument("--disable-notifications")
-        self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+
+        try:
+            self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+        except se.WebDriverException:
+            print("НЕ СМОГ ИНИЦИАЛИЗИРОВАТЬ WEBDRIVER")
+            self.driver = None
+            return
+
         self.driver.implicitly_wait(1.5)
         self.wait = WebDriverWait(self.driver, 20)
         self.pr_result_list = []
@@ -138,7 +148,11 @@ class MVideoParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        try:
+            ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        except Exception:
+            return False
+
         return True
 
     # Обертка для клика по элементу через ActionChains
@@ -146,7 +160,11 @@ class MVideoParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).click().perform()
+        try:
+            ActionChains(self.driver).move_to_element(elem).click().perform()
+        except Exception:
+            return False
+
         return True
 
     # Обертка для клика по элементу через click
@@ -172,7 +190,7 @@ class MVideoParse:
             return False
 
         # Если указан неверный город
-        if not (self.current_city.lower() in city.text.lower()):
+        if self.current_city.lower() not in city.text.lower():
             logger.info("Неверный город")
 
             # Клик по городу
@@ -355,6 +373,8 @@ class MVideoParse:
             return self.driver.page_source
         except se.TimeoutException:
             return None
+        except se.WebDriverException:
+            return None
 
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
@@ -410,13 +430,14 @@ class MVideoParse:
             self.cur_page += 1
             return True
         else:
-            logger.error("!! После 3 попыток не получилось переключить страницу !!")
+            logger.error("!! После 3 попыток не получилось переключить страницу #{} !!".format(self.cur_page))
             return False
 
     # Завершение работы браузера
     def __wd_close_browser(self):
         logger.info("Завершение работы")
-        self.driver.quit()
+        if self.driver:
+            self.driver.quit()
 
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html, url):
@@ -457,6 +478,11 @@ class MVideoParse:
         else:
             url = model_name_url_block.get('href')
             full_name = model_name_url_block.text.replace('\n', '').strip()
+
+        # Чек
+        if not [item.text for item in block.select('span') if ("В корзину" in item.text)]:
+            logger.info("Нет кнопки 'В корзину', {} {}".format(full_name, url))
+            return
 
         # Проверка на предзаказ
         if [item.text for item in block.select("span.button__label.ng-star-inserted") if item.text == "Предзаказ"]:
@@ -563,6 +589,10 @@ class MVideoParse:
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
+        if not self.driver:
+            self.__wd_close_browser()
+            return None
+
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()

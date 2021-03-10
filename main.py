@@ -108,65 +108,114 @@ def create_lock_file():
         pass
 
 
+def worker1():
+    parser1 = MVideoParse()
+    parser1.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+
+
+def worker2():
+    parser2 = DNSParse()
+    parser2.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+
+
+def worker3():
+    parser3 = MTSParse()
+    parser3.run_catalog("https://shop.mts.ru/catalog/smartfony/")
+
+
+def worker4():
+    parser4 = EldoradoParse()
+    parser4.run_catalog("https://www.eldorado.ru/c/smartfony/")
+
+
 if __name__ == '__main__':
 
     # Проверка наличия интернета перед выполнением программы
     # if not check_internet():
     #     raise SystemExit(2)
+    # import multiprocessing
+    #
+    # time_start = time()
+    # load_allowed_model_names_list_for_base()
+    # load_exceptions_model_names()
+    # read_config()
+    #
+    # for item in h.ALLOWED_MODEL_NAMES_LIST_FOR_BASE:
+    #     print(item)
+    #
+    # time_start = time()
+    # p1 = multiprocessing.Process(target=worker1)
+    # p2 = multiprocessing.Process(target=worker2)
+    # p3 = multiprocessing.Process(target=worker3)
+    # p4 = multiprocessing.Process(target=worker4)
+    # p1.start()
+    # p2.start()
+    # p3.start()
+    # p4.start()
+    # print("КОНЕЦ СТАРТОВ")
+    # p1.join()
+    # p2.join()
+    # p3.join()
+    # p4.join()
+    # print("КОНЕЦ ДЖОИНОВ")
+    # logger.info(f"Время выполнения: {time() - time_start} сек")
+
+    # https://docs-python.ru/standart-library/paket-multiprocessing-python/
 
     time_start = time()
     h.del_old_logs()
-    result_list = []
+    # result_list = []
 
     load_allowed_model_names_list_for_base()
     load_exceptions_model_names()
     read_config()
     create_lock_file()
-
-    parser = MVideoParse()
-    result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
-    # result = load_result_from_csv("mvideo.csv")
-    if not result:
-        raise SystemExit(5)
-    result_list.extend(result)
-
-    parser = MTSParse()
-    result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
-    # result = load_result_from_csv("mts.csv")
-    if not result:
-        raise SystemExit(5)
-    result_list.extend(result)
-
-    parser = DNSParse()
-    result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
-    # result = load_result_from_csv("dns.csv")
-    if not result:
-        raise SystemExit(5)
-    result_list.extend(result)
-
-    parser = CitilinkParse()
-    result = parser.run_catalog("https://www.citilink.ru/catalog/mobile/smartfony/")
-    # result = load_result_from_csv("citilink.csv")
-    if not result:
-        raise SystemExit(5)
-    result_list.extend(result)
-
-    parser = EldoradoParse()
-    result = parser.run_catalog("https://www.eldorado.ru/c/smartfony/")
-    # result = load_result_from_csv("eldorado.csv")
-    if not result:
-        raise SystemExit(5)
-    result_list.extend(result)
-
+    #
+    # parser = MVideoParse()
+    # result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # # result = load_result_from_csv("mvideo.csv")
+    # if not result:
+    #     raise SystemExit(5)
+    # result_list.extend(result)
+    #
+    # parser = MTSParse()
+    # result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
+    # # result = load_result_from_csv("mts.csv")
+    # if not result:
+    #     raise SystemExit(5)
+    # result_list.extend(result)
+    #
+    # parser = DNSParse()
+    # result = parser.run_catalog("https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/")
+    # # result = load_result_from_csv("dns.csv")
+    # if not result:
+    #     raise SystemExit(5)
+    # result_list.extend(result)
+    #
+    # parser = CitilinkParse()
+    # result = parser.run_catalog("https://www.citilink.ru/catalog/mobile/smartfony/")
+    # # result = load_result_from_csv("citilink.csv")
+    # if not result:
+    #     raise SystemExit(5)
+    # result_list.extend(result)
+    #
+    # parser = EldoradoParse()
+    # result = parser.run_catalog("https://www.eldorado.ru/c/smartfony/")
+    # # result = load_result_from_csv("eldorado.csv")
+    # if not result:
+    #     raise SystemExit(5)
+    # result_list.extend(result)
+    #
     del_lock_file()
     # save_result_list(result_list)
 
-    # result_list = load_result_from_csv("goods2.csv")
+    result_list = load_result_from_csv("goods2.csv")
     check = Checker(result_list)
     benefit_price_list = check.run()
 
     bot = Bot()
     bot.checking_irrelevant_posts(result_list)
     bot.send_posts(benefit_price_list)
+    bot.stop()
 
     logger.info(f"Время выполнения: {time() - time_start} сек")

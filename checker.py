@@ -6,7 +6,6 @@ import bd
 import header as h
 import sql_req as sr
 
-
 logger = h.logging.getLogger('checker')
 
 
@@ -159,7 +158,8 @@ class Checker:
         min_act_price_in_stock_data_list = find_min_price_in_prices_list(act_price_in_stock_data_list)
 
         # Сравнение минимальной цены (любой, они равны) со средней. Если цена не выгодная - очистить список
-        if h.per_num_of_num(min_act_price_in_stock_data_list[0][pos_price], avg_price) < self.min_diff_price_per:
+        if h.per_num_of_num(min_act_price_in_stock_data_list[0][pos_price], avg_price) < self.min_diff_price_per or \
+                avg_price - min_act_price_in_stock_data_list[0][pos_price] < 1500:
             min_act_price_in_stock_data_list.clear()
 
         logger.info('YES' if min_act_price_in_stock_data_list else 'NO')
@@ -181,7 +181,9 @@ class Checker:
                           img_url, url, product_code, local_rating, num_rating, price, bonus_rubles=0):
 
         logger.info('-' * 50)
-        logger.info("-- {} {} {} {} {} {} {} {}".format(shop_name, brand_name, model_name, var_rom, var_ram, var_color, url, price))
+        logger.info(
+            "-- {} {} {} {} {} {} {} {}".format(shop_name, brand_name, model_name, var_rom, var_ram, var_color, url,
+                                                price))
 
         if not self.db.connection:
             logger.warning("Can't execute query - no connection")
@@ -225,8 +227,10 @@ class Checker:
                         logger.info("---price_phone = {}".format(price_phone))
                         # Если ничего не изменилось - обновить дату у цены
                         logger.info("NO CHANGE, IGNORE; "
-                                    "id_prod = {}, id_ver = {}, id_shop = {}, price = {}".format(id_product, id_ver_phone,
-                                                                                     id_shop_phone, price_phone[-1][0]))
+                                    "id_prod = {}, id_ver = {}, id_shop = {}, price = {}".format(id_product,
+                                                                                                 id_ver_phone,
+                                                                                                 id_shop_phone,
+                                                                                                 price_phone[-1][0]))
 
                     # ---- Цена данной комплектации в данном магазине изменилась - добавляем в список цен
                     else:

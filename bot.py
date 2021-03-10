@@ -13,6 +13,9 @@ import bd
 import header as h
 import sql_req as sr
 from post_image import PostImage
+from pyrogram import Client
+from pyrogram.types import InputMediaPhoto
+import pyrogram.errors.exceptions as ex
 
 logger = h.logging.getLogger('bot')
 EXCEPT_MODEL_NAMES_TELEGRAM_DICT = {}
@@ -212,7 +215,7 @@ class Bot:
     def __init__(self):
         self.config = configparser.ConfigParser()
         self.config.read('config.ini', encoding="utf-8")
-        self.chat_id = self.config['bot']['chat_id']
+        self.chat_id = int(self.config['bot']['chat_id'])
         self.ignore_brands = self.config['bot-ignore']['brands'].lower().split('\n')
         self.bot = telebot.TeleBot(self.config['bot']['token'])
         self.one_star_per = float(self.config['bot-stars']['one_star_per'])
@@ -244,6 +247,12 @@ class Bot:
         load_stats_shops_dictionary()
         self.__load_num_posts()
         self.__load_msg_in_telegram_list()
+
+        self.app = Client("my_account")
+        self.app.start()
+
+    def stop(self):
+        self.app.stop()
 
     # Чтение кол-ва всех и актуальных постов
     def __load_num_posts(self):
@@ -414,10 +423,11 @@ class Bot:
 
         # Отправка постов в телеграм. Звук только у последних 2-ух
         for i in range(len(versions_list)):
-            self.__send_post(versions_list[i], True if (i < (len(versions_list) - 2)) else False)
+            self.app.loop.run_until_complete(self.__send_post(versions_list[i], True if (i < (len(versions_list) - 2)) else False))
+            # self.__send_post(versions_list[i], True if (i < (len(versions_list) - 2)) else False)
 
     # Отправка поста в телеграм
-    def __send_post(self, version_list, dis_notify):
+    async def __send_post(self, version_list, dis_notify):
         item = version_list[0]
 
         # Проверка на наличие такого же поста в списке актуальных сообщений
@@ -456,12 +466,18 @@ class Bot:
 
         img.lighten()
 
+        img_name = 'img_{}'.format(datetime.now().timestamp())
+        img.save_as_jpg('cache/for_send', img_name)
+        time.sleep(1)
+
         # Отправка поста в обертке
         for i in range(3):
             try:
-                resp = self.bot.send_photo(chat_id=self.chat_id, photo=img.get_img(), caption=text, parse_mode='Html',
-                                           disable_notification=dis_notify)
+                resp = await self.app.send_photo(self.chat_id, 'cache/for_send/{}.jpg'.format(img_name), text, 'html', disable_notification=dis_notify)
+                # resp = self.bot.send_photo(chat_id=self.chat_id, photo=img.get_img(), caption=text, parse_mode='Html',
+                #                            disable_notification=dis_notify)
                 print(resp.message_id)
+
                 logger.info(
                     "Создан новый пост, id={}, item={} {} {}/{} price={}".format(resp.message_id, item.brand_name,
                                                                                  item.model_name, item.ram,
@@ -488,12 +504,12 @@ class Bot:
                 ))
                 break
 
-            except telebot.apihelper.ApiException:
+            except ex.bad_request_400.MessageNotModified: # telebot.apihelper.ApiException:
                 logger.warning("Слишком много постов в телеграм, ожидаем 30 сек, ({})".format(i + 1))
                 time.sleep(30)
 
     # Отредактировать пост как частично или полностью неактуальный
-    def __edit_post_as_irrelevant(self, post, text, current_actual):
+    async def __edit_post_as_irrelevant(self, post, text, current_actual):
 
         # Если пост был неактуальный и до сих пор неактуальный - выходим, менять нечего
         if not post.is_actual and not current_actual:
@@ -516,13 +532,20 @@ class Bot:
             else:
                 img.lighten()
 
+            img_name = 'img_{}'.format(datetime.now().timestamp())
+            img.save_as_jpg('cache/for_send', img_name)
+            time.sleep(1)
+            # new_img = PostImage()
+            # new_img.open('cache/for_send/{}.jpg'.format(img_name))
+
             # 5 попыток изменить пост (из-за бага телеграм)
             for i in range(3):
 
                 try:
-                    self.bot.edit_message_media(
-                        media=types.InputMediaPhoto(media=img.get_img(), caption=text, parse_mode='html'),
-                        chat_id=self.chat_id, message_id=post.message_id)
+                    await self.app.edit_message_media(self.chat_id, post.message_id, InputMediaPhoto('cache/for_send/{}.jpg'.format(img_name), text, 'html'))
+                    # self.bot.edit_message_media(
+                    #     media=types.InputMediaPhoto(media=img.get_img(), caption=text, parse_mode='html'),
+                    #     chat_id=self.chat_id, message_id=post.message_id)
                     logger.info("edit_message_media УСПЕШНО")
 
                     # Декремент кол-ва актуальных постов
@@ -530,7 +553,7 @@ class Bot:
                     time.sleep(3)
                     return True
 
-                except telebot.apihelper.ApiException as e:
+                except ex.bad_request_400.MessageNotModified as e: # telebot.apihelper.ApiException as e:
                     logger.error("Не удалось отредактировать пост ({}) - edit_message_media: {}".format(i + 1, e))
                     img.save_as_jpg("cache/", "{}.jpg".format(post.message_id))
                     img.lighten() if current_actual else img.darken()
@@ -541,12 +564,13 @@ class Bot:
         # Если пост не менял актуальность (true=true) и хэш сообщения изменился - обновляем описание поста
         if hashlib.sha256(text.encode()).hexdigest() != post.text_hash:
             try:
-                self.bot.edit_message_caption(caption=text, parse_mode='html',
-                                              chat_id=self.chat_id, message_id=post.message_id)
+                # self.bot.edit_message_caption(caption=text, parse_mode='html',
+                #                               chat_id=self.chat_id, message_id=post.message_id)
+                await self.app.edit_message_caption(self.chat_id, post.message_id, text, 'html')
                 logger.info("edit_message_caption УСПЕШНО")
                 time.sleep(3)
 
-            except telebot.apihelper.ApiException as e:
+            except ex.bad_request_400.MessageNotModified as e: # telebot.apihelper.ApiException as e:
                 logger.error("Не удалось отредактировать пост - edit_message_caption: {}".format(e))
                 return False
 
@@ -612,9 +636,14 @@ class Bot:
                 continue
 
             new_text = self.__format_text(versions_list, is_actual)
-            if not self.__edit_post_as_irrelevant(item, new_text, is_actual):
+
+            ####
+            if not self.app.loop.run_until_complete(self.__edit_post_as_irrelevant(item, new_text, is_actual)):
                 logger.error("Не удалось отредактировать пост!")
                 is_actual = True
+            # if not self.__edit_post_as_irrelevant(item, new_text, is_actual):
+            #     logger.error("Не удалось отредактировать пост!")
+            #     is_actual = True
 
             # Сохраняем пост в список постов
             irr_post_add_item_in_msg_in_telegram_list(new_posts_in_telegram_list,
@@ -671,13 +700,34 @@ class Bot:
         return url
 
 
-# url = 'https://img.mvideo.ru/Pdb/30050131b.jpg'
-# url = 'https://img.mvideo.ru/Pdb/30048072b.jpg'
-#
+# # url = 'https://img.mvideo.ru/Pdb/30050131b.jpg'
+# url = 'https://img.mvideo.ru/Pdb/30046134b.jpg'
+# #
 # img1 = PostImage(url)
 # img1.draw_stamp().darken()
-# img1.save_as_jpg('cache/', 'img1')
+# # img1.save_as_jpg('cache/', 'img1')
+# #
+# # img2 = PostImage(url)
+# # img2.lighten()
+# # img2.save_as_jpg('cache/', 'img2')
 #
-# img2 = PostImage(url)
-# img2.lighten()
-# img2.save_as_jpg('cache/', 'img2')
+# img1.get_img().show()
+#
+# img_name = 'img_{}'.format(time.strftime("%Y-%m-%d_%H-%M-%S", time.gmtime()))
+# img1.save_as_jpg('cache/for_send', img_name)
+# time.sleep(3)
+# new_img = PostImage()
+# new_img.open('cache/for_send/{}.jpg'.format(img_name))
+# new_img.save_as_jpg('cache/for_send', 'ololo')
+# new_img.get_img().show()
+
+
+# from selenium import webdriver
+# options = webdriver.ChromeOptions()
+# options.add_argument("--proxy-server=77.120.93.135:52263")
+# driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+# driver.get(url="https://2ip.ru")
+# time.sleep(5)
+#
+
+

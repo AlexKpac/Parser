@@ -87,7 +87,16 @@ class EldoradoParse:
         options = Options()
         options.add_argument("window-size=1920,1080")
         options.add_argument("--disable-notifications")
+
+        # try:
+        #     self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+        # except se.WebDriverException:
+        #     print("НЕ СМОГ ИНИЦИАЛИЗИРОВАТЬ WEBDRIVER")
+        #     self.driver = None
+        #     return
+
         self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+
         self.driver.implicitly_wait(1.5)
         self.wait = WebDriverWait(self.driver, 20)
         self.pr_result_list = []
@@ -139,7 +148,11 @@ class EldoradoParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        try:
+            ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        except Exception:
+            return False
+
         return True
 
     # Обертка для клика по элементу через ActionChains
@@ -147,19 +160,12 @@ class EldoradoParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).click().perform()
-        return True
-
-    # Обертка для клика по элементу через ActionChains
-    def __wd_click_el11em(self, elem):
-        if not elem:
-            return False
         try:
-            elem.click()
-            return True
-        except se.ElementClickInterceptedException:
-            print("Элемент некликабельный")
+            ActionChains(self.driver).move_to_element(elem).click().perform()
+        except Exception:
             return False
+
+        return True
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
@@ -197,7 +203,9 @@ class EldoradoParse:
 
             # Кликнуть на форму для ввода текста
             time.sleep(1)
-            ActionChains(self.driver).move_to_element(input_city).click().perform()
+            if not self.__wd_ac_click_elem(input_city):
+                logger.error("Не могу кликнуть на форму для ввода текста")
+                return False
 
             # Ввод названия города по буквам
             for char in self.current_city:
@@ -283,6 +291,8 @@ class EldoradoParse:
             return self.driver.page_source
         except se.TimeoutException:
             return None
+        except se.WebDriverException:
+            return None
 
     # Переход на заданную страницу num_page через клик
     def __wd_next_page(self):
@@ -322,13 +332,14 @@ class EldoradoParse:
             self.cur_page += 1
             return True
         else:
-            logger.error("!! После 3 попыток не получилось переключить страницу !!")
+            logger.error("!! После 3 попыток не получилось переключить страницу #{} !!".format(self.cur_page))
             return False
 
     # Завершение работы браузера
     def __wd_close_browser(self):
         logger.info("Завершение работы")
-        self.driver.quit()
+        if self.driver:
+            self.driver.quit()
 
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html, url):
@@ -456,13 +467,17 @@ class EldoradoParse:
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
+        if not self.driver:
+            self.__wd_close_browser()
+            return None
+
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return None
 
         if cur_page:
-            self.cur_page = cur_page
+            self.cur_page = cur_page + 1
 
         while True:
             html = self.__wd_get_cur_page()

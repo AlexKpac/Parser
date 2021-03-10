@@ -14,10 +14,8 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 import header as h
 
-
 logger = h.logging.getLogger('citilinkparse')
 CITILINK_REBUILT_IPHONE = '"как новый"'
-
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
 def citilink_parse_model_name(name):
@@ -29,13 +27,18 @@ def citilink_parse_model_name(name):
     name = name.replace(u'\xa0', u' ')
     # Понижение регистра
     name = name.lower()
-    name = name.replace('dual sim', '').replace('lte', '').replace(' nfc ', ' ').\
-        replace(' 5g ', ' ').replace('«', '').replace('»', '')
+    name = name.replace('dual sim', '').replace('dual cam', '').replace(' lte ', ' ').replace(' nfc ', ' '). \
+        replace(' 5g ', ' ').replace(' 4g ', ' ').replace(' 3g ', ' ').replace('«', '').replace('»', '')
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
     rebuilt = h.REBUILT_IPHONE_NAME if (CITILINK_REBUILT_IPHONE in name) else ''
     name = name.replace(CITILINK_REBUILT_IPHONE, '')
     # Цвет
     color = name[name.rfind(','):].replace(',', '').replace('(product)', '').strip()
+    # Исключение для перечисленных брендов
+    model_code = ''
+    if 'bq' in name or 'blackview' in name or 'alcatel' in name:
+        model_code = ' ' + name[name.find(',') + 1:name.rfind(',')].strip()
+    # Удаление кода моделей
     name = name[:name.find(',')]
     # Удалить все скобки
     brackets = re.findall(r"\(.+?\)", name)
@@ -48,9 +51,9 @@ def citilink_parse_model_name(name):
     year = re.findall(r' 20[1,2]\d ', name)
     year = year[0] if year else ''
     # Удалить лишние слова в названии модели
-    name = name.replace('смартфон', '').replace(ram_rom, '').replace(color, '').\
+    name = name.replace('смартфон', '').replace(ram_rom, '').replace(color, ''). \
         replace(year, '').replace('  ', ' ').strip()
-    name += rebuilt
+    name += model_code + rebuilt
 
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
@@ -71,10 +74,21 @@ def citilink_parse_model_name(name):
 class CitilinkParse:
 
     def __init__(self):
-        options = Options()
+        # options = Options()
+        # options.add_argument("window-size=1920,1080")
+        # options.add_argument("--disable-notifications")
+        options = webdriver.ChromeOptions()
         options.add_argument("window-size=1920,1080")
         options.add_argument("--disable-notifications")
-        self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+        options.add_argument("--proxy-server=%s" % h.get_proxy())
+
+        try:
+            self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+        except se.WebDriverException:
+            print("НЕ СМОГ ИНИЦИАЛИЗИРОВАТЬ WEBDRIVER")
+            self.driver = None
+            return
+
         self.driver.implicitly_wait(1.5)
         self.wait = WebDriverWait(self.driver, 20)
         self.pr_result_list = []
@@ -126,7 +140,11 @@ class CitilinkParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        try:
+            ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        except Exception:
+            return False
+
         return True
 
     # Обертка для клика по элементу через ActionChains
@@ -134,7 +152,11 @@ class CitilinkParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).click().perform()
+        try:
+            ActionChains(self.driver).move_to_element(elem).click().perform()
+        except Exception:
+            return False
+
         return True
 
     # Обертка для клика по элементу через ActionChains
@@ -157,7 +179,7 @@ class CitilinkParse:
             return False
 
         # Если указан неверный город
-        if not (self.current_city.lower() in city.text.lower()):
+        if self.current_city.lower() not in city.text.lower():
             logger.info("Неверный город")
 
             # Клик по городу
@@ -185,7 +207,9 @@ class CitilinkParse:
 
             # Кликнуть на форму для ввода текста
             time.sleep(1)
-            ActionChains(self.driver).move_to_element(input_city).click().perform()
+            if not self.__wd_ac_click_elem(input_city):
+                logger.error("Не могу кликнуть на форму для ввода текста")
+                return False
 
             # Ввод названия города по буквам
             for char in self.current_city:
@@ -196,7 +220,8 @@ class CitilinkParse:
 
             # Выбор города из сгенерированного списка городов
             input_city_item = self.__wd_find_elem_with_timeout(By.XPATH,
-                                                               "//a[@data-search='{}']".format(self.current_city.lower()))
+                                                               "//a[@data-search='{}']".format(
+                                                                   self.current_city.lower()))
             if not input_city_item:
                 logger.error("Не найдено элементов при вводе города")
                 return False
@@ -216,7 +241,7 @@ class CitilinkParse:
     def __wd_check_load_page_catalog(self):
         # Ожидание прогрузки цен
         if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "ProductCardVerticalPrice__price-current_current-price"
-                                                if self.is_grid else "ProductCardHorizontal__price_current-price"):
+        if self.is_grid else "ProductCardHorizontal__price_current-price"):
             return False
 
         logger.info("Page loaded")
@@ -302,6 +327,8 @@ class CitilinkParse:
             return self.driver.page_source
         except se.TimeoutException:
             return None
+        except se.WebDriverException:
+            return None
 
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
@@ -342,13 +369,14 @@ class CitilinkParse:
             self.cur_page += 1
             return True
         else:
-            logger.error("!! После 3 попыток не получилось переключить страницу !!")
+            logger.error("!! После 3 попыток не получилось переключить страницу #{} !!".format(self.cur_page))
             return False
 
     # Завершение работы браузера
     def __wd_close_browser(self):
         logger.info("Завершение работы")
-        self.driver.quit()
+        if self.driver:
+            self.driver.quit()
 
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html, url):
@@ -413,7 +441,8 @@ class CitilinkParse:
 
         # Рейтинг товара и на основании скольки отзывов построен
         rating, num_rating = 0, 0
-        rating_and_num_rating = block.select('div.Tooltip__content.js--Tooltip__content.ProductCardHorizontal__tooltip__content.Tooltip__content_center')
+        rating_and_num_rating = block.select(
+            'div.Tooltip__content.js--Tooltip__content.ProductCardHorizontal__tooltip__content.Tooltip__content_center')
         if rating_and_num_rating:
             for item in rating_and_num_rating:
                 if 'рейтинг' in item.text.lower():
@@ -481,13 +510,17 @@ class CitilinkParse:
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
+        if not self.driver:
+            self.__wd_close_browser()
+            return None
+
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return None
 
         if cur_page:
-            self.cur_page = cur_page
+            self.cur_page = cur_page + 1
 
         while True:
             html = self.__wd_get_cur_page()
@@ -504,6 +537,26 @@ class CitilinkParse:
         pass
 
 
+models = ['Смартфон BQ Magic 32Gb, 6040L, красный',
+          'Смартфон BQ Magic 32Gb, 6040L, черный',
+          'Смартфон BQ Magic L 32Gb, 6630L, черный',
+          'Смартфон BQ Magic S 32Gb, 5731L, красный',
+          'Смартфон BQ Magic S 32Gb, 5731L, синий',
+          'Смартфон BQ Magic S 32Gb, 5731L, фиолетовый',
+          'Смартфон BLACKVIEW 128Gb, BV6300Pro, черный',
+          'Смартфон BLACKVIEW 128Gb, BV6300Pro, черный/оранжевый',
+          'Смартфон BLACKVIEW 128Gb, BV9600 Pro, черный',
+          'Смартфон BLACKVIEW 32Gb, BV4900, черный',
+          'Смартфон BLACKVIEW 32Gb, BV4900, черный/желтый',
+          'Смартфон BLACKVIEW 32Gb, BV6300, черный',
+          'Смартфон BLACKVIEW BV9900 PRO, черный/серый',
+          'Смартфон APPLE iPhone SE 2020 64Gb, MX9R2RU/A, черный',
+        'Смартфон APPLE iPhone SE 2020 64Gb, MX9T2RU/A, белый',
+        'Смартфон APPLE iPhone SE 2020 64Gb, MX9U2RU/A, красный',
+        'Смартфон APPLE iPhone XR 128Gb, MH7L3RU/A, черный',
+        'Смартфон APPLE iPhone XR 128Gb, MH7M3RU/A, белый'
+          ]
+
 if __name__ == '__main__':
     import main
 
@@ -512,6 +565,9 @@ if __name__ == '__main__':
     main.load_exceptions_model_names()
     main.read_config()
 
-    parser = CitilinkParse()
-    parser.run_catalog('https://www.citilink.ru/catalog/mobile/smartfony/')
+    for item in models:
+        print(citilink_parse_model_name(item))
+
+    # parser = CitilinkParse()
+    # parser.run_catalog('https://www.citilink.ru/catalog/mobile/smartfony/')
     logger.info(f"Время выполнения: {time.time() - time_start} сек")

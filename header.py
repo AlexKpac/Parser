@@ -1,14 +1,14 @@
 import collections
 import logging
-import re
+import random
 import os
 from datetime import datetime, timedelta
 
 
 log_name = "logs/log-" + datetime.now().strftime("%Y.%m.%d-%H.%M") + ".txt"
-logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
-                    level=logging.INFO)
-# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
+#                     level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('header')
 
 
@@ -19,6 +19,21 @@ def del_old_logs():
         if element.is_file():
             if name in element.name:
                 os.remove("logs/" + element.name)
+
+
+# Получить proxy из файла
+def get_proxy():
+    with open(PROXY_PATH) as f:
+        proxy_list = f.read().splitlines()
+
+    if proxy_list:
+        proxy = proxy_list[random.randint(0, len(proxy_list) - 1)]
+        print("Выбран PROXY: {}".format(proxy))
+    else:
+        print("ОШИБКА PROXY, СПИСОК ПУСТ")
+        return []
+
+    return proxy
 
 
 # Поиск в строке названия фраз из списка исключения и их замена
@@ -138,6 +153,8 @@ PRICE_CHANGES_PATH = "cache/dif_price.csv"
 # Путь для файла с результатами парсинга
 CSV_PATH = "cache/goods.csv"
 CSV_PATH_RAW = "cache/"
+# Путь к proxy
+PROXY_PATH = 'proxy/proxy.txt'
 # Пути к словарям
 EXCEPT_MODEL_NAMES_PATH = "dictionaries/except_model_names.dic"
 EXCEPT_MODEL_NAMES_TELEGRAM_PATH = "dictionaries/except_model_names_telegram.dic"

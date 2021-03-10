@@ -9,25 +9,28 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.expected_conditions import presence_of_element_located
+from selenium.webdriver.support.expected_conditions import presence_of_element_located, presence_of_all_elements_located
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 import header as h
-
 
 DNS_REBUILT_IPHONE = ' "как новый"'
 logger = h.logging.getLogger('dnsparse')
 
 
 # Парсинг названия модели (получить название модели, цвет и ROM)
-def dns_parse_model_name(brand_name, name):
+def dns_parse_model_name(name):
     # Убираем неразрывные пробелы
     name = name.replace(u'\xc2\xa0', u' ')
     name = name.replace(u'\xa0', u' ')
     # Понижение регистра
     name = name.lower()
-    brand_name = brand_name.lower()
+    # Характеристики из названия
+    characteristics = re.findall(r'\[.*]', name)[0]
+    name = name.replace(characteristics, '')
+    ram = dns_parse_specifications(characteristics)
+
     # Восстановленные телефоны (только для iphone). Если есть слово - удалить
     rebuilt = h.REBUILT_IPHONE_NAME if (DNS_REBUILT_IPHONE in name) else ''
     name = name.replace(DNS_REBUILT_IPHONE if rebuilt else '', '')
@@ -56,14 +59,17 @@ def dns_parse_model_name(brand_name, name):
     # Проверка названия в словаре исключений названий моделей
     name = h.find_and_replace_except_model_name(name)
 
-    # Проверка названия модели в словаре разрешенных моделей
+    # # Проверка названия модели в словаре разрешенных моделей
     if not h.find_allowed_model_names(name):
         logger.info("Обнаружена новая модель, отсутствующая в базе = '{}'".format(name))
         h.save_undefined_model_name(name)
-        return None, None, None
+        return None, None, None, 0, 0
 
+    # Получить название бренда
+    brand_name = name.split()[0]
     model_name = name.replace(brand_name, '').strip()
-    return model_name, color, rom
+
+    return brand_name, model_name, color, ram, rom
 
 
 # Парсинг характеристик (получить RAM)
@@ -84,7 +90,14 @@ class DNSParse:
         options = Options()
         options.add_argument("window-size=1920,1080")
         options.add_argument("--disable-notifications")
-        self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+
+        try:
+            self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+        except se.WebDriverException:
+            print("НЕ СМОГ ИНИЦИАЛИЗИРОВАТЬ WEBDRIVER")
+            self.driver = None
+            return
+
         self.driver.implicitly_wait(1.5)
         self.wait = WebDriverWait(self.driver, 20)
         self.pr_result_list = []
@@ -117,7 +130,11 @@ class DNSParse:
 
     # Поиск всех элементов с таймаутом
     def __wd_find_all_elems_with_timeout(self, by, elem):
-        pass
+        try:
+            result = self.wait.until(presence_of_all_elements_located((by, elem)))
+            return result
+        except se.TimeoutException:
+            return None
 
     # Поиск всех элементов без таймаута
     def __wd_find_all_elems(self, by, xpath):
@@ -125,11 +142,27 @@ class DNSParse:
 
     # Отправка клавиши в элемент через ActionChains
     def __wd_ac_send_keys(self, elem, keys):
-        pass
+        if not elem:
+            return False
+
+        try:
+            ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        except Exception:
+            return False
+
+        return True
 
     # Обертка для клика по элементу через ActionChains
     def __wd_ac_click_elem(self, elem):
-        pass
+        if not elem:
+            return False
+
+        try:
+            ActionChains(self.driver).move_to_element(elem).click().perform()
+        except Exception:
+            return False
+
+        return True
 
     # Обертка для клика по элементу через click
     def __wd_click_elem(self, elem):
@@ -148,26 +181,58 @@ class DNSParse:
 
     # Алгоритм выбора города для всех возможных ситуаций на странице каталога
     def __wd_city_selection_catalog(self):
+        # Поиск шапки выбора города и название города
         city_head = self.__wd_find_elem(By.XPATH, "//i[@class='location-icon']")
-        if not city_head:
+        city_head_text = self.__wd_find_elem(By.XPATH, "//div[@class='w-choose-city-widget-label']")
+        if not city_head or not city_head_text:
             logger.error("Не могу найти элемент с текущим городом на странице")
             return False
 
         # Если в шапке сайта указан неверный город - кликаем по нему и выбираем нужный
-        if not (self.current_city.lower() in city_head.text.lower()):
+        if self.current_city.lower() not in city_head_text.text.lower():
 
             if not self.__wd_click_elem(city_head):
                 logger.error("Не могу кликнуть по названию города для его смены")
                 return False
 
-            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//div[@class='search-field']/"
-                                                                    "input[@data-role='search-city']")
+            time.sleep(1)
+
+            # Поиск города в заготовленном списке крупных городов
+            city_list = self.__wd_find_all_elems_with_timeout(By.XPATH, "//span[@data-role='big-cities']")
+            if city_list:
+                for item in city_list:
+                    if self.current_city.lower() in item.text.lower():
+                        time.sleep(0.5)
+                        return self.__wd_ac_click_elem(item)
+            else:
+                logger.info("Не вижу нужный город в списке, пробую вбить вручную")
+
+            # Если в заготовонном списке нет нужного города - ищем input и вводим в поиск
+            input_city = self.__wd_find_elem_with_timeout(By.XPATH, "//input[@data-role='search-city']")
             if not input_city:
                 logger.error("Не могу найти поле для ввода города")
                 return False
 
-            # Отправка нужного города
-            input_city.send_keys(self.current_city, Keys.ENTER)
+            # Кликнуть на форму для ввода текста
+            if not self.__wd_ac_click_elem(input_city):
+                logger.error("Не могу кликнуть на форму для ввода текста")
+                return False
+            time.sleep(1)
+
+            # Ввод названия города по буквам
+            for char in self.current_city:
+                self.__wd_ac_send_keys(input_city, char)
+
+            # Найти в результирующем списке нужный город
+            city_list = self.__wd_find_all_elems_with_timeout(By.XPATH, "//li[@class='modal-row']/a/span/mark")
+            if city_list:
+                for item in city_list:
+                    if self.current_city.lower() in item.text.lower():
+                        time.sleep(0.5)
+                        return self.__wd_ac_click_elem(item)
+            else:
+                logger.error("Не вижу нужный город в списке input, выход")
+                return False
 
         return True
 
@@ -178,7 +243,8 @@ class DNSParse:
     # Проверка по ключевым div-ам что страница каталога прогружена полностью
     def __wd_check_load_page_catalog(self):
         # Ожидание прогрузки цен
-        if not self.__wd_find_elem_with_timeout(By.CLASS_NAME, "product-min-price__current"):
+        if not self.__wd_find_elem_with_timeout(By.XPATH,
+                                                "//div[contains(@class, 'product-buy__price')]"):
             return False
 
         logger.info("Page loaded")
@@ -190,7 +256,9 @@ class DNSParse:
 
     # Скролл вниз для прогрузки товаров на странице
     def __wd_scroll_down(self):
-        pass
+        for _ in range(7):
+            ActionChains(self.driver).send_keys(Keys.PAGE_DOWN).perform()
+            time.sleep(0.2)
 
     # Запуск браузера, загрузка начальной страницы каталога, выбор города
     def __wd_open_browser_catalog(self, url):
@@ -211,10 +279,14 @@ class DNSParse:
             logger.error("Не могу выбрать город")
             return False
 
+        time.sleep(2)
+
         # Ждем, пока не прогрузится страница
         if not self.__wd_check_load_page_catalog():
             logger.error("Не удалось прогрузить страницу в __wd_open_browser (2)")
             return False
+
+        self.__wd_scroll_down()
 
         return True
 
@@ -228,6 +300,8 @@ class DNSParse:
             return self.driver.page_source
         except se.TimeoutException:
             return None
+        except se.WebDriverException:
+            return None
 
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
@@ -238,15 +312,20 @@ class DNSParse:
                 self.driver.refresh()
                 continue
 
+            if num_try:
+                # Скролл
+                self.__wd_scroll_down()
+
             # Поиск следующей кнопки страницы
             num_page_elem = self.__wd_find_elem(By.XPATH,
-                                                "//li[@class='pagination-widget__page ']/a[text()='{}']".format(self.cur_page))
+                                                "//a[@class='pagination-widget__page-link' and text()='{}']".
+                                                format(self.cur_page))
             if not num_page_elem:
                 logger.info("Достигнут конец каталога")
                 return False
 
             # Клик - переход на следующую страницу
-            if not self.__wd_click_elem(num_page_elem):
+            if not self.__wd_ac_click_elem(num_page_elem):
                 logger.error("Не могу кликнуть на страницу в __wd_next_page")
                 self.driver.refresh()
                 continue
@@ -260,13 +339,19 @@ class DNSParse:
                 self.driver.refresh()
                 continue
 
+            # Скролл
+            self.__wd_scroll_down()
+
             # Особенность ДНС - при переключении страницы иногда не меняется контент. Если так - обновляем страницу
             try:
                 self.wait.until_not(presence_of_element_located((By.XPATH, "//a[@href='{}']".format(
                     self.pr_result_list[-5].url.replace(self.domain, '')))))
+
+                logger.info("Cur_page = {}".format(self.cur_page))
                 self.cur_page += 1
                 return True
             except se.TimeoutException:
+                print("НЕ ДОЖДАЛСЯ -5, обновляю")
                 logger.error("TimeoutException в __wd_next_page, обновляю страницу")
                 self.driver.refresh()
                 continue
@@ -274,13 +359,14 @@ class DNSParse:
                 logger.error('По непонятной причине список pr_result_list[-5] оказался пуст, выход за границы списка')
                 return False
         else:
-            logger.error("!! После 3 попыток не получилось переключить страницу !!")
+            logger.error("!! После 3 попыток не получилось переключить страницу #{} !!".format(self.cur_page))
             return False
 
     # Завершение работы браузера
     def __wd_close_browser(self):
         logger.info("Завершение работы")
-        self.driver.quit()
+        if self.driver:
+            self.driver.quit()
 
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html, url):
@@ -299,7 +385,7 @@ class DNSParse:
             self.category = self.category.text.replace('\n', '')
 
         # Контейнер с элементами
-        container = soup.select('div.catalog-item')
+        container = soup.select('div.catalog-product.ui-button-widget')
         for block in container:
             self.__parse_catalog_block(block)
         del container
@@ -308,7 +394,7 @@ class DNSParse:
     def __parse_catalog_block(self, block):
 
         # Название модели и URL
-        model_name_url_block = block.select_one('div.product-info__title-link > a.ui-link')
+        model_name_url_block = block.select_one('a.catalog-product__name.ui-link.ui-link_black')
         if not model_name_url_block:
             logger.warning("No model name and URL")
             return
@@ -321,74 +407,53 @@ class DNSParse:
             logger.info("Товар '{}' по предзаказу, пропуск".format(model_name))
             return
 
-        # Название бренда
-        brand_name = block.select_one('i[data-product-param=brand]')
-        if not brand_name:
-            logger.warning("No brand name")
-            return
-        else:
-            brand_name = brand_name.get('data-value')
-
         # Ссылка на изображение товара
-        img_url = block.select_one('img')
+        img_url = block.select_one('img.loaded')
         if not img_url:
             logger.warning("No img url")
             return
         else:
             img_url = img_url.get('data-src')
 
-        # Характеристики товара
-        specifications = block.select_one('span.product-info__title-description')
-        if not specifications:
-            logger.warning("No specifications")
-            return
-        else:
-            specifications = specifications.text
-
         # Рейтинг товара
-        rating = block.select_one('div.product-info__rating')
-        if not rating:
+        rating_block = block.select_one('a.catalog-product__rating.ui-link.ui-link_black')
+        if not rating_block:
             rating = 0
-        else:
-            rating = float(rating.get('data-rating'))
-
-        # На основании скольки отзывов построен рейтинг
-        num_rating = block.select_one('div.product-info__stat > a.product-info__opinions-count')
-        if not num_rating:
             num_rating = 0
         else:
-            num_rating = int(re.findall(r'\d+', num_rating.text)[0])
+            rating = float(rating_block.get('data-rating'))
+
+            # Кол-во отзывов
+            num_rating = re.findall(r'\d+\.*\d*k*', rating_block.text)
+            if num_rating:
+                num_rating = num_rating[0]
+                num_rating = int(float(num_rating.replace('k', '')) * 1000) if 'k' in num_rating \
+                    else int(num_rating)
+            else:
+                num_rating = 0
 
         # Код продукта
-        product_code = block.select_one('div.product-info__code > span')
+        product_code = block.get('data-code')
         if not product_code:
             logger.warning("No product code")
-            return
+
+        # Цена
+        price = block.select_one('div.product-buy__price')
+        if not price:
+            print("ДНС: НЕТ ЦЕНЫ !!!!!!")
+            logger.warning("No price")
+            return 
         else:
-            product_code = product_code.text
-
-        # Цена, ветвление: 2 вида акций, поиск по тегам
-        price = block.select_one('div.product-min-price__min')
-
-        # Если есть "акция"
-        if price and not ('скидка' in price.text):
             price = int(re.findall(r'\d+', price.text.replace(' ', ''))[0])
-        # Если есть "выгода"
-        else:
-            price = block.select_one('div.product-min-price__current')
-            if not price:
-                logger.warning("No current price")
-                return
-            else:
-                price = int(price.text.replace('₽', '').replace(' ', ''))
 
         # Парсинг названия модели
-        model_name, color, rom = dns_parse_model_name(brand_name, model_name)
-        if not model_name or not color or not rom:
-            logger.warning("No model name, color or rom")
+        brand_name, model_name, color, ram, rom = dns_parse_model_name(model_name)
+        if not brand_name or not model_name or not color or not rom:
+            logger.warning("No brand name, model name, color or rom")
             return
 
-        ram = 0 if ('apple' in brand_name.lower()) else dns_parse_specifications(specifications)
+        if 'apple' in brand_name:
+            ram = 0
 
         # Добавление полученных результатов в коллекцию
         self.pr_result_list.append(h.ParseResult(
@@ -413,17 +478,26 @@ class DNSParse:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(h.HEADERS)
             for item in self.pr_result_list:
-                writer.writerow(item)
+                try:
+                    writer.writerow(item)
+                except UnicodeEncodeError as e:
+                    print("!!!ОШИБКА КОДИРОВКИ!!!")
+                    print('item = "{}"'.format(item))
+                    print("error = {}".format(e))
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
+        if not self.driver:
+            self.__wd_close_browser()
+            return None
+
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return None
 
         if cur_page:
-            self.cur_page = cur_page
+            self.cur_page = cur_page + 1
 
         while True:
             html = self.__wd_get_cur_page()
@@ -442,6 +516,9 @@ class DNSParse:
 
 if __name__ == '__main__':
     import main
+    import os
+
+    os.system("taskkill /f /im  chrome.exe")
 
     time_start = time.time()
     main.load_allowed_model_names_list_for_base()
@@ -449,5 +526,6 @@ if __name__ == '__main__':
     main.read_config()
 
     parser = DNSParse()
+
     parser.run_catalog('https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/')
     logger.info(f"Время выполнения: {time.time() - time_start} сек")

@@ -70,10 +70,10 @@ def mts_parse_model_name(name):
     name = h.find_and_replace_except_model_name(name)
 
     # Проверка названия модели в словаре разрешенных моделей
-    if not h.find_allowed_model_names(name):
-        logger.info("Обнаружена новая модель, отсутствующая в базе = '{}'".format(name))
-        h.save_undefined_model_name(name)
-        return None, None, None, 0, 0
+    # if not h.find_allowed_model_names(name):
+    #     logger.info("Обнаружена новая модель, отсутствующая в базе = '{}'".format(name))
+    #     h.save_undefined_model_name(name)
+    #     return None, None, None, 0, 0
 
     # Получить название бренда
     brand_name = name.split()[0]
@@ -88,7 +88,14 @@ class MTSParse:
         options = Options()
         options.add_argument("window-size=1920,1080")
         options.add_argument("--disable-notifications")
-        self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+
+        try:
+            self.driver = webdriver.Chrome(executable_path=h.WD_PATH, options=options)
+        except se.WebDriverException:
+            print("НЕ СМОГ ИНИЦИАЛИЗИРОВАТЬ WEBDRIVER")
+            self.driver = None
+            return
+
         self.driver.implicitly_wait(1.5)
         self.wait = WebDriverWait(self.driver, 20)
         self.pr_result_list = []
@@ -139,7 +146,11 @@ class MTSParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        try:
+            ActionChains(self.driver).move_to_element(elem).send_keys(keys).perform()
+        except Exception:
+            return False
+
         return True
 
     # Обертка для клика по элементу через ActionChains
@@ -147,7 +158,11 @@ class MTSParse:
         if not elem:
             return False
 
-        ActionChains(self.driver).move_to_element(elem).click().perform()
+        try:
+            ActionChains(self.driver).move_to_element(elem).click().perform()
+        except Exception:
+            return False
+
         return True
 
     # Обертка для клика по элементу через click
@@ -303,6 +318,8 @@ class MTSParse:
             return self.driver.page_source
         except se.TimeoutException:
             return None
+        except se.WebDriverException:
+            return None
 
     # Переход на заданную страницу num_page через клик (для имитации пользователя)
     def __wd_next_page(self):
@@ -329,7 +346,7 @@ class MTSParse:
             # Специальная задержка между переключениями страниц для имитации юзера
             time.sleep(self.wait_between_pages_sec)
 
-            no_in_stock = self.__wd_find_all_elems(By.XPATH, '//div[contains(text(), "Нет в наличии")]')
+            no_in_stock = self.__wd_find_all_elems(By.XPATH, '//div[contains(text(), "Нет в наличии") or contains(text(), "Скоро в продаже")]')
             if no_in_stock and len(no_in_stock) == 30:
                 logger.info("Вся страница неактуальна, выход")
                 return False
@@ -349,13 +366,14 @@ class MTSParse:
             self.cur_page += 1
             return True
         else:
-            logger.error("!! После 3 попыток не получилось переключить страницу !!")
+            logger.error("!! После 3 попыток не получилось переключить страницу #{} !!".format(self.cur_page))
             return False
 
     # Завершение работы браузера
     def __wd_close_browser(self):
         logger.info("Завершение работы")
-        self.driver.quit()
+        if self.driver:
+            self.driver.quit()
 
     # Метод для парсинга html страницы продукта
     def __parse_product_page(self, html, url):
@@ -493,13 +511,17 @@ class MTSParse:
 
     # Запуск работы парсера для каталога
     def run_catalog(self, url, cur_page=None):
+        if not self.driver:
+            self.__wd_close_browser()
+            return None
+
         if not self.__wd_open_browser_catalog(url):
             logger.error("Open browser fail")
             self.__wd_close_browser()
             return None
 
         if cur_page:
-            self.cur_page = cur_page
+            self.cur_page = cur_page + 1
 
         while True:
             html = self.__wd_get_cur_page()
@@ -525,5 +547,5 @@ if __name__ == '__main__':
     main.read_config()
 
     parser = MTSParse()
-    parser.run_catalog('https://shop.mts.ru/catalog/smartfony/')
+    parser.run_catalog('https://shop.mts.ru/catalog/smartfony/14/', 14)
     logger.info(f"Время выполнения: {time.time() - time_start} сек")
