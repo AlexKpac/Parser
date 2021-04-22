@@ -5,15 +5,14 @@ from time import time, sleep
 import os
 import socket
 
-from dns_parse import DNSParse
-from mvideo_parse import MVideoParse
-from mts_parse import MTSParse
-from citilink_parse import CitilinkParse
-from eldorado_parse import EldoradoParse
-from checker import Checker
-from bot import Bot
-import header as h
-
+from data_source.parsers.dns_parse import DNSParse
+from data_source.parsers.mvideo_parse import MVideoParse
+from data_source.parsers.mts_parse import MTSParse
+from data_source.parsers.eldorado_parse import EldoradoParse
+from data_source.parsers.citilink_parse import CitilinkParse
+from core.checker import Checker
+from output.telegram.bot import Bot
+import common.general_helper as h
 
 logger = h.logging.getLogger('main')
 
@@ -164,19 +163,19 @@ if __name__ == '__main__':
 
     time_start = time()
     h.del_old_logs()
-    # result_list = []
+    result_list = []
 
     load_allowed_model_names_list_for_base()
     load_exceptions_model_names()
     read_config()
     create_lock_file()
     #
-    # parser = MVideoParse()
-    # result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
-    # # result = load_result_from_csv("mvideo.csv")
-    # if not result:
-    #     raise SystemExit(5)
-    # result_list.extend(result)
+    parser = MVideoParse()
+    result = parser.run_catalog("https://www.mvideo.ru/smartfony-i-svyaz-10/smartfony-205?sort=price_asc")
+    # result = load_result_from_csv("mvideo.csv")
+    if not result:
+        raise SystemExit(5)
+    result_list.extend(result)
     #
     # parser = MTSParse()
     # result = parser.run_catalog("https://shop.mts.ru/catalog/smartfony/")
@@ -207,15 +206,15 @@ if __name__ == '__main__':
     # result_list.extend(result)
     #
     del_lock_file()
-    # save_result_list(result_list)
+    save_result_list(result_list)
 
-    result_list = load_result_from_csv("goods2.csv")
-    check = Checker(result_list)
-    benefit_price_list = check.run()
-
-    bot = Bot()
-    bot.checking_irrelevant_posts(result_list)
-    bot.send_posts(benefit_price_list)
-    bot.stop()
+    # result_list = load_result_from_csv("goods2.csv")
+    # check = Checker(result_list)
+    # benefit_price_list = check.run()
+    #
+    # bot = Bot()
+    # bot.checking_irrelevant_posts(result_list)
+    # bot.send_posts(benefit_price_list)
+    # bot.stop()
 
     logger.info(f"Время выполнения: {time() - time_start} сек")
