@@ -301,26 +301,6 @@ class FileWorker(Enum):
 
         return result
 
-
-ParseResult = namedtuple(
-    'ParseResult',
-    (
-        'shop',
-        'category',
-        'brand_name',
-        'model_name',
-        'color',
-        'ram',
-        'rom',
-        'price',
-        'img_url',
-        'url',
-        'rating',
-        'num_rating',
-        'product_code',
-    ),
-)
-
 """
 Использование FileDataType
 
