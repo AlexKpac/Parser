@@ -50,7 +50,7 @@ def dns_parse_model_name(name):
     name += rebuilt
 
     # Проверка названия в словаре исключений названий моделей
-    name = h.find_allowed_model_names(h.EXCEPT_MODEL_NAMES_DICT, name)
+    name = h.replace_value_from_dictionary(h.EXCEPT_MODEL_NAMES_DICT, name)
 
     # # Проверка названия модели в словаре разрешенных моделей
     if not h.find_allowed_model_names(name):
@@ -276,7 +276,7 @@ class DNSParse(ParseBase):
             self.logger.warning("No img url")
             return
         else:
-            img_url = img_url.get('databases-src')
+            img_url = img_url.get('src')
 
         # Рейтинг товара
         rating_block = block.select_one('a.catalog-product__rating.ui-link.ui-link_black')
@@ -284,7 +284,7 @@ class DNSParse(ParseBase):
             rating = 0
             num_rating = 0
         else:
-            rating = float(rating_block.get('databases-rating'))
+            rating = float(rating_block.get('data-rating'))
 
             # Кол-во отзывов
             num_rating = re.findall(r'\d+\.*\d*k*', rating_block.text)

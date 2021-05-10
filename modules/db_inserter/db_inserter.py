@@ -38,27 +38,29 @@ class DbInserter:
         # следующего этапа - проверки перед публикацией
         self.pr_price_change_list = []
 
-    # Добавление продукта в таблицу products_table
     def __insert_product_in_products_table(self, id_category_name, brand_name, model_name, total_rating):
+        """
+        Добавление продукта в таблицу products_table
+        """
         id_product = self.db.execute_read_query(sr.insert_into_products_table_query,
                                                 [(id_category_name, brand_name, model_name, total_rating), ])
 
         return id_product[0][0] if id_product else None
 
-        # Добавление комплектации в таблицу versions_phones_table
-
-    # Добавление комплектации в таблицу versions_phones_table
     def __insert_version_in_versions_phones_table(self, id_product, ram, rom, img_url):
+        """
+        Добавление комплектации в таблицу versions_phones_table
+        """
         id_ver_phone = self.db.execute_read_query(sr.insert_into_versions_phones_table_query,
                                                   [(id_product, ram, rom, img_url), ])
 
         return id_ver_phone[0][0] if id_ver_phone else None
 
-        # Добавление магазина для покупки комплектации в shops_phones_table
-
-    # Добавление магазина, где продается комплектация в таблицу shops_phones_table
     def __insert_shop_in_shops_phones_table(self, id_shop_name, id_product, id_ver_phone, url, product_code, var_color,
                                             local_rating, num_local_rating, bonus_rubles=0):
+        """
+        Добавление магазина, где продается комплектация в таблицу shops_phones_table
+        """
         id_shop_phone = self.db.execute_read_query(sr.insert_into_shops_phones_table_query,
                                                    [(id_shop_name, id_product, id_ver_phone, url, product_code,
                                                      var_color,
@@ -66,15 +68,19 @@ class DbInserter:
 
         return id_shop_phone[0][0] if id_shop_phone else None
 
-    # Добавление цены в таблицу prices_phones_table
     def __insert_price_in_prices_phones_table(self, id_shop_name, id_product, id_shop_phone, price, date_time='now()'):
+        """
+        Добавление цены в таблицу prices_phones_table
+        """
         self.db.execute_query(sr.insert_into_prices_phones_table_query,
                               [(id_shop_name, id_product, id_shop_phone, price, date_time), ])
 
-    # Добавление спарсенного товара в БД
-    def __add_product_to_db(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color,
+    def __add_product_to_bd(self, category_name, shop_name, brand_name, model_name, var_rom, var_ram, var_color,
                             img_url, url, product_code, local_rating, num_rating, price, bonus_rubles=0):
-
+        """
+        ОБЯЗАТЕЛЬНЫЙ МЕТОД.
+        Добавление спарсенного товара в БД
+        """
         logger.info('-' * 50)
         logger.info(
             "-- {} {} {} {} {} {} {} {}".format(shop_name, brand_name, model_name, var_rom, var_ram, var_color, url,
@@ -172,9 +178,11 @@ class DbInserter:
 
         return 'error'
 
-    # Добавление всех товаров в базу
-    def __add_list_of_data_to_db(self, pr_product_list=None):
-
+    def __add_input_list_to_db(self, pr_product_list=None):
+        """
+        ОБЯЗАТЕЛЬНЫЙ МЕТОД
+        Добавление всех товаров в базу
+        """
         if not pr_product_list or not self.pr_parse_result_list:
             logger.warning('pr_product_list is empty')
             return
@@ -189,7 +197,7 @@ class DbInserter:
                 continue
 
             # Сохранение данных в базу. Если цена изменилась - вернет предыдущую
-            resp = self.__add_product_to_db(
+            resp = self.__add_product_to_bd(
                 category_name=item.category,
                 shop_name=item.shop,
                 brand_name=item.brand_name,
@@ -212,10 +220,13 @@ class DbInserter:
                 logger.info(item)
                 self.pr_price_change_list.append(item)
 
-    # Запуск
     def run(self):
+        """
+        ОБЯЗАТЕЛЬНЫЙ МЕТОД
+        Запуск
+        """
         self.db.connect_or_create("parser", "postgres", "1990", "127.0.0.1", "5432")
-        self.__add_list_of_data_to_db()
+        self.__add_input_list_to_db()
         self.db.disconnect()
         return self.pr_price_change_list
 

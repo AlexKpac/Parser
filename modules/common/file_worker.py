@@ -46,6 +46,8 @@ class FileWorker(Enum):
     """
 
     list_data = auto()
+    list_data_int = auto()
+    list_data_str = auto()
     csv_data = auto()
     dict_data = auto()
     dict_data_int_int = auto()
@@ -63,6 +65,10 @@ class FileWorker(Enum):
         :param overwrite: (bool) флаг полной перезаписи файла, при False - дозаписывается в конец
         :param namedtuple_type: (type namedtuple) только для csv - тип namedtuple
         """
+
+        if not data:
+            logger.error("Не могу сохранить данные, т.к. данных нет. Path = {}".format(path))
+            return
 
         if self is FileWorker.dict_data:
             if namedtuple_type is not None:
@@ -89,15 +95,16 @@ class FileWorker(Enum):
         :return: данные, прочитанные с файла
         """
 
-        if self is FileWorker.dict_data:
+        if self in [FileWorker.dict_data, FileWorker.dict_data_str_str, FileWorker.dict_data_str_int,
+                    FileWorker.dict_data_int_str, FileWorker.dict_data_int_int]:
             if namedtuple_type is not None:
                 raise AttributeError("Param 'namedtuple_type' is not used for type @dict_data")
             return self.__load_dict(path, self)
 
-        elif self is FileWorker.list_data:
+        elif self in [FileWorker.list_data, FileWorker.list_data_int, FileWorker.list_data_str]:
             if namedtuple_type is not None:
                 raise AttributeError("Param 'namedtuple_type' is not used for type @list_data")
-            return self.__load_list(path)
+            return self.__load_list(path, self)
 
         elif self is FileWorker.csv_data:
             if namedtuple_type is None:
@@ -127,39 +134,43 @@ class FileWorker(Enum):
         """
 
         data = dict()
-        with open(path, 'r', encoding='UTF-8') as f:
-            for line in f:
-                res = re.findall(r"\[.+?]", line)
-                # Отсечь кривые записи
-                if len(res) != 2:
-                    continue
-
-                key = res[0].replace('[', '').replace(']', '')
-                value = res[1].replace('[', '').replace(']', '')
-
-                # В зависимости от типа словаря конвертировать значения
-                if type_dict is FileWorker.dict_data_int_int:
-                    if not key.isdigit() or not value.isdigit():
+        try:
+            with open(path, 'r', encoding='UTF-8') as f:
+                for line in f:
+                    res = re.findall(r"\[.+?]", line)
+                    # Отсечь кривые записи
+                    if len(res) != 2:
                         continue
-                    key = int(key)
-                    value = int(value)
 
-                if type_dict is FileWorker.dict_data_str_int:
-                    if not value.isdigit():
-                        continue
-                    value = int(value)
+                    key = res[0].replace('[', '').replace(']', '')
+                    value = res[1].replace('[', '').replace(']', '')
 
-                if type_dict is FileWorker.dict_data_int_str:
-                    if not key.isdigit():
-                        continue
-                    key = int(key)
+                    # В зависимости от типа словаря конвертировать значения
+                    if type_dict is FileWorker.dict_data_int_int:
+                        if not key.isdigit() or not value.isdigit():
+                            continue
+                        key = int(key)
+                        value = int(value)
 
-                data[key] = value
+                    if type_dict is FileWorker.dict_data_str_int:
+                        if not value.isdigit():
+                            continue
+                        value = int(value)
+
+                    if type_dict is FileWorker.dict_data_int_str:
+                        if not key.isdigit():
+                            continue
+                        key = int(key)
+
+                    data[key] = value
+
+        except Exception as e:
+            logger.error("Произошла ошибка при попытке открыть файл в __load_dict, path = {}, e = {}".format(path, e))
 
         return data
 
     @staticmethod
-    def __save_list(data: Union[list, str], path, overwrite):
+    def __save_list(data: Union[list, str, int], path, overwrite):
         """ Сохраняет список или строку @data в файл @path.
 
         :param data (list|str): данные, которые сохраняем в файл
@@ -171,15 +182,15 @@ class FileWorker(Enum):
 
         mode = 'w' if overwrite else 'a'
         with open(path, mode, encoding='UTF-8') as f:
-            if isinstance(data, str):
-                f.write(data + '\n')
+            if isinstance(data, str) or isinstance(data, int):
+                f.write(str(data) + '\n')
 
             if isinstance(data, list):
                 for item in data:
-                    f.write(item)
+                    f.write(str(item) + '\n')
 
     @staticmethod
-    def __load_list(path):
+    def __load_list(path, type_list):
         """
         Чтение списка @data из файла @path
 
@@ -187,8 +198,29 @@ class FileWorker(Enum):
         :return (list): список данных, распарсенный из файла
         """
         data = list()
-        with open(path, 'r', encoding='UTF-8') as f:
-            data = f.read().splitlines()
+
+        try:
+            with open(path, 'r', encoding='UTF-8') as f:
+                for line in f:
+                    line = line.replace('\n', '').replace('\r', '')
+                    if not line:
+                        continue
+
+                    if type_list is FileWorker.list_data_int:
+                        res = re.findall(r"\d+", line)
+                        if res:
+                            res = ''.join(res)
+                            line = int(res)
+                        else:
+                            continue
+
+                    if type_list in [FileWorker.list_data, FileWorker.list_data_str]:
+                        pass
+
+                    data.append(line)
+
+        except Exception as e:
+            logger.error("Произошла ошибка при попытке открыть файл в __load_list, path = {}, e = {}".format(path, e))
 
         return data
 
@@ -211,7 +243,7 @@ class FileWorker(Enum):
             return
 
         mode = 'w' if overwrite else 'a'
-        with open(path, mode, newline='') as f:
+        with open(path, mode, newline='', encoding='utf-8') as f:
             writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
             if overwrite:
                 columns_name = [convert_namedtuple_fields_name(column) for column in namedtuple_type._fields]
@@ -241,26 +273,31 @@ class FileWorker(Enum):
         """
 
         result = []
-        with open(path, 'r') as f:
-            reader = csv.DictReader(f)
 
-            # Проверка совместимости namedtuple и csv
-            columns_in_csv = [convert_column_name(column) for column in reader.fieldnames]
-            for field in namedtuple_type._fields:
-                if field not in columns_in_csv:
-                    print("Несоответствие поля {}, словари не совместимы".format(field))
-                    return None
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
 
-            # Заполнение списка данными из файла
-            for row in reader:
-                value_list = []
-                for itt in namedtuple_type._fields:
-                    # Поиск названия столбца, который равен названию полю namedtuple (без учета пробелов и регистра)
-                    need_column_name = [column for column in reader.fieldnames
-                                        if convert_column_name(column) == itt][0]
-                    value_list.append(row[need_column_name])
+                # Проверка совместимости namedtuple и csv
+                columns_in_csv = [convert_column_name(column) for column in reader.fieldnames]
+                for field in namedtuple_type._fields:
+                    if field not in columns_in_csv:
+                        print("Несоответствие поля {}, словари не совместимы".format(field))
+                        return None
 
-                result.append(namedtuple_type._make(value_list))
+                # Заполнение списка данными из файла
+                for row in reader:
+                    value_list = []
+                    for itt in namedtuple_type._fields:
+                        # Поиск названия столбца, который равен названию полю namedtuple (без учета пробелов и регистра)
+                        need_column_name = [column for column in reader.fieldnames
+                                            if convert_column_name(column) == itt][0]
+                        value_list.append(row[need_column_name])
+
+                    result.append(namedtuple_type._make(value_list))
+
+        except Exception as e:
+            logger.error("Произошла ошибка при попытке открыть файл в __load_csv, path = {}, e = {}".format(path, e))
 
         return result
 
@@ -292,3 +329,4 @@ ParseResult = namedtuple(
 2. var = FileDataType.csv_data
    res = var.load("data/cache/s1.csv", namedtuple_type=ParseResult)
 """
+

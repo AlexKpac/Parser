@@ -1,16 +1,17 @@
 """
 Главный общий файл-хэлпер с общими для многих файлов функциями и константами
 """
-
+import sys
 import collections
 import logging
 import random
 import os
 from datetime import datetime, timedelta
-from modules.common.file_worker import FileWorker
+import modules.common.file_worker as fw
 
 
 log_name = "logs/log-" + datetime.now().strftime("%Y.%m.%d-%H.%M") + ".txt"
+# Следующие 2 строчки: расскомментировать, если бой, закомментировать, если тест.
 # logging.basicConfig(handlers=[logging.FileHandler(filename=log_name, encoding='utf-8', mode='w')],
 #                     level=logging.INFO)
 logging.basicConfig(level=logging.INFO)
@@ -32,7 +33,7 @@ def get_proxy():
     """
     Получить proxy из файла
     """
-    proxy_list = FileWorker.list_data.load(PROXY_PATH)
+    proxy_list = fw.FileWorker.list_data.load(PROXY_PATH)
 
     if not proxy_list:
         logger.error("ОШИБКА PROXY, СПИСОК ПУСТ")
@@ -173,29 +174,30 @@ def per_num_of_num(a, b):
     return float(100.0 - (a / b * 100.0))
 
 
-# ----------------------------- НАСТРОЙКИ -----------------------------
-
+# ----------------------------- ПУТИ -----------------------------
+ROOT_PATH = "C:/Py_Projects/ParserOnlineShop/"  # sys.path[1] + '/'
 # Путь к webdriver
-WD_PATH = "venv/WebDriverManager/chromedriver.exe"
+WD_PATH = ROOT_PATH + "venv/WebDriverManager/chromedriver.exe"
 # Путь для файла с логами изменений цен
-PRICE_CHANGES_PATH = "data/cache/dif_price.csv"
+PRICE_CHANGES_PATH = ROOT_PATH + "data/cache/dif_price.csv"
 # Путь для файла с результатами парсинга
-CSV_PATH = "data/cache/goods.csv"
-CSV_PATH_RAW = "data/cache/"
+CSV_PATH = ROOT_PATH + "data/cache/goods.csv"
+CSV_PATH_RAW = ROOT_PATH + "data/cache/"
 # Путь к proxy
-PROXY_PATH = 'data/proxy/proxy.txt'
+PROXY_PATH = ROOT_PATH + "data/proxy/proxy.txt"
 # Пути к словарям
-EXCEPT_MODEL_NAMES_PATH = "data/dictionaries/except_model_names.dic"
-EXCEPT_MODEL_NAMES_TELEGRAM_PATH = "data/dictionaries/except_model_names_telegram.dic"
-STATS_PRODS_DICTIONARY_PATH = "data/dictionaries/stats_prods_from_telegram.dic"
-STATS_SHOPS_DICTIONARY_PATH = "data/dictionaries/stats_shops_from_telegram.dic"
-MESSAGES_IN_TELEGRAM_LIST_PATH = "data/databases/msg_in_telegram.csv"
-NUM_POSTS_IN_TELEGRAM_PATH = "data/databases/num_posts_in_telegram.data"
-LIST_MODEL_NAMES_BASE_PATH = "data/databases/list_model_names_base.dat"
-UNDEFINED_MODEL_NAME_LIST_PATH = "data/databases/undefined_model_name.dat"
-UNDEFINED_MODEL_NAME_LIST_LOCK_PATH = "data/databases/undefined_model_name.lock"
-CRASH_DATA_PATH = "data/databases/crash_data.dat"
-BOT_ACCOUNT_PATH = "data_sender/telegram/my_account"
+EXCEPT_MODEL_NAMES_PATH = ROOT_PATH + "data/dictionaries/except_model_names.dic"
+EXCEPT_MODEL_NAMES_TELEGRAM_PATH = ROOT_PATH + "data/dictionaries/except_model_names_telegram.dic"
+STATS_PRODS_DICTIONARY_PATH = ROOT_PATH + "data/dictionaries/stats_prods_from_telegram.dic"
+STATS_SHOPS_DICTIONARY_PATH = ROOT_PATH + "data/dictionaries/stats_shops_from_telegram.dic"
+MESSAGES_IN_TELEGRAM_LIST_PATH = ROOT_PATH + "data/databases/msg_in_telegram.csv"
+NUM_POSTS_IN_TELEGRAM_PATH = ROOT_PATH + "data/databases/num_posts_in_telegram.data"
+LIST_MODEL_NAMES_BASE_PATH = ROOT_PATH + "data/databases/list_model_names_base.dat"
+UNDEFINED_MODEL_NAME_LIST_PATH = ROOT_PATH + "data/databases/undefined_model_name.dat"
+UNDEFINED_MODEL_NAME_LIST_LOCK_PATH = ROOT_PATH + "data/databases/undefined_model_name.lock"
+CRASH_DATA_PATH = ROOT_PATH + "data/databases/crash_data.dat"
+BOT_ACCOUNT_PATH = ROOT_PATH + "modules/data_sender/telegram/my_account"
+IMAGE_FOR_SEND_IN_TELEGRAM_PATH = ROOT_PATH + "data/cache/for_send/"
 
 # ----------------------------- КОЛЛЕКЦИЯ -----------------------------
 
@@ -207,6 +209,22 @@ EXCEPT_MODEL_NAMES_DICT = {}
 REBUILT_IPHONE_NAME = ""
 # Список слов, которые необходимо исключать из названий цветов
 IGNORE_WORDS_FOR_COLOR = []
+
+
+# ---------------- ПЕРЕМЕННЫЕ ДЛЯ РЕФЕРАЛЬНЫХ ССЫЛОК ----------------
+REF_LINK_MVIDEO = ''
+REF_LINK_MTS = ''
+REF_LINK_ELDORADO = ''
+REF_LINK_CITILINK = ''
+
+DOMAIN_DNS = 'dns.ru'
+DOMAIN_MVIDEO = 'mvideo.ru'
+DOMAIN_MTS = 'mts.ru'
+DOMAIN_ELDORADO = 'eldorado.ru'
+DOMAIN_CITILINK = 'citilink.ru'
+
+
+# ---------------- ПЕРЕМЕННЫЕ ДЛЯ РЕФЕРАЛЬНЫХ ССЫЛОК ----------------
 
 # Коллекция для хранения результатов парсинга одного товара (смартфоны)
 ParseResult = collections.namedtuple(
@@ -226,22 +244,6 @@ ParseResult = collections.namedtuple(
         'num_rating',
         'product_code',
     ),
-)
-# Заголовок для csv файлов (смартфоны)
-HEADERS = (
-    'Магазин',
-    'Категория',
-    'Бренд',
-    'Модель',
-    'Цвет',
-    'RAM',
-    'ROM',
-    'Цена',
-    'Ссылка на изображение',
-    'Ссылка',
-    'Рейтинг',
-    'Кол-во отзывов',
-    'Код продукта'
 )
 
 # Коллекция для хранения результатов парсинга одного товара (смартфоны)
@@ -265,25 +267,6 @@ PriceChanges = collections.namedtuple(
         'hist_min_date',
         'diff_cur_avg',
     ),
-)
-# Заголовок для csv файлов (изменения цен смартфонов)
-HEADERS_PRICE_CHANGES = (
-    'Магазин',
-    'Категория',
-    'Бренд',
-    'Модель',
-    'Цвет',
-    'RAM',
-    'ROM',
-    'Ссылка на изображение',
-    'Ссылка',
-    'Дата и время',
-    'Текущая цена',
-    'Средняя цена',
-    'Историческая мин. цена',
-    'Исторический мин. магазин',
-    'Исторический мин. дата',
-    'Разница цены от средней',
 )
 
 # -------------------- СПИСОК СООБЩЕНИЙ ТЕЛЕГРАМ ---------------------- #
@@ -309,25 +292,6 @@ MessagesInTelegram = collections.namedtuple(
         'text_hash',
         'is_actual',
     ),
-)
-
-HEADERS_MSG_IN_TELEGRAM = (
-    'Message_ID',
-    'Category',
-    'Brand',
-    'Model',
-    'RAM',
-    'ROM',
-    'Price',
-    'Avg_Price',
-    'Img_URL',
-    'Where_Buy_List',
-    'Hist_Min_Price',
-    'Hist_Min_Shop',
-    'Hist_Min_Date',
-    'Post_Datetime',
-    'Text_Hash',
-    'Actual',
 )
 
 # -------------------- НАЗВАНИЯ МАГАЗИНОВ ДЛЯ ТЕЛЕГРАМ ---------------------- #

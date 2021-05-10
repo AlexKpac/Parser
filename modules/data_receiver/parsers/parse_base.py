@@ -191,71 +191,6 @@ class ParseBase(ABC):
             product_code=product_code.lower(),
         ))
 
-    @abstractmethod
-    def _wd_city_selection_catalog(self):
-        """
-        Алгоритм выбора города для всех возможных ситуаций на странице каталога
-        """
-        pass
-
-    @abstractmethod
-    def _wd_city_selection_product(self):
-        """
-        Алгоритм выбора города для всех возмодных ситуаций на странице продукта
-        """
-        pass
-
-    @abstractmethod
-    def _wd_check_load_page_catalog(self):
-        """
-        Проверка по ключевым div-ам что страница каталога прогружена полностью
-        """
-        pass
-
-    @abstractmethod
-    def _wd_check_load_page_product(self):
-        """
-        Проверка по ключевым div-ам что страница продукта прогружена полностью
-        """
-        pass
-
-    @abstractmethod
-    def _wd_open_browser_catalog(self, url):
-        """
-        Запуск браузера, загрузка начальной страницы каталога, выбор города
-        """
-        try:
-            self.driver.get(url)
-        except Exception as e:
-            self.logger.error("Не смог загрузить страницу, {}".format(e))
-            return False
-
-        # Ждем, пока не прогрузится страница, даем 3 попытки, т.к. сайт при первом запуске часто выдает пустую страницу
-        if not self._multiple_func_call(self._wd_check_load_page_catalog):
-            self.logger.error("Не удалось прогрузить страницу в _wd_open_browser [base]")
-            return False
-
-        # Выбор города
-        if not self._wd_city_selection_catalog():
-            self.logger.info("Не могу выбрать город")
-            return False
-
-        time.sleep(2)
-
-        # Ждем, пока не прогрузится страница
-        if not self._wd_check_load_page_catalog():
-            self.logger.error("Не удалось прогрузить страницу в _wd_open_browser [base] (2)")
-            return False
-
-        return True
-
-    @abstractmethod
-    def _wd_open_browser_product(self, url):
-        """
-        Запуск браузера, загрузка начальной страницы продукта, выбор города
-        """
-        pass
-
     def _wd_get_cur_page(self):
         """
         Получить текущий код страницы
@@ -266,13 +201,6 @@ class ParseBase(ABC):
             self.logger.error("Не смог получить код страницы, {}".format(e))
             return None
 
-    @abstractmethod
-    def _wd_next_page(self):
-        """
-        Переход на заданную страницу num_page через клик (для имитации пользователя)
-        """
-        pass
-
     def _wd_close_browser(self):
         """
         Завершение работы браузера
@@ -280,13 +208,6 @@ class ParseBase(ABC):
         self.logger.info("Завершение работы")
         if self.driver:
             self.driver.quit()
-
-    @abstractmethod
-    def _parse_product_page(self, html, url):
-        """
-        Метод для парсинга html страницы продукта
-        """
-        pass
 
     def _parse_catalog_page(self, html):
         """
@@ -302,13 +223,6 @@ class ParseBase(ABC):
         for block in container:
             self._parse_catalog_block(block)
         del container
-
-    @abstractmethod
-    def _parse_catalog_block(self, block):
-        """
-        Парсинг данных одного блока
-        """
-        pass
 
     def _save_result(self):
         """
@@ -346,5 +260,91 @@ class ParseBase(ABC):
     def run_product(self, url):
         """
         Запуск работы парсера для продукта
+        """
+        pass
+
+    @abstractmethod
+    def _wd_open_browser_catalog(self, url):
+        """
+        Запуск браузера, загрузка начальной страницы каталога, выбор города
+        """
+        try:
+            self.driver.get(url)
+        except Exception as e:
+            self.logger.error("Не смог загрузить страницу, {}".format(e))
+            return False
+
+        # Ждем, пока не прогрузится страница, даем 3 попытки, т.к. сайт при первом запуске часто выдает пустую страницу
+        if not self._multiple_func_call(self._wd_check_load_page_catalog):
+            self.logger.error("Не удалось прогрузить страницу в _wd_open_browser [base]")
+            return False
+
+        # Выбор города
+        if not self._wd_city_selection_catalog():
+            self.logger.info("Не могу выбрать город")
+            return False
+
+        time.sleep(2)
+
+        # Ждем, пока не прогрузится страница
+        if not self._wd_check_load_page_catalog():
+            self.logger.error("Не удалось прогрузить страницу в _wd_open_browser [base] (2)")
+            return False
+
+        return True
+
+    @abstractmethod
+    def _wd_city_selection_catalog(self):
+        """
+        Алгоритм выбора города для всех возможных ситуаций на странице каталога
+        """
+        pass
+
+    @abstractmethod
+    def _wd_city_selection_product(self):
+        """
+        Алгоритм выбора города для всех возмодных ситуаций на странице продукта
+        """
+        pass
+
+    @abstractmethod
+    def _wd_check_load_page_catalog(self):
+        """
+        Проверка по ключевым div-ам что страница каталога прогружена полностью
+        """
+        pass
+
+    @abstractmethod
+    def _wd_check_load_page_product(self):
+        """
+        Проверка по ключевым div-ам что страница продукта прогружена полностью
+        """
+        pass
+
+    @abstractmethod
+    def _wd_open_browser_product(self, url):
+        """
+        Запуск браузера, загрузка начальной страницы продукта, выбор города
+        """
+        pass
+
+    @abstractmethod
+    def _wd_next_page(self):
+        """
+        Переход на заданную страницу num_page через клик (для имитации пользователя)
+        """
+        pass
+
+    @abstractmethod
+    def _parse_product_page(self, html, url):
+        """
+        Метод для парсинга html страницы продукта
+        """
+        pass
+
+    @abstractmethod
+    def _parse_catalog_block(self, block):
+        """
+        Парсинг данных одного блока
         """
         pass

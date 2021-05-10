@@ -104,48 +104,47 @@ class DataChecker:
             pr_price_change_list = self.pr_price_change_list
 
         for item in pr_price_change_list:
-            result_list, avg_price, hist_min_price = self.__check_price_for_benefit(item.price,
-                                                                                    item.brand_name,
-                                                                                    item.model_name,
-                                                                                    item.ram, item.rom)
-            # Если выявлено изменение цены - записать в список
+            result_list, avg_price, hist_min_price = \
+                self.__check_price_for_benefit(item.price, item.brand_name, item.model_name, item.ram, item.rom)
+
             if not result_list or not avg_price or not hist_min_price:
-                return
+                continue
 
             for item_result in result_list:
                 # Для исключительных ситуаций: проверка, что такого элемента с такой ценой и цветом еще нет в списке
-                if not h.find_in_namedtuple_list(self.pc_self_result_list, url=item_result[pos_url], limit_one=True):
+                if h.find_in_namedtuple_list(self.pc_self_result_list, url=item_result[pos_url], limit_one=True):
+                    continue
 
-                    # Ссылу на изображение необходимо вытянуть из предпочтительных магазинов
-                    img_url = None
-                    for best_shop_item in self.best_shop_for_img_url:
-                        img_url = h.find_in_namedtuple_list(self.pr_parse_result_list, brand_name=item.brand_name,
-                                                            model_name=item.model_name, shop=best_shop_item,
-                                                            limit_one=True)
-                        if img_url and ("http" in img_url[0].img_url):
-                            img_url = img_url[0].img_url
-                            break
-                        else:
-                            img_url = None
+                # Ссылу на изображение необходимо вытянуть из предпочтительных магазинов
+                img_url = None
+                for best_shop_item in self.best_shop_for_img_url:
+                    img_url = h.find_in_namedtuple_list(
+                        self.pr_parse_result_list,
+                        brand_name=item.brand_name, model_name=item.model_name, shop=best_shop_item, limit_one=True)
+                    if img_url and ("http" in img_url[0].img_url):
+                        img_url = img_url[0].img_url
+                        break
+                    else:
+                        img_url = None
 
-                    self.pc_self_result_list.append(h.PriceChanges(
-                        shop=item_result[pos_shop],
-                        category=item.category,
-                        brand_name=item.brand_name,
-                        model_name=item.model_name,
-                        color=item_result[pos_color],
-                        ram=item.ram,
-                        rom=item.rom,
-                        img_url=img_url if img_url else item.img_url,
-                        url=item_result[pos_url],
-                        date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-                        price=item_result[pos_price],
-                        avg_actual_price=int(avg_price),
-                        hist_min_price=hist_min_price[pos_price],
-                        hist_min_shop=hist_min_price[pos_shop],
-                        hist_min_date=hist_min_price[pos_datetime],
-                        diff_cur_avg=int(avg_price - item_result[pos_price]),
-                    ))
+                self.pc_self_result_list.append(h.PriceChanges(
+                    shop=item_result[pos_shop],
+                    category=item.category,
+                    brand_name=item.brand_name,
+                    model_name=item.model_name,
+                    color=item_result[pos_color],
+                    ram=item.ram,
+                    rom=item.rom,
+                    img_url=img_url if img_url else item.img_url,
+                    url=item_result[pos_url],
+                    date_time=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                    price=item_result[pos_price],
+                    avg_actual_price=int(avg_price),
+                    hist_min_price=hist_min_price[pos_price],
+                    hist_min_shop=hist_min_price[pos_shop],
+                    hist_min_date=hist_min_price[pos_datetime],
+                    diff_cur_avg=int(avg_price - item_result[pos_price]),
+                ))
 
     def run(self):
         """

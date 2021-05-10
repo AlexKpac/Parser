@@ -3,9 +3,9 @@ from PIL import Image
 import modules.common.helper as h
 
 logger = h.logging.getLogger('post_image')
-STAMP_PATH = '../../data/img/stamp.png'
-BLACKOUT_PATH = '../../data/img/blackout.png'
-HIGHLIGHTING_PATH = '../../data/img/white.png'
+STAMP_PATH = h.ROOT_PATH + 'data/img/stamp.png'
+BLACKOUT_PATH = h.ROOT_PATH + 'data/img/blackout.png'
+HIGHLIGHTING_PATH = h.ROOT_PATH + 'data/img/white.png'
 
 
 class ImageCreator:
@@ -89,6 +89,12 @@ class ImageCreator:
         """
         Сохранение изображения на диск как jpg
         """
+        if path and path[-1] in ['/', '\\']:
+            path = path[:-1]
+
+        if name and '.jpg' in name:
+            name = name.replace('.jpg', '')
+
         img_jpg = self.img.convert('RGB')
         img_jpg.save("{}/{}.jpg".format(path, name), "jpeg")
 
